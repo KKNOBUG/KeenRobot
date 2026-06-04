@@ -1,0 +1,77 @@
+{
+  "lang": "中文",
+  "app_name": "KeenRobot",
+  "header": {
+    "label_profile": "个人信息",
+    "label_logout": "退出登录",
+    "label_logout_dialog_title": "提示",
+    "text_logout_confirm": "确认退出？",
+    "text_logout_success": "已退出登录"
+  },
+  "views": {
+    "login": {
+      "text_login": "登录",
+      "text_register": "注册",
+      "message_input_username_password": "请输入用户名和密码",
+      "message_verifying": "正在验证...",
+      "message_login_success": "登录成功",
+      "message_login_failed": "登录失败",
+      "text_no_account": "还没有账号？",
+      "text_has_account": "已有账号？",
+      "text_register_now": "立即注册",
+      "text_login_now": "立即登录"
+    },
+    "workbench": {
+      "label_workbench": "工作台",
+      "text_hello": "{timer}，{alias}({username})",
+      "text_last_login": "注册时间: {lastLogin}",
+      "text_welcome": "{welcome}",
+      "label_number_of_items": "应用数量",
+      "label_number_of_kbs": "知识库数量",
+      "label_number_of_models": "模型数量",
+      "label_number_of_agents": "Agent数量",
+      "label_project": "项目",
+      "label_more": "更多"
+    },
+    "profile": {
+      "label_profile": "个人中心"
+    },
+    "errors": {
+      "label_error": "错误页面",
+      "text_back_to_home": "返回首页"
+    }
+  },
+  "menu": {
+    "workbench": "工作台",
+    "ai_manage": "AI管理",
+    "chat": "智能聊天",
+    "knowledge_base": "知识库管理",
+    "model": "模型管理",
+    "agent": "Agent管理",
+    "mcp": "MCP管理",
+    "skills": "Skills管理",
+    "error_page": "错误页面"
+  },
+  "welcome": {
+    "1": "你努力的样子可爱极了",
+    "2": "百句空言，不如一个行动",
+    "3": "慢下来，听听自己内心的声音",
+    "4": "微笑是应对新挑战的最佳武器",
+    "5": "做好自己，不必预支明天的烦恼",
+    "6": "人生，就要活得漂亮，走得铿锵",
+    "7": "踏着朝阳，我们温情地走向未来",
+    "8": "业精于勤荒于嬉，行成于思毁于随",
+    "9": "梦想不会逃跑，逃跑的永远是自己",
+    "10": "宝剑锋从磨砺出，梅花香自苦寒来",
+    "11": "沉舟侧畔千帆过，病树前头万木春",
+    "12": "路漫漫其修远兮，吾将上下而求索",
+    "13": "不积跬步，无以至千里",
+    "14": "千里之行，始于足下",
+    "15": "有志者，事竟成",
+    "16": "精诚所至，金石为开",
+    "17": "工欲善其事，必先利其器",
+    "18": "学而时习之，不亦说乎",
+    "19": "温故而知新，可以为师矣",
+    "20": "三人行，必有我师焉"
+  }
+}

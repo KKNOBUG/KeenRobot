@@ -1,0 +1,77 @@
+{
+  "lang": "English",
+  "app_name": "KeenRobot",
+  "header": {
+    "label_profile": "Profile",
+    "label_logout": "Logout",
+    "label_logout_dialog_title": "Confirm",
+    "text_logout_confirm": "Are you sure to logout?",
+    "text_logout_success": "Logged out"
+  },
+  "views": {
+    "login": {
+      "text_login": "Login",
+      "text_register": "Register",
+      "message_input_username_password": "Please enter username and password",
+      "message_verifying": "Verifying...",
+      "message_login_success": "Login successful",
+      "message_login_failed": "Login failed",
+      "text_no_account": "No account?",
+      "text_has_account": "Already have an account?",
+      "text_register_now": "Register now",
+      "text_login_now": "Login now"
+    },
+    "workbench": {
+      "label_workbench": "Workbench",
+      "text_hello": "{timer}, {alias}({username})",
+      "text_last_login": "Registered: {lastLogin}",
+      "text_welcome": "{welcome}",
+      "label_number_of_items": "Apps",
+      "label_number_of_kbs": "Knowledge Bases",
+      "label_number_of_models": "Models",
+      "label_number_of_agents": "Agents",
+      "label_project": "Projects",
+      "label_more": "More"
+    },
+    "profile": {
+      "label_profile": "Profile"
+    },
+    "errors": {
+      "label_error": "Error Pages",
+      "text_back_to_home": "Back to Home"
+    }
+  },
+  "menu": {
+    "workbench": "Workbench",
+    "ai_manage": "AI Management",
+    "chat": "Smart Chat",
+    "knowledge_base": "Knowledge Base",
+    "model": "Model Management",
+    "agent": "Agent Management",
+    "mcp": "MCP Management",
+    "skills": "Skills Management",
+    "error_page": "Error Pages"
+  },
+  "welcome": {
+    "1": "You look great when you work hard",
+    "2": "Actions speak louder than words",
+    "3": "Slow down and listen to yourself",
+    "4": "Smile is the best weapon for new challenges",
+    "5": "Be yourself, don't worry about tomorrow",
+    "6": "Live beautifully, walk firmly",
+    "7": "Walking towards the future with the morning sun",
+    "8": "Practice makes perfect",
+    "9": "Dreams don't run away, you do",
+    "10": "No pain, no gain",
+    "11": "After the storm comes the rainbow",
+    "12": "The road ahead is long and arduous",
+    "13": "A journey of a thousand miles begins with a single step",
+    "14": "Every great journey starts with one step",
+    "15": "Where there is a will, there is a way",
+    "16": "Sincerity can move mountains",
+    "17": "Sharpen your tools before you work",
+    "18": "Learning is a joy",
+    "19": "Review the old and learn the new",
+    "20": "Three people walking together, one must be my teacher"
+  }
+}
