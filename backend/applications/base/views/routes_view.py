@@ -6,15 +6,13 @@
 @Module  : routes_view
 @DateTime: 2025/4/29 14:47
 """
-
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
 from starlette.requests import Request
 
 from backend.core.responses.http_response import SuccessResponse
-from backend.services import DependAuth
 
-routers = APIRouter(dependencies=[DependAuth])
+routers = APIRouter()
 
 
 @routers.post("/routers", summary="查询路由列表", description="查询项目中所有的APIRouter信息")

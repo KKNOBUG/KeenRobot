@@ -187,10 +187,10 @@ def register_routers(app: FastAPI) -> None:
     # KeenRobot RAG 业务 API（兼容前端 /api/* 路径）
     # 认证接口复用 /base/auth/* 和 /user/*，不再单独挂载 /api/auth/*
     from backend.applications.conversation.views import chat_router, history_router
-    from backend.applications.knowledge_base.views import kb_router
+    from backend.applications.knowledge_base.views import knowledge_router
     from backend.applications.model_config.views import model_router
 
     app.include_router(router=chat_router, prefix="/api/chat", tags=["RAG-对话"])
     app.include_router(router=history_router, prefix="/api/conversations", tags=["RAG-对话历史"])
-    app.include_router(router=kb_router, prefix="/api/knowledge-bases", tags=["RAG-知识库"])
+    app.include_router(router=knowledge_router, prefix="/api/knowledge-bases", tags=["RAG-知识库"])
     app.include_router(router=model_router, prefix="/api/model-configs", tags=["RAG-模型配置"])

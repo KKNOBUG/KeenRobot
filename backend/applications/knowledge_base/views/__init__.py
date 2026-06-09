@@ -8,7 +8,7 @@
 """
 from fastapi import APIRouter
 
-from .knowledge_base_view import knowledge_base
+from .knowledge_base_view import knowledge
 
-kb_router = APIRouter()
-kb_router.include_router(knowledge_base)
+knowledge_router = APIRouter()
+knowledge_router.include_router(knowledge)

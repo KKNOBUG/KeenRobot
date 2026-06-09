@@ -11,15 +11,14 @@ import traceback
 from fastapi import APIRouter, Body, Query, Depends
 from tortoise.expressions import Q
 
+from backend.applications.base.dependencies import get_audit_crud
 from backend.applications.base.schemas.audit_schema import AuditBatchDelete, AuditSelect
 from backend.applications.base.services.audit_crud import AuditCrud
-from backend.applications.base.dependencies import get_audit_crud
 from backend.configure import LOGGER
 from backend.core.exceptions import NotFoundException
 from backend.core.responses import FailureResponse, SuccessResponse
-from backend.services import DependAuth
 
-audit = APIRouter(dependencies=[DependAuth])
+audit = APIRouter()
 
 
 @audit.get("/list", summary="查看操作日志", description="支持分页按条件查询审计日志列表信息（Query）")
