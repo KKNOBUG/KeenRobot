@@ -18,7 +18,6 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 from tortoise import Tortoise
-from tortoise.connection import get_connection
 from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist
 from tortoise.migrations.api import migrate as migrate_api
@@ -184,13 +183,11 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=example_category_router, prefix="/example", tags=["示例服务-商品分类"], dependencies=[DependAuth])
     app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependAuth])
 
-    # KeenRobot RAG 业务 API（兼容前端 /api/* 路径）
-    # 认证接口复用 /base/auth/* 和 /user/*，不再单独挂载 /api/auth/*
     from backend.applications.conversation.views import chat_router, history_router
     from backend.applications.knowledge_base.views import knowledge_router
     from backend.applications.model_config.views import model_router
 
-    app.include_router(router=chat_router, prefix="/api/chat", tags=["RAG-对话"])
-    app.include_router(router=history_router, prefix="/api/conversations", tags=["RAG-对话历史"])
-    app.include_router(router=knowledge_router, prefix="/api/knowledge-bases", tags=["RAG-知识库"])
-    app.include_router(router=model_router, prefix="/api/model-configs", tags=["RAG-模型配置"])
+    app.include_router(router=chat_router, prefix="/chat", tags=["RAG-对话"], dependencies=[DependAuth])
+    app.include_router(router=history_router, prefix="/conversations", tags=["RAG-对话历史"], dependencies=[DependAuth])
+    app.include_router(router=knowledge_router, prefix="/knowledge-bases", tags=["RAG-知识库"], dependencies=[DependAuth])
+    app.include_router(router=model_router, prefix="/model-configs", tags=["RAG-模型配置"], dependencies=[DependAuth])

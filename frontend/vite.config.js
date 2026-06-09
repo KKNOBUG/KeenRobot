@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import { convertEnv, getRootPath, getSrcPath } from './build/utils.js'
 import { viteDefine } from './build/config/index.js'
 import { createVitePlugins } from './build/plugin/index.js'
-import { BACKEND_URL, OUTPUT_DIR } from './build/constant.js'
+import { OUTPUT_DIR, PROXY_CONFIG } from './build/constant.js'
 
 export default defineConfig(({ command, mode }) => {
   const srcPath = getSrcPath()
@@ -30,13 +30,10 @@ export default defineConfig(({ command, mode }) => {
       host: '0.0.0.0',
       port: VITE_PORT,
       proxy: enableProxy
-        ? {
-            '/api': {
-              target: BACKEND_URL,
-              changeOrigin: true,
-            },
+          ? {
+            '/api': PROXY_CONFIG['/api'],
           }
-        : undefined,
+          : undefined,
     },
     build: {
       target: 'es2015',

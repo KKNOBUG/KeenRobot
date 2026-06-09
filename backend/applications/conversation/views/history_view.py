@@ -17,14 +17,14 @@ from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
 from backend.core.exceptions import NotFoundException
 from backend.core.responses import SuccessResponse, FailureResponse, NotFoundResponse
-from backend.services.rag_auth import get_current_user
+from backend.services import DependAuth
 
 history = APIRouter()
 
 
 @history.get("/", summary="查询对话列表")
 async def list_conversations(
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
@@ -42,7 +42,7 @@ async def list_conversations(
 @history.get("/{conversation_id}", summary="查询对话详情")
 async def get_conversation(
         conversation_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
@@ -62,7 +62,7 @@ async def get_conversation(
 @history.delete("/{conversation_id}", summary="删除对话")
 async def delete_conversation(
         conversation_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
@@ -77,7 +77,7 @@ async def delete_conversation(
 
 @history.delete("/", summary="清空所有对话")
 async def clear_all_conversations(
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:

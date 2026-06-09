@@ -21,14 +21,14 @@ from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
 from backend.core.exceptions import NotFoundException
 from backend.core.responses import SuccessResponse, FailureResponse, NotFoundResponse
-from backend.services.rag_auth import get_current_user
+from backend.services import DependAuth
 
 model_config = APIRouter()
 
 
 @model_config.get("/", summary="查询模型配置列表")
 async def list_model_configs(
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:
@@ -46,7 +46,7 @@ async def list_model_configs(
 @model_config.post("/", summary="创建模型配置")
 async def create_model_config(
         config_data: ModelConfigCreate,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:
@@ -60,7 +60,7 @@ async def create_model_config(
 
 @model_config.get("/default", summary="查询默认模型配置")
 async def get_default_config(
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:
@@ -77,7 +77,7 @@ async def get_default_config(
 @model_config.get("/{config_id}", summary="查询模型配置详情")
 async def get_model_config(
         config_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:
@@ -95,7 +95,7 @@ async def get_model_config(
 async def update_model_config(
         config_id: str,
         config_data: ModelConfigUpdate,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:
@@ -114,7 +114,7 @@ async def update_model_config(
 @model_config.delete("/{config_id}", summary="删除模型配置")
 async def delete_model_config(
         config_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:
@@ -130,7 +130,7 @@ async def delete_model_config(
 @model_config.post("/{config_id}/default", summary="设为默认模型配置")
 async def set_default_config(
         config_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:

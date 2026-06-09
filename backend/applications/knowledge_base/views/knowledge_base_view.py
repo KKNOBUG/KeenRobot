@@ -32,7 +32,7 @@ from backend.core.responses import (
     ParameterResponse,
     DataBaseStorageResponse,
 )
-from backend.services.rag_auth import get_current_user
+from backend.services import DependAuth
 
 knowledge = APIRouter()
 
@@ -40,7 +40,7 @@ knowledge = APIRouter()
 @knowledge.post("/", summary="创建知识库")
 async def create_knowledge_base(
         kb_data: KnowledgeBaseCreate,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -54,7 +54,7 @@ async def create_knowledge_base(
 @knowledge.get("/", summary="查询知识库列表")
 async def list_knowledge_bases(
         search: str = None,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -69,7 +69,7 @@ async def list_knowledge_bases(
 @knowledge.get("/{kb_id}", summary="查询知识库详情")
 async def get_knowledge_base(
         kb_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -88,7 +88,7 @@ async def get_knowledge_base(
 async def update_knowledge_base(
         kb_id: str,
         kb_data: KnowledgeBaseCreate,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -106,7 +106,7 @@ async def update_knowledge_base(
 @knowledge.delete("/{kb_id}", summary="删除知识库")
 async def delete_knowledge_base(
         kb_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -125,7 +125,7 @@ async def delete_knowledge_base(
 async def upload_document(
         kb_id: str,
         file: UploadFile = File(...),
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -148,7 +148,7 @@ async def upload_document(
 @knowledge.get("/{kb_id}/documents", summary="查询文档列表")
 async def list_documents(
         kb_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -168,7 +168,7 @@ async def list_documents(
 async def delete_document(
         kb_id: str,
         doc_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -189,7 +189,7 @@ async def list_chunks(
         doc_id: str = None,
         page: int = 1,
         page_size: int = 50,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -211,7 +211,7 @@ async def list_chunks(
 async def get_chunk(
         kb_id: str,
         chunk_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -232,7 +232,7 @@ async def update_chunk(
         kb_id: str,
         chunk_id: str,
         chunk_data: DocumentChunkUpdate,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:
@@ -254,7 +254,7 @@ async def update_chunk(
 async def delete_chunk(
         kb_id: str,
         chunk_id: str,
-        current_user: User = Depends(get_current_user),
+        current_user: User = DependAuth,
         kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
 ):
     try:

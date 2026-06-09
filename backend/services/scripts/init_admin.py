@@ -15,7 +15,7 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 from tortoise import Tortoise
 
 from backend.configure import PROJECT_CONFIG
-from backend.services.rag_security import get_password_hash
+from backend.services import get_password_hash
 from backend.applications.user.models.user_model import User
 
 
