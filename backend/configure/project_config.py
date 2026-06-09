@@ -170,6 +170,7 @@ class ProjectConfig(BaseSettings):
                 exclude_endswith="__.py"
             )
         ]
+        models.append("aerich.models")
         return models
 
     # 常用的用户代理字符串列表

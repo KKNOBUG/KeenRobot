@@ -133,4 +133,5 @@ dependencies = [
     "zstandard==0.25.0",
     "tortoise-orm==0.25.1",
     "aerich>=0.9.2",
+    "pypika-tortoise>=0.6.5",
 ]
