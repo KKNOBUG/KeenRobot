@@ -79,6 +79,7 @@ async def auth_middleware(request: Request, call_next):
 
         # root
         "GET /",
+        "GET /health",
 
         # openapi/docs
         f"GET {PROJECT_CONFIG.APP_DOCS_URL}",

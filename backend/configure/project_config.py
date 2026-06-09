@@ -307,3 +307,16 @@ def get_project_config() -> ProjectConfig:
 
 
 PROJECT_CONFIG = get_project_config()
+
+# Tortoise-ORM CLI 配置（供 python -m tortoise 使用）
+TORTOISE_ORM = {
+    "connections": PROJECT_CONFIG.DATABASE_CONNECTIONS,
+    "apps": {
+        "models": {
+            "models": PROJECT_CONFIG.APPLICATIONS_MODELS,
+            "default_connection": "default",
+        }
+    },
+    "use_tz": False,
+    "timezone": "Asia/Shanghai",
+}

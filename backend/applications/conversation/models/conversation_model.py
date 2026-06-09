@@ -6,24 +6,27 @@
 @Module  : conversation_model.py
 @DateTime: 2025/4/28 18:07
 """
-import uuid
+from tortoise import fields
 
-from tortoise import fields, models
-
-from backend.applications.base.services.scaffold import ScaffoldModel, MaintainMixin, TimestampMixin, StateModel
+from backend.applications.base.services.scaffold import (
+    ScaffoldModel,
+    MaintainMixin,
+    TimestampMixin,
+    StateModel,
+    unique_identify
+)
 
 
 class Conversation(ScaffoldModel, MaintainMixin, TimestampMixin, StateModel):
     """对话会话"""
-
-    id = fields.CharField(max_length=36, pk=True, default=lambda: str(uuid.uuid4()))
+    id = fields.CharField(default=unique_identify, max_length=64, pk=True)
     user = fields.ForeignKeyField(
         "models.User",
         related_name="conversations",
         on_delete=fields.CASCADE
     )
-    title = fields.CharField(max_length=200, default="新对话")
-    kb_ids = fields.TextField(null=True)
+    title = fields.CharField(default="新对话", max_length=255)
+    knowledge_ids = fields.TextField(null=True, description="知识关联ID列表")
     model_config = fields.ForeignKeyField(
         "models.ModelConfig",
         related_name="conversations",

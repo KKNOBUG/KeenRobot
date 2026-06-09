@@ -11,16 +11,13 @@ import sys
 import traceback
 from typing import Dict, Any
 
-import tortoise.exceptions
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 from tortoise import Tortoise
-from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist
-from tortoise.migrations.api import migrate as migrate_api
 
 from backend.configure import PROJECT_CONFIG, LOGGER
 from backend.core.exceptions.http_exceptions import (
@@ -36,35 +33,34 @@ from backend.core.middlewares.request_context_middleware import request_context_
 from backend.services import DependAuth
 
 
-async def register_database(app: FastAPI) -> None:
-    config: Dict[str, Any] = {
+def build_tortoise_config() -> Dict[str, Any]:
+    return {
         "connections": PROJECT_CONFIG.DATABASE_CONNECTIONS,
         "apps": {
             "models": {
                 "models": PROJECT_CONFIG.APPLICATIONS_MODELS,
-                "default_connection": "default"
+                "default_connection": "default",
             }
         },
         "use_tz": False,
         "timezone": "Asia/Shanghai",
     }
-    register_tortoise(
-        app=app,
-        config=config,
-        generate_schemas=False,
-        add_exception_handlers=PROJECT_CONFIG.SERVER_DEBUG,
-    )
 
-    # 确保迁移目录存在
+
+async def register_database(app: FastAPI) -> None:
+    """注册数据库并执行迁移。"""
+    config = build_tortoise_config()
+
     migration_path = os.path.join(PROJECT_CONFIG.MIGRATION_DIR, "models")
     if not os.path.exists(migration_path):
         os.makedirs(migration_path)
-        # 创建 __init__.py
         open(os.path.join(migration_path, "__init__.py"), "a").close()
 
-    # 初始化 Tortoise（register_tortoise 已经初始化，但我们需要确保连接可用）
     if not Tortoise._inited:
-        await Tortoise.init(config=config)
+        await Tortoise.init(
+            config=config,
+            _enable_global_fallback=True,
+        )
 
     if not PROJECT_CONFIG.DATABASE_AUTO_MIGRATION:
         LOGGER.warning(
@@ -76,14 +72,29 @@ async def register_database(app: FastAPI) -> None:
         )
         return
 
-    # 执行迁移
     try:
         LOGGER.info("执行数据库迁移...")
-        await migrate_api(config=config, app_labels=["models"])
+        from tortoise.connection import get_connection
+        from tortoise.migrations.executor import MigrationExecutor
+        
+        config_dict = config if isinstance(config, dict) else config.to_dict()
+        configured_apps = config_dict.get("apps", {})
+        selected_apps = ["models"]
+        
+        apps_config = {label: configured_apps[label] for label in selected_apps if label in configured_apps}
+        apps_by_connection: dict[str, dict[str, dict[str, Any]]] = {}
+        for label, app_config in apps_config.items():
+            connection_name = app_config.get("default_connection", "default")
+            apps_by_connection.setdefault(connection_name, {})[label] = app_config
+        
+        for connection_name, subset in apps_by_connection.items():
+            connection = get_connection(connection_name)
+            executor = MigrationExecutor(connection, subset)
+            await executor.migrate(None)
+        
         LOGGER.info("数据库迁移完成")
     except Exception as e:
         LOGGER.error(f"迁移过程出错: {e}\n错误回溯: {traceback.format_exc()}")
-        # 如果迁移失败，尝试生成 schemas（首次启动或没有迁移文件时）
         LOGGER.info("尝试生成数据库表结构...")
         try:
             await Tortoise.generate_schemas(safe=True)
@@ -130,7 +141,7 @@ def register_exceptions(app: FastAPI) -> None:
     app.add_exception_handler(FileExistsError, app_exception_handler)
     app.add_exception_handler(FileNotFoundError, app_exception_handler)
     app.add_exception_handler(NotADirectoryError, app_exception_handler)
-    app.add_exception_handler(tortoise.exceptions.BaseORMException, app_exception_handler)
+    app.add_exception_handler(DoesNotExist, app_exception_handler)
     app.add_exception_handler(
         exc_class_or_status_code=Exception,
         handler=app_exception_handler

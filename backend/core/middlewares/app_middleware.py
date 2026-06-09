@@ -230,6 +230,9 @@ async def logging_middleware(request: Request, call_next):
             audit_log["username"] = ""
 
         # 审计落库
-        await Audit.create(**audit_log)
+        try:
+            await Audit.create(**audit_log)
+        except Exception as e:
+            LOGGER.warning(f"审计日志写入失败: {e}")
 
     return response

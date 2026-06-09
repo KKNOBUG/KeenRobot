@@ -7,6 +7,7 @@
 @DateTime: 2025/1/12 19:46
 """
 from .app_initialization import (
+    build_tortoise_config,
     register_database,
     register_exceptions,
     register_middlewares,
@@ -15,6 +16,7 @@ from .app_initialization import (
 from .data_initialization import init_database_table
 
 __all__ = (
+    build_tortoise_config,
     register_database,
     register_exceptions,
     register_middlewares,

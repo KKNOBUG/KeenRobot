@@ -69,7 +69,7 @@ async def root():
     return SuccessResponse(message="KeenRobot FastAPI Started Successfully!")
 
 
-@app.get("/api/health", summary="健康检查")
+@app.get("/health", summary="健康检查")
 async def health_check():
     return {"status": "ok", "version": PROJECT_CONFIG.APP_VERSION, "orm": "tortoise-orm"}
 
@@ -87,9 +87,29 @@ if __name__ == '__main__':
         log_level=None,
     )
 
-    # tortoise init                # 初始化迁移目录
-    # tortoise makemigrations      # 生成迁移（自动检测变更）
-    # tortoise migrate              # 应用迁移（支持回滚）
-    # tortoise downgrade            # 回滚到指定版本
-    # tortoise history              # 查看迁移历史
-    # tortoise sqlmigrate           # 预览SQL（安全）
+    # Tortoise-ORM 1.x 迁移命令参考（通过 tortoise CLI 执行）
+    # =====================================================
+    # 前置条件：在项目根目录执行，并设置 PYTHONPATH
+    #   export PYTHONPATH=./backend:.
+    #
+    # 完整命令格式：
+    #   PYTHONPATH=./backend:. python -m tortoise -c backend.configure.project_config.TORTOISE_ORM <command>
+    #
+    # 常用命令：
+    #   init models                    # 初始化迁移目录（每个 app 只需执行一次）
+    #   makemigrations models          # 根据模型变更生成迁移文件
+    #   migrate models                 # 应用所有待执行的迁移到数据库
+    #   migrate models --fake          # 标记迁移已执行，但不实际运行 SQL（用于已存在的表）
+    #   downgrade models <migration>   # 回滚到指定迁移版本
+    #   history models                 # 查看已应用的迁移历史
+    #   heads models                   # 查看待执行的迁移文件
+    #   sqlmigrate models <migration>  # 预览指定迁移的 SQL（不执行）
+    #
+    # 迁移文件位置：
+    #   backend/applications/<app>/models/migrations/
+    #
+    # 重要限制：
+    #   模型字段的 default 参数不能使用 lambda，必须使用模块级函数。
+    #   错误示例：default=lambda: str(uuid.uuid4())
+    #   正确示例：定义 def _uuid_str(): return str(uuid.uuid4())，然后使用 default=_uuid_str
+
