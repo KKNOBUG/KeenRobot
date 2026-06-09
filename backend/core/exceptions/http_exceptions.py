@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : Krun
+@Project : KeenRobot
 @Module  : http_exceptions.py
 @DateTime: 2025/1/17 22:30
 """

@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRobot
+@Module  : conversation_model.py
+@DateTime: 2025/4/28 18:07
+"""
 import uuid
 
 from tortoise import fields, models

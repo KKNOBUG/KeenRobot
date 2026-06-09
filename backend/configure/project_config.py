@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : Krun
+@Project : KeenRobot
 @Module  : project_config.py
 @DateTime: 2025/1/15 16:08
 """

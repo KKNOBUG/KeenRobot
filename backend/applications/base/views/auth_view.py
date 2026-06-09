@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : KeenRunner Template
+@Project : KeenRobot
 @Module  : auth_view.py
 @DateTime: 2025/1/18 10:03
 """

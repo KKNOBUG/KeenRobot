@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "aerich>=0.8.1",
+    "aiofiles==22.1.0",
     "chromadb==1.5.9",
     "fastapi==0.115.6",
+    "gunicorn==26.0.0",
     "langchain==0.3.30",
     "langchain-community>=0.3.27",
     "onnxruntime==1.19.2",
@@ -15,9 +17,11 @@ dependencies = [
     "pydantic==2.10.6",
     "pydantic-core==2.27.2",
     "pydantic-settings==2.7.1",
+    "pyjwt==2.9.0",
     "pymupdf>=1.27.2.3",
     "python-jose>=3.5.0",
     "python-multipart>=0.0.30",
     "sse-starlette>=3.0.3",
     "tortoise-orm>=1.1.7",
+    "uvloop==0.21.0",
 ]

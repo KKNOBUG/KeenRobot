@@ -2,15 +2,10 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : fastapi-template
+@Project : KeenRobot
 @Module  : __init__.py
 @DateTime: 2025/4/28 18:07
 """
+from backend.applications.example.models.example_model import Category, Product
 
-
-def print_hi(name):
-    print(f'Hi, {name}')
-
-
-if __name__ == '__main__':
-    print_hi('Python')
+__all__ = ["Category", "Product", ]

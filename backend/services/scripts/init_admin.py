@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRobot
+@Module  : init_admin.py
+@DateTime: 2025/4/28 18:07
+"""
 """初始化管理员账号"""
 
 import asyncio
@@ -6,9 +14,9 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 
 from tortoise import Tortoise
 
-from configure import TORTOISE_ORM
-from services.rag_security import get_password_hash
-from applications.rag_user.models.rag_user_model import User
+from backend.configure import TORTOISE_ORM
+from backend.services.rag_security import get_password_hash
+from backend.applications.rag_user.models.rag_user_model import User
 
 
 async def init_admin():

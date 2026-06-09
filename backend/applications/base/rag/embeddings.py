@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRobot
+@Module  : embeddings.py
+@DateTime: 2025/4/28 18:07
+"""
 """Embedding API封装 - OpenAI 兼容格式（硅基流动等）"""
 
 from typing import List

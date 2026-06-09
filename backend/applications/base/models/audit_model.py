@@ -2,8 +2,8 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : Krun
-@Module  : scaffold_model.py
+@Project : KeenRobot
+@Module  : audit_model.py
 @DateTime: 2025/1/27 10:04
 """
 from tortoise import fields

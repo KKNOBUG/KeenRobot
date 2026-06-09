@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : Krun
+@Project : KeenRobot
 @Module  : password.py
 @DateTime: 2025/1/18 12:10
 """
@@ -10,8 +10,8 @@ import jwt
 from passlib import pwd
 from passlib.context import CryptContext
 
-from applications.base.schemas.token_schema import JWTPayload
-from configure import PROJECT_CONFIG
+from backend.applications.base.schemas.token_schema import JWTPayload
+from backend.configure import PROJECT_CONFIG
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 

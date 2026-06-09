@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : fastapi-template
+@Project : KeenRobot
 @Module  : dependencies.py
 @DateTime: 2025/6/7
 

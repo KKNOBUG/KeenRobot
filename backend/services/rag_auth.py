@@ -11,9 +11,9 @@ from typing import Optional
 from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from applications.rag_user.models.rag_user_model import User
-from applications.rag_user.services.user_repo import UserRepository
-from services.rag_security import decode_token
+from backend.applications.rag_user.models.rag_user_model import User
+from backend.applications.rag_user.services.user_repo import UserRepository
+from backend.services.rag_security import decode_token
 
 _bearer = HTTPBearer(auto_error=False)
 

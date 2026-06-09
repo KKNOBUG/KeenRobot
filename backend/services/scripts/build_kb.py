@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRobot
+@Module  : build_kb.py
+@DateTime: 2025/4/28 18:07
+"""
 """构建离线知识库脚本（写入 Chroma 本地库）
 
 用法: python scripts/build_kb.py
@@ -8,10 +16,10 @@ import uuid
 
 import _bootstrap  # noqa: F401
 
-from configure import PROJECT_CONFIG
-from applications.base.rag.chroma_store import chroma_store
-from applications.base.rag.embeddings import get_qwen_embedding
-from applications.base.rag.loader import load_all_pdfs, split_documents
+from backend.configure import PROJECT_CONFIG
+from backend.applications.base.rag.chroma_store import chroma_store
+from backend.applications.base.rag.embeddings import get_qwen_embedding
+from backend.applications.base.rag.loader import load_all_pdfs, split_documents
 
 
 def main():

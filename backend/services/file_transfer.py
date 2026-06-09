@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : Krun
+@Project : KeenRobot
 @Module  : file_transfer.py
 @DateTime: 2025/4/7 09:13
 """
@@ -18,8 +18,8 @@ from typing import Tuple, Union, Literal, Iterable
 import aiofiles
 from fastapi import UploadFile
 
-from configure import LOGGER, PROJECT_CONFIG, GLOBAL_CONFIG
-from core.exceptions import UploadFileException, FileExtensionException, FileTooManyException, NoPermissionException
+from backend.configure import LOGGER, PROJECT_CONFIG, GLOBAL_CONFIG
+from backend.core.exceptions import UploadFileException, FileExtensionException, FileTooManyException, NoPermissionException
 
 
 class FileTransfer:

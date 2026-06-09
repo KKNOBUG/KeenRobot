@@ -2,15 +2,14 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : fastapi-template
+@Project : KeenRobot
 @Module  : __init__.py
 @DateTime: 2025/4/28 18:07
 """
+from backend.applications.base.schemas.audit_schema import AuditBase, AuditCreate, AuditSelect, AuditBatchDelete
+from backend.applications.base.schemas.token_schema import CredentialsSchema, JWTOut, JWTPayload
 
-
-def print_hi(name):
-    print(f'Hi, {name}')
-
-
-if __name__ == '__main__':
-    print_hi('Python')
+__all__ = [
+    "AuditBase", "AuditCreate", "AuditSelect", "AuditBatchDelete",
+    "CredentialsSchema", "JWTOut", "JWTPayload",
+]

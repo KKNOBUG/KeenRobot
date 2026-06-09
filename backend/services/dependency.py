@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : KeenRunner Template
+@Project : KeenRobot
 @Module  : dependency.py
 @DateTime: 2025/2/19 13:03
 """
@@ -11,9 +11,9 @@ from typing import Optional
 import jwt
 from fastapi import Depends, Header, HTTPException
 
-from applications.user.models.user_model import User
-from configure import PROJECT_CONFIG
-from services import CTX_USER_ID
+from backend.applications.user.models.user_model import User
+from backend.configure import PROJECT_CONFIG
+from backend.services import CTX_USER_ID
 
 
 class AuthControl:

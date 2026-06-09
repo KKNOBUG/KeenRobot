@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+@Author  : yangkai
+@Email   : 807440781@qq.com
+@Project : KeenRobot
+@Module  : chain.py
+@DateTime: 2025/4/28 18:07
+"""
 """RAG检索增强生成链 - 千问API版本"""
 
 import re

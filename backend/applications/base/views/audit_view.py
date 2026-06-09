@@ -2,7 +2,7 @@
 """
 @Author  : yangkai
 @Email   : 807440781@qq.com
-@Project : Krun
+@Project : KeenRobot
 @Module  : audit_view.py
 @DateTime: 2025/2/22 12:31
 """
