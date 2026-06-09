@@ -12,5 +12,3 @@ from .model_config_view import model_config
 
 model_router = APIRouter()
 model_router.include_router(model_config)
-
-__all__ = ["model_router"]

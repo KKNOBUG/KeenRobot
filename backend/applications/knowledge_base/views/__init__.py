@@ -12,5 +12,3 @@ from .knowledge_base_view import knowledge_base
 
 kb_router = APIRouter()
 kb_router.include_router(knowledge_base)
-
-__all__ = ["kb_router"]

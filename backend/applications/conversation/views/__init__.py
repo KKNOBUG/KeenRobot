@@ -16,5 +16,3 @@ history_router = APIRouter()
 
 chat_router.include_router(chat)
 history_router.include_router(history)
-
-__all__ = ["chat_router", "history_router"]
