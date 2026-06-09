@@ -19,7 +19,7 @@ class KnowledgeBase(models.Model):
     documents: fields.ReverseRelation["Document"]
 
     class Meta:
-        table = "knowledge_bases"
+        table = "keenrobot_knowledge_bases"
 
 
 class Document(models.Model):
@@ -40,7 +40,7 @@ class Document(models.Model):
     chunks: fields.ReverseRelation["DocumentChunk"]
 
     class Meta:
-        table = "documents"
+        table = "keenrobot_documents"
 
 
 class DocumentChunk(models.Model):
@@ -56,4 +56,4 @@ class DocumentChunk(models.Model):
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table = "document_chunks"
+        table = "keenrobot_document_chunks"

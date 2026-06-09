@@ -26,7 +26,7 @@ class Category(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
     parent_id = fields.BigIntField(null=True, description="父分类ID")
 
     class Meta:
-        table = "krun_example_category"
+        table = "keenrobot_example_category"
 
 
 class Product(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin, UUIDModel):
@@ -41,4 +41,4 @@ class Product(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin, UUIDMode
     tags = fields.JSONField(default=list, description="商品标签")
 
     class Meta:
-        table = "krun_example_product"
+        table = "keenrobot_example_product"

@@ -31,4 +31,4 @@ class Audit(ScaffoldModel, TimestampMixin):
     response_elapsed = fields.CharField(max_length=16, description="响应耗时")
 
     class Meta:
-        table = "krun_audit"
+        table = "keenrobot_audit"

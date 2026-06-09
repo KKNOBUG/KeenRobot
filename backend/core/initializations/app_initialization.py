@@ -49,15 +49,17 @@ async def register_database(app: FastAPI) -> None:
         "use_tz": False,
         "timezone": "Asia/Shanghai",
     }
+
+    # 先初始化 Tortoise，确保模型能正确绑定数据库连接
+    if not Tortoise._inited:
+        await Tortoise.init(config=config)
+
     register_tortoise(
         app=app,
         config=config,
         generate_schemas=False,
         add_exception_handlers=PROJECT_CONFIG.SERVER_DEBUG,
     )
-
-    if not Tortoise._inited:
-        await Tortoise.init(config=config)
 
     # 确保迁移目录存在
     if not os.path.exists(PROJECT_CONFIG.MIGRATION_DIR):
@@ -89,8 +91,6 @@ async def register_database(app: FastAPI) -> None:
             f"生产环境(Linux操作系统)始终执行迁移指令, 不提供关闭选项; "
             f"开发环境(Windows操作系统)仅当显示打开[DATABASE_AUTO_MIGRATION]时执行迁移指令。"
         )
-        if PROJECT_CONFIG.DB_TYPE == "sqlite":
-            await Tortoise.generate_schemas(safe=True)
         return
 
     # 生成迁移文件

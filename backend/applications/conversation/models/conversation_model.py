@@ -32,7 +32,7 @@ class Conversation(models.Model):
     messages: fields.ReverseRelation["Message"]
 
     class Meta:
-        table = "conversations"
+        table = "keenrobot_conversations"
 
 
 class Message(models.Model):
@@ -47,5 +47,5 @@ class Message(models.Model):
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
-        table = "messages"
+        table = "keenrobot_messages"
         ordering = ["created_at"]

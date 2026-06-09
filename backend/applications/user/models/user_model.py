@@ -30,7 +30,7 @@ class User(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
     emergency_phone = fields.CharField(max_length=20, null=True, description="紧急联系电话")
 
     class Meta:
-        table = "krun_user"
+        table = "keenrobot_user"
 
         unique_together = (
             ("alias", "email"),

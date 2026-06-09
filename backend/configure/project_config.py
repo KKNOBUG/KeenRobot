@@ -88,7 +88,7 @@ class ProjectConfig(BaseSettings):
     STATIC_IMG_DIR: str = os.path.abspath(os.path.join(STATIC_DIR, "image"))
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
-    RAG_DB_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "rag_db"))
+
 
     # RAG / LLM / Embedding
     CHROMA_COLLECTION: str = "knowledge_base"
@@ -204,21 +204,20 @@ class ProjectConfig(BaseSettings):
         "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
     ]
 
-    # 数据库配置
-    DB_TYPE: str = Field(default="sqlite", description="sqlite 或 mysql")
+    # 数据库配置（仅支持 MySQL）
     DATABASE_AUTO_MIGRATION: bool = True
     DATABASE_CONNECTIONS: Dict[str, Any] = {}
     DATABASE_URL: str = Field(default="", description="数据库地址")
-    DATABASE_HOST: str = Field(default="localhost", description="数据库主机")
-    DATABASE_PORT: str = Field(default="3306", description="数据库端口")
-    DATABASE_NAME: str = Field(default="rag_system", description="数据库名称")
-    DATABASE_USERNAME: str = Field(default="rag_user", description="数据库用户名")
-    DATABASE_PASSWORD: str = Field(default="password", description="数据库密码")
+    DATABASE_HOST: str = Field(default="", description="数据库主机")
+    DATABASE_PORT: str = Field(default="", description="数据库端口")
+    DATABASE_NAME: str = Field(default="", description="数据库名称")
+    DATABASE_USERNAME: str = Field(default="", description="数据库用户名")
+    DATABASE_PASSWORD: str = Field(default="", description="数据库密码")
 
     # Redis 配置
     REDIS_URL: str = ""
-    REDIS_HOST: str = Field(default="127.0.0.1", description="Redis主机")
-    REDIS_PORT: str = Field(default="6379", description="Redis端口")
+    REDIS_HOST: str = Field(default="", description="Redis主机")
+    REDIS_PORT: str = Field(default="", description="Redis端口")
     REDIS_USERNAME: str = Field(default="", description="Redis用户名")
     REDIS_PASSWORD: str = Field(default="", description="Redis密码")
 
@@ -227,50 +226,42 @@ class ProjectConfig(BaseSettings):
         if not self.AUTH_SECRET_KEY or len(self.AUTH_SECRET_KEY) < 64:
             raise ValueError("AUTH_SECRET_KEY 配置为空或长度少于64位，请检查.env文件或环境变量")
 
-        if self.DB_TYPE == "mysql":
-            for field_name in ("DATABASE_USERNAME", "DATABASE_HOST", "DATABASE_PORT", "DATABASE_NAME"):
-                if not getattr(self, field_name):
-                    raise ValueError(f"{field_name} 配置为空，请检查.env文件或环境变量")
+        for field_name in ("DATABASE_USERNAME", "DATABASE_HOST", "DATABASE_PORT", "DATABASE_NAME"):
+            if not getattr(self, field_name):
+                raise ValueError(f"{field_name} 配置为空，请检查.env文件或环境变量")
 
         Path(self.OUTPUT_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.OUTPUT_DATAGRAM_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.CHROMA_DIR).mkdir(parents=True, exist_ok=True)
-        Path(self.RAG_DB_DIR).mkdir(parents=True, exist_ok=True)
 
         return self.assemble_connection_urls()
 
     def assemble_connection_urls(self) -> Self:
-        if self.DB_TYPE == "mysql":
-            db_user = quote_plus(self.DATABASE_USERNAME)
-            db_password = quote_plus(self.DATABASE_PASSWORD)
-            self.DATABASE_URL = (
-                f"mysql://{db_user}:{db_password}@{self.DATABASE_HOST}:"
-                f"{self.DATABASE_PORT}/{self.DATABASE_NAME}"
-                f"?charset=utf8mb4&time_zone=+08:00"
-            )
-            self.DATABASE_CONNECTIONS = {
-                "default": {
-                    "engine": "tortoise.backends.mysql",
-                    "db_url": self.DATABASE_URL,
-                    "credentials": {
-                        "host": self.DATABASE_HOST,
-                        "port": self.DATABASE_PORT,
-                        "user": self.DATABASE_USERNAME,
-                        "password": self.DATABASE_PASSWORD,
-                        "database": self.DATABASE_NAME,
-                        "minsize": 10,
-                        "maxsize": 40,
-                        "pool_recycle": 3600,
-                        "charset": "utf8mb4",
-                        "echo": False,
-                        "autocommit": True,
-                    },
-                }
+        db_user = quote_plus(self.DATABASE_USERNAME)
+        db_password = quote_plus(self.DATABASE_PASSWORD)
+        self.DATABASE_URL = (
+            f"mysql://{db_user}:{db_password}@{self.DATABASE_HOST}:"
+            f"{self.DATABASE_PORT}/{self.DATABASE_NAME}"
+            f"?charset=utf8mb4&time_zone=+08:00"
+        )
+        self.DATABASE_CONNECTIONS = {
+            "default": {
+                "engine": "tortoise.backends.mysql",
+                "credentials": {
+                    "host": self.DATABASE_HOST,
+                    "port": self.DATABASE_PORT,
+                    "user": self.DATABASE_USERNAME,
+                    "password": self.DATABASE_PASSWORD,
+                    "database": self.DATABASE_NAME,
+                    "minsize": 10,
+                    "maxsize": 40,
+                    "pool_recycle": 3600,
+                    "charset": "utf8mb4",
+                    "echo": False,
+                    "autocommit": True,
+                },
             }
-        else:
-            db_path = Path(self.RAG_DB_DIR) / "rag_system.db"
-            self.DATABASE_URL = f"sqlite://{db_path}"
-            self.DATABASE_CONNECTIONS = {"default": self.DATABASE_URL}
+        }
 
         if self.REDIS_PASSWORD:
             self.REDIS_URL = self.build_redis_url(db=0)

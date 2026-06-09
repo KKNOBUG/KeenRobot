@@ -20,4 +20,4 @@ class ModelConfig(models.Model):
     updated_at = fields.DatetimeField(auto_now=True)
 
     class Meta:
-        table = "model_configs"
+        table = "keenrobot_model_configs"
