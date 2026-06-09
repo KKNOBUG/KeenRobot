@@ -7,16 +7,18 @@
 @DateTime: 2025/1/17 21:55
 """
 import os
+import shutil
 import sys
 import traceback
 from typing import Dict, Any
 
+from aerich import Command
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
-from tortoise import Tortoise
+from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist
 
 from backend.configure import PROJECT_CONFIG, LOGGER
@@ -33,76 +35,70 @@ from backend.core.middlewares.request_context_middleware import request_context_
 from backend.services import DependAuth
 
 
-def build_tortoise_config() -> Dict[str, Any]:
-    return {
+async def register_database(app: FastAPI) -> None:
+    config: Dict[str, Any] = {
         "connections": PROJECT_CONFIG.DATABASE_CONNECTIONS,
         "apps": {
             "models": {
                 "models": PROJECT_CONFIG.APPLICATIONS_MODELS,
-                "default_connection": "default",
+                "default_connection": "default"
             }
         },
         "use_tz": False,
         "timezone": "Asia/Shanghai",
     }
+    register_tortoise(
+        app=app,
+        config=config,
+        generate_schemas=False,
+        add_exception_handlers=PROJECT_CONFIG.SERVER_DEBUG,
+    )
 
+    # 确保迁移目录存在
+    if not os.path.exists(PROJECT_CONFIG.MIGRATION_DIR):
+        os.makedirs(PROJECT_CONFIG.MIGRATION_DIR)
 
-async def register_database(app: FastAPI) -> None:
-    """注册数据库并执行迁移。"""
-    config = build_tortoise_config()
+    # 初始化Aerich命令
+    command = Command(
+        app='models',
+        tortoise_config=config,
+        location=PROJECT_CONFIG.MIGRATION_DIR,
+    )
 
-    migration_path = os.path.join(PROJECT_CONFIG.MIGRATION_DIR, "models")
-    if not os.path.exists(migration_path):
-        os.makedirs(migration_path)
-        open(os.path.join(migration_path, "__init__.py"), "a").close()
+    # 初始化数据库和迁移
+    try:
+        # 当 safe 设置为 True 时，如果数据库中已经存在 Aerich 所需的迁移表（通常是 aerich 表），init_db 方法不会尝试去重新创建这些表，避免因为表已存在而抛出错误。
+        # 当 safe 设置为 False 时，如果数据库中已经存在 Aerich 所需的迁移表，init_db 方法会尝试重新创建这些表，这可能会导致现有表被删除并重新创建，从而丢失表中的数据。
+        await command.init_db(safe=True)
+    except FileExistsError:
+        pass
 
-    if not Tortoise._inited:
-        await Tortoise.init(
-            config=config,
-            _enable_global_fallback=True,
-        )
+    await command.init()
 
-    if not PROJECT_CONFIG.DATABASE_AUTO_MIGRATION:
+    if not PROJECT_CONFIG.aerich_should_run_on_startup:
         LOGGER.warning(
-            "跳过数据库迁移: \n"
+            "跳过 Aerich 数据迁移指令: \n"
             f"操作系统: {PROJECT_CONFIG.SERVER_SYSTEM}, \n"
             f"调试开关: {PROJECT_CONFIG.SERVER_DEBUG}, \n"
             f"迁移开关: {PROJECT_CONFIG.DATABASE_AUTO_MIGRATION}, \n"
-            f"生产环境始终执行迁移, 开发环境可关闭。"
+            f"生产环境(Linux操作系统)始终执行迁移指令, 不提供关闭选项; "
+            f"开发环境(Windows操作系统)仅当显示打开[DATABASE_AUTO_MIGRATION]时执行迁移指令。"
         )
         return
 
+    # 生成迁移文件
     try:
-        LOGGER.info("执行数据库迁移...")
-        from tortoise.connection import get_connection
-        from tortoise.migrations.executor import MigrationExecutor
-        
-        config_dict = config if isinstance(config, dict) else config.to_dict()
-        configured_apps = config_dict.get("apps", {})
-        selected_apps = ["models"]
-        
-        apps_config = {label: configured_apps[label] for label in selected_apps if label in configured_apps}
-        apps_by_connection: dict[str, dict[str, dict[str, Any]]] = {}
-        for label, app_config in apps_config.items():
-            connection_name = app_config.get("default_connection", "default")
-            apps_by_connection.setdefault(connection_name, {})[label] = app_config
-        
-        for connection_name, subset in apps_by_connection.items():
-            connection = get_connection(connection_name)
-            executor = MigrationExecutor(connection, subset)
-            await executor.migrate(None)
-        
-        LOGGER.info("数据库迁移完成")
-    except Exception as e:
-        LOGGER.error(f"迁移过程出错: {e}\n错误回溯: {traceback.format_exc()}")
-        LOGGER.info("尝试生成数据库表结构...")
-        try:
-            await Tortoise.generate_schemas(safe=True)
-            LOGGER.info("数据库表结构生成完成")
-        except Exception as schema_error:
-            LOGGER.error(f"生成表结构失败: {schema_error}")
-            raise RuntimeError(f"数据库初始化失败: {e}")
+        await command.migrate(name="auto_migrate")
+    except AttributeError as e:
+        LOGGER.error(f"无法从数据库中检索模型历史记录, 请检查[migration]与[aerich]表记录是否一致: {e}\n错误回溯: {traceback.format_exc()}")
+        if PROJECT_CONFIG.aerich_should_run_on_startup:
+            shutil.rmtree(PROJECT_CONFIG.MIGRATION_DIR)
+            await command.init_db(safe=True)
+        else:
+            raise RuntimeError("数据库迁移元数据与本地[migration]不一致, 无法进行迁移, 请手工修复或从备份恢复后再启动应用")
 
+    # 应用迁移
+    await command.upgrade(run_in_transaction=True)
 
 # 注册异常处理器
 def register_exceptions(app: FastAPI) -> None:

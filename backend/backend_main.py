@@ -112,4 +112,3 @@ if __name__ == '__main__':
     #   模型字段的 default 参数不能使用 lambda，必须使用模块级函数。
     #   错误示例：default=lambda: str(uuid.uuid4())
     #   正确示例：定义 def _uuid_str(): return str(uuid.uuid4())，然后使用 default=_uuid_str
-

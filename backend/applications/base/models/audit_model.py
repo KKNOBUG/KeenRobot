@@ -29,6 +29,7 @@ class Audit(ScaffoldModel, MaintainMixin, TimestampMixin):
     response_message = fields.CharField(max_length=512, default="", null=True, description="响应消息")
     response_params = fields.TextField(default="", null=True, description="响应参数")
     response_elapsed = fields.CharField(max_length=16, description="响应耗时")
+    audit_error = fields.TextField(default=None, null=True, description="审计入库异常信息")
 
     class Meta:
         table = "keenrobot_audit"
