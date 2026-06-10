@@ -89,6 +89,29 @@ html.dark .n-layout-sider {
   border-color: #333;
 }
 
+/* 智能聊天：右侧对话框与左侧会话列表、主菜单树（n-layout-sider / cardColor）背景一致 */
+.chat-page-layout {
+  --chat-surface: #fff;
+}
+
+html.dark .chat-page-layout {
+  --chat-surface: #18181c;
+}
+
+.chat-page-layout,
+.chat-page-layout > .n-layout-scroll-container,
+.chat-page-layout .n-layout,
+.chat-page-layout .n-layout-sider,
+.chat-page-layout .n-layout-content,
+.chat-page-layout .n-layout-content > .n-layout-scroll-container,
+.chat-page-layout section.cus-scroll-y,
+.chat-page-layout section.cus-scroll-y > div,
+.chat-page-layout .chat-panel,
+.chat-page-layout .chat-thread,
+.chat-page-layout .messages-area {
+  background-color: var(--chat-surface) !important;
+}
+
 .markdown-body {
   line-height: 1.7;
   word-break: break-word;

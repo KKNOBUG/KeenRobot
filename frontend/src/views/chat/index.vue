@@ -331,19 +331,27 @@ function handleQuickQuestion(question) {
       <p class="conversation-count">共 {{ conversations.length }} 个对话</p>
     </NLayoutSider>
 
-    <NLayoutContent content-style="height: 100%; overflow: hidden;">
-      <CommonPage :show-header="false" :show-footer="false">
+    <NLayoutContent
+        class="chat-main-content"
+        content-style="height: 100%; overflow: hidden; background-color: var(--chat-surface);"
+    >
+      <CommonPage :show-header="false" :show-footer="false" inherit-background>
         <div class="chat-panel">
           <div class="chat-thread">
-            <div ref="messagesContainer" class="messages-area cus-scroll-y">
+            <div
+                ref="messagesContainer"
+                class="messages-area"
+                :class="{ 'is-empty': messages.length === 0 }"
+            >
               <div v-if="messages.length === 0" class="welcome">
-                <div class="welcome-icon">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color, #f4511e)" stroke-width="1.5">
-                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
+                <div class="welcome-brand">
+                  <icon-custom-logo-new text-36 color-primary flex-shrink-0 />
+                  <p class="welcome-greeting">
+                    我是
+                    <span class="welcome-app-name">{{ $t('app_name') }}</span>
+                    智能助手，很高兴见到你！
+                  </p>
                 </div>
-                <h2>你好，有什么可以帮你的？</h2>
-                <p>我是企业知识库智能助手，可以回答关于公司制度、技术文档、产品信息等问题。</p>
                 <div class="quick-questions">
                   <button
                       v-for="q in [
@@ -502,6 +510,7 @@ function handleQuickQuestion(question) {
 .chat-panel {
   flex: 1;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -512,6 +521,7 @@ function handleQuickQuestion(question) {
   --avatar-gap: 12px;
   flex: 1;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -520,44 +530,46 @@ function handleQuickQuestion(question) {
 
 .messages-area {
   flex: 1;
-  padding: 16px 0;
   min-height: 0;
+  padding: 16px 0 8px;
+  overflow-y: auto;
+}
+
+.messages-area.is-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .welcome {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-height: 100%;
-  padding: 40px 20px;
-  gap: 12px;
+  padding: 20px;
+  gap: 24px;
   box-sizing: border-box;
 }
 
-.welcome-icon {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: rgba(244, 81, 30, 0.08);
+.welcome-brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
+  gap: 8px;
+  max-width: 640px;
 }
 
-.welcome h2 {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--n-text-color);
+.welcome-greeting {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--n-text-color, #333);
 }
 
-.welcome p {
-  color: var(--n-text-color-3, #999);
-  max-width: 420px;
-  font-size: 14px;
-  line-height: 1.6;
+.welcome-app-name {
+  margin: 0 4px;
+  font-weight: 700;
+  color: var(--primary-color, #f4511e);
 }
 
 .quick-questions {
@@ -587,7 +599,8 @@ function handleQuickQuestion(question) {
 
 .input-area {
   flex-shrink: 0;
-  padding: 0 0 8px;
+  margin-top: auto;
+  padding: 8px 0 1px;
 }
 
 .input-grid {
@@ -595,7 +608,7 @@ function handleQuickQuestion(question) {
   grid-template-columns: var(--avatar-size) 0.99fr var(--avatar-size);
   gap: var(--avatar-gap);
   align-items: end;
-  margin: auto;
+  margin: 0 auto;
   width: 90%;
 }
 
@@ -610,12 +623,6 @@ function handleQuickQuestion(question) {
   border-radius: 12px;
   background: var(--n-color, #fff);
   box-shadow: 0 0 15px rgba(214, 214, 214, 0.2);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.input-box:focus-within {
-  border-color: var(--primary-color-hover, #f4511e);
-  box-shadow: 0 4px 20px rgba(244, 81, 30, 0.15);
 }
 
 .input-textarea {
@@ -671,7 +678,7 @@ function handleQuickQuestion(question) {
   grid-column: 2;
   text-align: center;
   font-size: 10px;
-  color: rgba(0, 0, 0, 0.28);
+  color: var(--text-color);
   line-height: 1;
 }
 
