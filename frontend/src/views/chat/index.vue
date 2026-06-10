@@ -294,9 +294,9 @@ function handleQuickQuestion(question) {
         :native-scrollbar="false"
         content-style="display: flex; flex-direction: column; height: 100%; padding: 12px; box-sizing: border-box;"
     >
-      <NButton secondary type="primary" block @click="startNewChat">
+      <NButton secondary circle type="primary" block @click="startNewChat">
         <template #icon>
-          <TheIcon icon="material-symbols:add" :size="16" />
+          <TheIcon icon="hugeicons:message-add-02" :size="16" />
         </template>
         新建对话
       </NButton>
@@ -309,9 +309,13 @@ function handleQuickQuestion(question) {
             :class="{ active: conversationId === conv.id }"
             @click="selectConversation(conv.id)"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-          </svg>
+          <span class="conv-icon">
+            <TheIcon
+                icon="hugeicons:message-02"
+                :size="14"
+                :color="conversationId === conv.id ? 'var(--primary-color)' : undefined"
+            />
+          </span>
           <span class="conv-title">{{ conv.title || '新对话' }}</span>
           <button
               class="delete-btn"
@@ -434,32 +438,51 @@ function handleQuickQuestion(question) {
   align-items: center;
   gap: 8px;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: color 0.2s;
   margin-bottom: 2px;
   color: var(--n-text-color);
   font-size: 12px;
 }
 
-.conversation-item svg {
+.conv-icon {
+  display: flex;
   flex-shrink: 0;
-  width: 14px;
-  height: 14px;
+  align-items: center;
   color: var(--n-text-color-3);
+  transition: color 0.2s;
 }
 
-.conversation-item:hover {
-  background: var(--n-item-color-hover);
+.conversation-item:hover:not(.active) {
+  color: var(--n-text-color);
+}
+
+.conversation-item:hover:not(.active) .conv-icon {
+  color: var(--n-text-color-2);
 }
 
 .conversation-item.active {
-  background: rgba(244, 81, 30, 0.1);
+  background: transparent;
   color: var(--primary-color, #f4511e);
 }
 
-.conversation-item.active svg {
+.conversation-item.active .conv-icon {
   color: var(--primary-color, #f4511e);
+}
+
+.conversation-item.active .conv-icon :deep(.n-icon),
+.conversation-item.active .conv-icon :deep(svg) {
+  color: var(--primary-color, #f4511e);
+}
+
+.conversation-item.active .conv-title {
+  color: var(--primary-color, #f4511e);
+}
+
+.conv-icon :deep(.n-icon),
+.conv-icon :deep(svg) {
+  color: currentColor;
 }
 
 .conv-title {
@@ -468,6 +491,7 @@ function handleQuickQuestion(question) {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+  transition: color 0.2s;
 }
 
 .empty-conversations {
@@ -496,6 +520,11 @@ function handleQuickQuestion(question) {
   padding: 4px;
   border-radius: 4px;
   transition: all 0.2s;
+}
+
+.delete-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .conversation-item:hover .delete-btn {
@@ -531,7 +560,7 @@ function handleQuickQuestion(question) {
 .messages-area {
   flex: 1;
   min-height: 0;
-  padding: 16px 0 8px;
+  padding: 1px 0 8px;
   overflow-y: auto;
 }
 
@@ -619,10 +648,10 @@ function handleQuickQuestion(question) {
   align-items: flex-end;
   gap: 8px;
   padding: 10px 12px 10px 16px;
-  border: 1px solid var(--n-border-color);
+  border: 1px solid var(--chat-input-border);
   border-radius: 12px;
-  background: var(--n-color, #fff);
-  box-shadow: 0 0 15px rgba(214, 214, 214, 0.2);
+  background-color: var(--chat-input-surface);
+  box-shadow: var(--chat-input-shadow);
 }
 
 .input-textarea {
@@ -641,8 +670,9 @@ function handleQuickQuestion(question) {
 }
 
 .input-textarea::placeholder {
-  color: rgba(0, 0, 0, 0.28);
-  font-size: 13px;
+  color: var(--chat-muted-text);
+  font-size: 12px;
+  opacity: 1;
 }
 
 .input-textarea:disabled {
@@ -678,16 +708,7 @@ function handleQuickQuestion(question) {
   grid-column: 2;
   text-align: center;
   font-size: 10px;
-  color: var(--text-color);
+  color: var(--chat-muted-text);
   line-height: 1;
-}
-
-:global(html.dark) .input-box {
-  background: #2a2a2e;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-}
-
-:global(html.dark) .input-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.28);
 }
 </style>

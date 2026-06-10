@@ -10,8 +10,8 @@ defineProps({
 <template>
   <div class="message" :class="role">
     <div class="avatar-col">
-      <div v-if="role === 'assistant'" class="avatar">
-        <icon-custom-logo-new class="logo-icon" />
+      <div v-if="role === 'assistant'" class="avatar avatar--assistant">
+        <icon-custom-logo-new text-36 color-primary />
       </div>
     </div>
     <div class="bubble">
@@ -20,10 +20,10 @@ defineProps({
       <span v-if="isStreaming" class="cursor-blink"></span>
     </div>
     <div class="avatar-col">
-      <div v-if="role === 'user'" class="avatar">
+      <div v-if="role === 'user'" class="avatar avatar--user">
         <svg
-            width="20"
-            height="20"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -43,7 +43,7 @@ defineProps({
   grid-template-columns: 36px 1fr 36px;
   gap: 12px;
   align-items: start;
-  margin: 0 auto 16px; /* 关键：左右自动居中，底部保留 16px 间距 */
+  margin: 0 auto 16px;
   width: 90%;
 }
 
@@ -55,25 +55,20 @@ defineProps({
 .avatar {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.message.user .avatar {
-  background: #e8e8e8;
-  color: #64748b;
+.avatar--assistant {
+  background: none;
+  border-radius: 0;
 }
 
-.message.assistant .avatar {
-  background: rgba(244, 81, 30, 0.08);
-}
-
-.logo-icon {
-  font-size: 28px;
-  color: var(--primary-color, #f4511e);
+.avatar--user {
+  border-radius: 30%;
+  background: var(--chat-input-border);
 }
 
 .bubble {
@@ -91,15 +86,11 @@ defineProps({
 }
 
 .message.user .bubble-content {
-  background-color: rgba(214, 214, 214, 0.28);
-  border: 1px solid rgba(214, 214, 214, 0.32);
-  border-radius: 12px 12px 12px 12px;
+  background-color: var(--chat-input-border);
 }
 
 .message.assistant .bubble-content {
-  background: rgba(244, 81, 30, 0.05);
-  border: 1px solid rgba(244, 81, 30, 0.15);
-  border-radius: 12px 12px 12px 12px;
+  background: rgba(244, 81, 30, 0.1);
 }
 
 .message.assistant .bubble-content :deep(p) {
