@@ -14,8 +14,8 @@ import httpx
 from backend.configure import PROJECT_CONFIG
 
 
-class QwenLLM:
-    """OpenAI 兼容 LLM 封装（DeepSeek / 千问 等）"""
+class OpenAICompatibleLLM:
+    """OpenAI 兼容 Chat Completions API 客户端（DeepSeek、硅基流动等）"""
 
     def __init__(self, model: str = None):
         self.model = model or PROJECT_CONFIG.DEFAULT_LLM_MODEL

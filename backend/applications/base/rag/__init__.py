@@ -20,7 +20,7 @@ from backend.applications.base.rag.embeddings import (
     get_single_embedding,
 )
 from backend.applications.base.rag.llm import (
-    QwenLLM,
+    OpenAICompatibleLLM,
     format_messages,
 )
 from backend.applications.base.rag.loader import (
@@ -34,5 +34,5 @@ __all__ = [
     "is_irrelevant_question", "get_irrelevant_response", "format_context_from_results", "rag_query", "rag_stream",
     "chroma_store",
     "is_embedding_configured", "get_embedding", "get_single_embedding",
-    "QwenLLM", "format_messages",
+    "OpenAICompatibleLLM", "format_messages",
 ]

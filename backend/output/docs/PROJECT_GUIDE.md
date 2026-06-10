@@ -58,7 +58,7 @@ chain.rag_stream()
   ├─ (可选) 无关问题短路 → 固定话术回复
   ├─ _retrieve_context()：Embedding 问题 → Chroma 检索 top_k=5
   ├─ format_messages()：system + 历史(最近10轮) + user
-  └─ QwenLLM.stream_chat()：OpenAI 兼容 API 流式生成
+  └─ OpenAICompatibleLLM.stream_chat()：OpenAI 兼容 API 流式生成
   │
   ▼
 SSE 推送到前端 → 保存 assistant Message 到数据库

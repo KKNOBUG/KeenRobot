@@ -6,7 +6,7 @@
 @Module  : chain.py
 @DateTime: 2025/4/28 18:07
 """
-"""RAG检索增强生成链 - 千问API版本"""
+"""RAG检索增强生成链"""
 
 import re
 import asyncio
@@ -15,7 +15,7 @@ from typing import List, Dict
 
 from backend.configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
 from backend.applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
-from backend.applications.base.rag.llm import QwenLLM, format_messages
+from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages
 from backend.applications.base.rag.chroma_store import chroma_store
 
 
@@ -169,7 +169,7 @@ def rag_query(
     )
 
     # 3. 调用LLM
-    llm = QwenLLM(model=model_name)
+    llm = OpenAICompatibleLLM(model=model_name)
     response = llm.chat(
         messages=messages,
         temperature=temperature,
@@ -257,7 +257,7 @@ async def rag_stream(
     )
 
     # 4. 流式调用LLM
-    llm = QwenLLM(model=model_name)
+    llm = OpenAICompatibleLLM(model=model_name)
     async for chunk in llm.stream_chat(
             messages=messages,
             temperature=temperature,

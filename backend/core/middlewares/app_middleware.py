@@ -72,6 +72,12 @@ def is_longtext_response(response: Response) -> bool:
     return int(content_length) > 102400
 
 
+def is_streaming_response(response: Response) -> bool:
+    """判断响应是否为 SSE 等流式传输，此类响应不可缓冲整包 body。"""
+    content_type: str = response.headers.get("content-type", "")
+    return "text/event-stream" in content_type.lower()
+
+
 async def logging_middleware(request: Request, call_next):
     """记录请求与响应摘要、耗时，并写入审计表；对上传/下载/大响应体做特殊处理。
 
@@ -134,6 +140,7 @@ async def logging_middleware(request: Request, call_next):
     is_html: bool = is_html_response(response)
     is_image: bool = is_image_response(response)
     is_longtext: bool = is_longtext_response(response)
+    is_streaming: bool = is_streaming_response(response)
 
     response_header: dict = dict(response.headers)
 
@@ -154,6 +161,9 @@ async def logging_middleware(request: Request, call_next):
             response_body: bytes = b"<IMAGE CONTENT>"
         elif is_longtext:
             response_body: bytes = b"<LONGTEXT CONTENT>"
+        elif is_streaming:
+            # SSE 流式响应不能消费 body_iterator，否则客户端会等到整段结束才收到数据
+            response_body: bytes = b"<STREAMING RESPONSE>"
         else:
             body_chunks = []
             async for chunk in response.body_iterator:
