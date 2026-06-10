@@ -244,15 +244,15 @@ function updateScrollFabState() {
   }
 
   const { scrollTop, scrollHeight, clientHeight } = el
-  const canScroll = scrollHeight - clientHeight > SCROLL_EDGE_THRESHOLD
-  if (!canScroll) {
+  const maxScroll = scrollHeight - clientHeight
+  if (maxScroll <= SCROLL_EDGE_THRESHOLD) {
     showScrollFab.value = false
     return
   }
 
-  const atBottom = scrollHeight - scrollTop - clientHeight < SCROLL_EDGE_THRESHOLD
   showScrollFab.value = true
-  scrollFabToBottom.value = !atBottom
+  // 以可滚动区域中点为界：上半区显示「跳到底部」，下半区显示「返回顶部」
+  scrollFabToBottom.value = scrollTop < maxScroll / 2
 }
 
 function onMessagesScroll() {
