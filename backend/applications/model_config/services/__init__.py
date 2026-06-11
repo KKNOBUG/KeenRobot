@@ -6,6 +6,6 @@
 @Module  : __init__.py
 @DateTime: 2025/4/28 18:07
 """
-from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
+from applications.model_config.services.model_config_crud import ModelConfigCrud
 
 __all__ = ["ModelConfigCrud"]

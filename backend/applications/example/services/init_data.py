@@ -8,8 +8,8 @@
 """
 from decimal import Decimal
 
-from backend.applications.example.models.example_model import Category, Product
-from backend.configure import LOGGER
+from applications.example.models.example_model import Category, Product
+from configure import LOGGER
 
 
 async def init_example_data():

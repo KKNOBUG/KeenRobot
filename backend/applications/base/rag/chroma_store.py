@@ -14,7 +14,7 @@ from typing import List
 import chromadb
 from chromadb.config import Settings
 
-from backend.configure import PROJECT_CONFIG
+from configure import PROJECT_CONFIG
 
 
 class ChromaStore:

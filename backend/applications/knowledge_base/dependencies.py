@@ -12,7 +12,7 @@ KnowledgeBase 模块依赖注入工厂。
 """
 from dataclasses import dataclass
 
-from backend.applications.knowledge_base.services.knowledge_base_crud import (
+from applications.knowledge_base.services.knowledge_base_crud import (
     DocumentChunkCrud,
     DocumentCrud,
     KnowledgeBaseCrud,

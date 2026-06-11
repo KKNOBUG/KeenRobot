@@ -6,6 +6,6 @@
 @Module  : __init__.py
 @DateTime: 2025/4/28 18:07
 """
-from backend.applications.base.models.audit_model import Audit
+from applications.base.models.audit_model import Audit
 
 __all__ = ["Audit"]

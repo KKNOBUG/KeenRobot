@@ -11,9 +11,9 @@ from typing import Optional
 import jwt
 from fastapi import Depends, Header, HTTPException
 
-from backend.applications.user.models.user_model import User
-from backend.configure import PROJECT_CONFIG
-from backend.services import CTX_USER_ID
+from applications.user.models.user_model import User
+from configure import PROJECT_CONFIG
+from services import CTX_USER_ID
 
 
 class AuthControl:

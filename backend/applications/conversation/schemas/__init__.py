@@ -6,7 +6,7 @@
 @Module  : __init__.py
 @DateTime: 2026/6/9
 """
-from backend.applications.conversation.schemas.conversation_schema import (
+from applications.conversation.schemas.conversation_schema import (
     ChatRequest,
     ConversationCreate,
     ConversationUpdate,

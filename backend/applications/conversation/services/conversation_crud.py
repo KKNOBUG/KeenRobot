@@ -8,10 +8,10 @@
 """
 from typing import AsyncIterator, List, Optional
 
-from backend.applications.base.rag.chain import rag_stream
-from backend.applications.base.services.scaffold import ScaffoldCrud
-from backend.applications.conversation.models.conversation_model import Conversation, Message
-from backend.applications.conversation.schemas.conversation_schema import (
+from applications.base.rag.chain import rag_stream
+from applications.base.services.scaffold import ScaffoldCrud
+from applications.conversation.models.conversation_model import Conversation, Message
+from applications.conversation.schemas.conversation_schema import (
     ChatRequest,
     ConversationCreate,
     ConversationDetail,
@@ -21,11 +21,11 @@ from backend.applications.conversation.schemas.conversation_schema import (
     encode_knowledge_ids,
     decode_knowledge_ids,
 )
-from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
-from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
-from backend.applications.user.models.user_model import User
-from backend.core.exceptions import NotFoundException
+from applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
+from applications.model_config.models.model_config_model import ModelConfig
+from applications.model_config.services.model_config_crud import ModelConfigCrud
+from applications.user.models.user_model import User
+from core.exceptions import NotFoundException
 
 
 class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):

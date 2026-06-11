@@ -6,7 +6,7 @@
 @Module  : __init__.py
 @DateTime: 2025/4/28 18:07
 """
-from backend.applications.knowledge_base.models.knowledge_base_model import (
+from applications.knowledge_base.models.knowledge_base_model import (
     KnowledgeBase,
     Document,
     DocumentChunk,

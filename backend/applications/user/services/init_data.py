@@ -8,9 +8,9 @@
 """
 from typing import List
 
-from backend.applications.user.schemas.user_schema import UserCreate
-from backend.applications.user.services.user_crud import UserCrud
-from backend.configure import LOGGER
+from applications.user.schemas.user_schema import UserCreate
+from applications.user.services.user_crud import UserCrud
+from configure import LOGGER
 
 
 async def init_database_user():

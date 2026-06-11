@@ -8,14 +8,14 @@
 """
 from typing import List, Optional
 
-from backend.applications.base.services.scaffold import ScaffoldCrud
-from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.model_config.schemas.model_config_schema import (
+from applications.base.services.scaffold import ScaffoldCrud
+from applications.model_config.models.model_config_model import ModelConfig
+from applications.model_config.schemas.model_config_schema import (
     ModelConfigCreate,
     ModelConfigUpdate,
 )
-from backend.applications.user.models.user_model import User
-from backend.core.exceptions import NotFoundException
+from applications.user.models.user_model import User
+from core.exceptions import NotFoundException
 
 
 class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUpdate]):

@@ -10,17 +10,17 @@ import traceback
 
 from fastapi import APIRouter, Depends
 
-from backend.applications.conversation.dependencies import get_conversation_crud
-from backend.applications.conversation.schemas.conversation_schema import (
+from applications.conversation.dependencies import get_conversation_crud
+from applications.conversation.schemas.conversation_schema import (
     ConversationDetail,
     ConversationOut,
 )
-from backend.applications.conversation.services.conversation_crud import ConversationCrud
-from backend.applications.user.models.user_model import User
-from backend.configure import LOGGER
-from backend.core.exceptions import NotFoundException
-from backend.core.responses import SuccessResponse, FailureResponse, NotFoundResponse
-from backend.services import DependAuth
+from applications.conversation.services.conversation_crud import ConversationCrud
+from applications.user.models.user_model import User
+from configure import LOGGER
+from core.exceptions import NotFoundException
+from core.responses import SuccessResponse, FailureResponse, NotFoundResponse
+from services import DependAuth
 
 history = APIRouter()
 

@@ -11,7 +11,7 @@
 from typing import AsyncIterator, List, Dict
 import httpx
 
-from backend.configure import PROJECT_CONFIG
+from configure import PROJECT_CONFIG
 
 
 class OpenAICompatibleLLM:

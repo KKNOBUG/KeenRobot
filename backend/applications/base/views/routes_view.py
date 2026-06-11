@@ -10,7 +10,7 @@ from fastapi import APIRouter
 from fastapi.routing import APIRoute
 from starlette.requests import Request
 
-from backend.core.responses.http_response import SuccessResponse
+from core.responses.http_response import SuccessResponse
 
 routers = APIRouter()
 

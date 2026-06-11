@@ -17,22 +17,22 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel
 from tortoise.expressions import Q
 
-from backend.applications.base.rag.chroma_store import chroma_store
-from backend.applications.base.rag.embeddings import get_embedding
-from backend.applications.base.services.scaffold import ScaffoldCrud
-from backend.applications.knowledge_base.models.knowledge_base_model import (
+from applications.base.rag.chroma_store import chroma_store
+from applications.base.rag.embeddings import get_embedding
+from applications.base.services.scaffold import ScaffoldCrud
+from applications.knowledge_base.models.knowledge_base_model import (
     Document,
     DocumentChunk,
     KnowledgeBase,
 )
-from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
+from applications.knowledge_base.schemas.knowledge_base_schema import (
     DocumentChunkUpdate,
     KnowledgeBaseCreate,
     KnowledgeBaseOut,
 )
-from backend.applications.user.models.user_model import User
-from backend.configure import PROJECT_CONFIG
-from backend.core.exceptions import (
+from applications.user.models.user_model import User
+from configure import PROJECT_CONFIG
+from core.exceptions import (
     DataBaseStorageException,
     NoPermissionException,
     NotFoundException,

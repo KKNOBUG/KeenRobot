@@ -11,15 +11,15 @@ from typing import Optional, List, Dict, Any
 from tortoise.expressions import Q, F
 from tortoise.functions import Sum, Avg, Max, Min, Count
 
-from backend.applications.base.services.scaffold import ScaffoldCrud
-from backend.applications.example.models.example_model import Category, Product
-from backend.applications.example.schemas.example_schema import (
+from applications.base.services.scaffold import ScaffoldCrud
+from applications.example.models.example_model import Category, Product
+from applications.example.schemas.example_schema import (
     CategoryCreate,
     CategoryUpdate,
     ProductCreate,
     ProductUpdate,
 )
-from backend.configure import LOGGER
+from configure import LOGGER
 
 
 class CategoryCrud(ScaffoldCrud[Category, CategoryCreate, CategoryUpdate]):

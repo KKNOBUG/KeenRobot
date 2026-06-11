@@ -10,7 +10,7 @@ ModelConfig 模块依赖注入工厂。
 
 提供模型配置 CRUD 服务的依赖注入工厂函数。
 """
-from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
+from applications.model_config.services.model_config_crud import ModelConfigCrud
 
 
 async def get_model_config_crud() -> ModelConfigCrud:

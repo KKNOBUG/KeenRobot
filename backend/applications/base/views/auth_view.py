@@ -10,14 +10,14 @@ from datetime import timedelta, datetime, timezone
 
 from fastapi import APIRouter, Depends
 
-from backend.applications.base.schemas.token_schema import CredentialsSchema, JWTOut, JWTPayload
-from backend.applications.user.dependencies import get_user_crud
-from backend.applications.user.models.user_model import User
-from backend.applications.user.services.user_crud import UserCrud
-from backend.configure import PROJECT_CONFIG
-from backend.core.exceptions import NotFoundException, NoPermissionException
-from backend.core.responses import SuccessResponse, NotFoundResponse
-from backend.services import CTX_USER_ID, DependAuth, create_access_token
+from applications.base.schemas.token_schema import CredentialsSchema, JWTOut, JWTPayload
+from applications.user.dependencies import get_user_crud
+from applications.user.models.user_model import User
+from applications.user.services.user_crud import UserCrud
+from configure import PROJECT_CONFIG
+from core.exceptions import NotFoundException, NoPermissionException
+from core.responses import SuccessResponse, NotFoundResponse
+from services import CTX_USER_ID, DependAuth, create_access_token
 
 auth_public = APIRouter()
 auth_secure = APIRouter()

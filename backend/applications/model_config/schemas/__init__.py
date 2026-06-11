@@ -6,7 +6,7 @@
 @Module  : __init__.py
 @DateTime: 2025/4/28 18:07
 """
-from backend.applications.model_config.schemas.model_config_schema import (
+from applications.model_config.schemas.model_config_schema import (
     ModelConfigCreate,
     ModelConfigOut,
     ModelConfigUpdate,

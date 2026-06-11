@@ -6,7 +6,7 @@
 @Module  : __init__.py
 @DateTime: 2026/6/9
 """
-from backend.applications.conversation.services.conversation_crud import (
+from applications.conversation.services.conversation_crud import (
     ConversationCrud,
     MessageCrud,
 )

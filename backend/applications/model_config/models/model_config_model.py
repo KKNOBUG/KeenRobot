@@ -8,7 +8,7 @@
 """
 from tortoise import fields
 
-from backend.applications.base.services.scaffold import (
+from applications.base.services.scaffold import (
     ScaffoldModel,
     StateModel,
     TimestampMixin,

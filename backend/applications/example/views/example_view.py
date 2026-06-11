@@ -11,13 +11,13 @@ from decimal import Decimal
 from fastapi import APIRouter, Body, Query, Depends
 from tortoise.expressions import Q
 
-from backend.applications.example.dependencies import (
+from applications.example.dependencies import (
     get_category_crud,
     get_product_crud,
     get_example_services,
     ExampleServices,
 )
-from backend.applications.example.schemas.example_schema import (
+from applications.example.schemas.example_schema import (
     CategoryCreate,
     CategoryUpdate,
     ProductCreate,
@@ -26,9 +26,9 @@ from backend.applications.example.schemas.example_schema import (
     BatchUpdateProducts,
     TransferStock,
 )
-from backend.applications.example.services.example_crud import CategoryCrud, ProductCrud
-from backend.configure import LOGGER
-from backend.core.responses import SuccessResponse, FailureResponse
+from applications.example.services.example_crud import CategoryCrud, ProductCrud
+from configure import LOGGER
+from core.responses import SuccessResponse, FailureResponse
 
 example_category = APIRouter()
 example_product = APIRouter()

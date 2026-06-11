@@ -14,9 +14,9 @@ import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 
 from tortoise import Tortoise
 
-from backend.configure import PROJECT_CONFIG
-from backend.services import get_password_hash
-from backend.applications.user.models.user_model import User
+from configure import PROJECT_CONFIG
+from services import get_password_hash
+from applications.user.models.user_model import User
 
 
 def build_tortoise_config():

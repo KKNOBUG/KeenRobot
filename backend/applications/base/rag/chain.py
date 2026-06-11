@@ -13,10 +13,10 @@ import asyncio
 from collections.abc import AsyncIterator
 from typing import List, Dict
 
-from backend.configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
-from backend.applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
-from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages
-from backend.applications.base.rag.chroma_store import chroma_store
+from configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
+from applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
+from applications.base.rag.llm import OpenAICompatibleLLM, format_messages
+from applications.base.rag.chroma_store import chroma_store
 
 
 def is_irrelevant_question(question: str) -> bool:

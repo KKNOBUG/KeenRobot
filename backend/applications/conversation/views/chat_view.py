@@ -3,11 +3,11 @@ import json
 from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 
-from backend.applications.conversation.dependencies import get_conversation_crud
-from backend.applications.conversation.schemas.conversation_schema import ChatRequest
-from backend.applications.conversation.services.conversation_crud import ConversationCrud
-from backend.applications.user.models.user_model import User
-from backend.services import DependAuth
+from applications.conversation.dependencies import get_conversation_crud
+from applications.conversation.schemas.conversation_schema import ChatRequest
+from applications.conversation.services.conversation_crud import ConversationCrud
+from applications.user.models.user_model import User
+from services import DependAuth
 
 chat = APIRouter(tags=["chat"])
 

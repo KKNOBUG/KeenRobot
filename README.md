@@ -192,7 +192,7 @@ SQLite 模式下，数据库文件位于 `core/rag_db/rag_system.db`；向量数
 代码中通过单例访问配置：
 
 ```python
-from backend.configure.config import PROJECT_CONFIG, TORTOISE_ORM
+from configure.config import PROJECT_CONFIG, TORTOISE_ORM
 ```
 
 ## API 接口

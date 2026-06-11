@@ -18,7 +18,7 @@ Base 模块依赖注入工厂。
     async def list_audit(crud: AuditCrud = Depends(get_audit_crud)):
         return await crud.list_audit()
 """
-from backend.applications.base.services.audit_crud import AuditCrud
+from applications.base.services.audit_crud import AuditCrud
 
 
 async def get_audit_crud() -> AuditCrud:

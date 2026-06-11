@@ -17,7 +17,7 @@ from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
-from backend.common import FileUtils, ShellUtils
+from common import FileUtils, ShellUtils
 
 _BACKEND_PROJECT_ROOT: str = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 _BACKEND_PROJECT_CONF: str = os.path.join(_BACKEND_PROJECT_ROOT, ".env")
@@ -83,10 +83,12 @@ class ProjectConfig(BaseSettings):
     OUTPUT_JMX_DIR: str = os.path.abspath(os.path.join(OUTPUT_DIR, "jmx"))
     OUTPUT_XLSX_DIR: str = os.path.abspath(os.path.join(OUTPUT_DIR, "xlsx"))
     OUTPUT_DOCS_DIR: str = os.path.abspath(os.path.join(OUTPUT_DIR, "docs"))
+    WORKSPACE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "workspace"))
     SERVICES_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "services"))
     STATIC_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "static"))
     STATIC_IMG_DIR: str = os.path.abspath(os.path.join(STATIC_DIR, "image"))
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
+    CACHE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "cache"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
 
 
@@ -101,6 +103,13 @@ class ProjectConfig(BaseSettings):
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 100
     RETRIEVAL_TOP_K: int = 5
+
+    # 测试用例生成配置
+    TEST_CASE_MODEL_POOL: str = Field(
+        default="claude-sonnet-4-6;claude-opus-4-6;claude-haiku-4-5-20251001",
+        description="Claude 模型池，用分号分隔"
+    )
+    TEST_CASE_MODEL_TIMEOUT: int = Field(default=1200, description="模型调用超时秒数")
 
     # # 允许访问的源（域名）列表
     CORS_ORIGINS: List[str] = [
@@ -148,7 +157,7 @@ class ProjectConfig(BaseSettings):
     ]
 
     # 应用注册
-    APPLICATIONS_MODULE: str = "backend.applications"
+    APPLICATIONS_MODULE: str = "applications"
     APPLICATIONS_INSTALLED: List[str] = FileUtils.get_all_dirs(
         abspath=APPLICATIONS_DIR,
         return_full_path=False,

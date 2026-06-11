@@ -12,7 +12,7 @@ Conversation 模块依赖注入工厂。
 """
 from dataclasses import dataclass
 
-from backend.applications.conversation.services.conversation_crud import (
+from applications.conversation.services.conversation_crud import (
     ConversationCrud,
     MessageCrud,
 )

@@ -10,21 +10,21 @@ import traceback
 
 from fastapi import APIRouter, Depends, File, UploadFile
 
-from backend.applications.knowledge_base.dependencies import get_knowledge_base_crud
-from backend.applications.knowledge_base.schemas.knowledge_base_schema import (
+from applications.knowledge_base.dependencies import get_knowledge_base_crud
+from applications.knowledge_base.schemas.knowledge_base_schema import (
     KnowledgeBaseCreate,
     DocumentChunkUpdate,
 )
-from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
-from backend.applications.user.models.user_model import User
-from backend.configure import LOGGER
-from backend.core.exceptions import (
+from applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
+from applications.user.models.user_model import User
+from configure import LOGGER
+from core.exceptions import (
     DataBaseStorageException,
     NoPermissionException,
     NotFoundException,
     ParameterException,
 )
-from backend.core.responses import (
+from core.responses import (
     SuccessResponse,
     FailureResponse,
     NotFoundResponse,
@@ -32,7 +32,7 @@ from backend.core.responses import (
     ParameterResponse,
     DataBaseStorageResponse,
 )
-from backend.services import DependAuth
+from services import DependAuth
 
 knowledge = APIRouter()
 

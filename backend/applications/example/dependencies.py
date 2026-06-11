@@ -30,7 +30,7 @@ Example 模块依赖注入工厂。
 """
 from dataclasses import dataclass
 
-from backend.applications.example.services.example_crud import CategoryCrud, ProductCrud
+from applications.example.services.example_crud import CategoryCrud, ProductCrud
 
 
 @dataclass
