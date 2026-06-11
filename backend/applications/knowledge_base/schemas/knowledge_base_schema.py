@@ -49,6 +49,7 @@ class KnowledgeBaseOut(BaseModel):
     is_public: bool = Field(..., description="是否公开")
     chunk_size: Optional[int] = Field(default=None, description="分块大小(字符数)")
     chunk_overlap: Optional[int] = Field(default=None, description="分块重叠(字符数)")
+    default_embedding_model: str = Field(..., description="默认向量化模型")
     created_time: datetime = Field(..., description="创建时间")
     updated_time: datetime = Field(..., description="更新时间")
     document_count: int = Field(default=0, description="文档数量")

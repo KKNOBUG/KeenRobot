@@ -61,6 +61,7 @@ class Document(ScaffoldModel, TimestampMixin):
 
     class Meta:
         table = "keenrobot_documents"
+        unique_together = (("kb_id", "content_hash"),)
 
 
 class DocumentChunk(ScaffoldModel, TimestampMixin):

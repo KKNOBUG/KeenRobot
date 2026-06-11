@@ -152,3 +152,5 @@ class ChromaStore:
 
 
 chroma_store = ChromaStore()
+
+# 向量重建入口（预留）：更换 Embedding 模型或迁移向量库时，可在此扩展 reindex 能力。

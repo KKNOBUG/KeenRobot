@@ -24,17 +24,22 @@ const documents = ref([])
 const chunks = ref([])
 const loading = ref(false)
 const showCreateModal = ref(false)
+const showEditModal = ref(false)
 const showUploadModal = ref(false)
 const showChunksModal = ref(false)
 
-const newKB = ref({
+const emptyKBForm = () => ({
   knowledge_name: '',
   description: '',
   is_public: false,
   chunk_size: null,
   chunk_overlap: null,
 })
+
+const newKB = ref(emptyKBForm())
+const editKB = ref({ id: '', ...emptyKBForm() })
 const uploadFile = ref(null)
+const retryingDocId = ref(null)
 
 onMounted(async () => {
   await loadKnowledgeBases()
@@ -57,13 +62,7 @@ async function handleCreateKB() {
   try {
     await api.createKnowledgeBase(newKB.value)
     showCreateModal.value = false
-    newKB.value = {
-      knowledge_name: '',
-      description: '',
-      is_public: false,
-      chunk_size: null,
-      chunk_overlap: null,
-    }
+    newKB.value = emptyKBForm()
     window.$message?.success('知识库创建成功')
     await loadKnowledgeBases()
   } catch (err) {
@@ -85,6 +84,43 @@ async function handleDeleteKB(id) {
   }
 }
 
+function openEditKB(kb) {
+  editKB.value = {
+    id: kb.id,
+    knowledge_name: kb.knowledge_name,
+    description: kb.description || '',
+    is_public: kb.is_public,
+    chunk_size: kb.chunk_size,
+    chunk_overlap: kb.chunk_overlap,
+  }
+  showEditModal.value = true
+}
+
+async function handleUpdateKB() {
+  if (!editKB.value.knowledge_name.trim()) {
+    window.$message?.warning('请输入知识库名称')
+    return
+  }
+  try {
+    const payload = {
+      knowledge_name: editKB.value.knowledge_name,
+      description: editKB.value.description,
+      is_public: editKB.value.is_public,
+      chunk_size: editKB.value.chunk_size,
+      chunk_overlap: editKB.value.chunk_overlap,
+    }
+    const updated = await api.updateKnowledgeBase(editKB.value.id, payload)
+    showEditModal.value = false
+    window.$message?.success('知识库已更新')
+    await loadKnowledgeBases()
+    if (selectedKB.value?.id === editKB.value.id) {
+      selectedKB.value = updated
+    }
+  } catch (err) {
+    window.$message?.error('更新失败: ' + err.message)
+  }
+}
+
 async function selectKB(kb) {
   selectedKB.value = kb
   documents.value = await api.fetchDocuments(kb.id)
@@ -100,6 +136,20 @@ async function handleUpload() {
     documents.value = await api.fetchDocuments(selectedKB.value.id)
   } catch (err) {
     window.$message?.error('上传失败: ' + err.message)
+  }
+}
+
+async function handleRetryDoc(doc) {
+  retryingDocId.value = doc.id
+  try {
+    await api.retryDocument(selectedKB.value.id, doc.id)
+    window.$message?.success('文档重试处理成功')
+    documents.value = await api.fetchDocuments(selectedKB.value.id)
+  } catch (err) {
+    window.$message?.error('重试失败: ' + err.message)
+    documents.value = await api.fetchDocuments(selectedKB.value.id)
+  } finally {
+    retryingDocId.value = null
   }
 }
 
@@ -140,6 +190,16 @@ function fileTypeLabel(type) {
   const map = { pdf: 'PDF', txt: 'TXT', docx: 'Word' }
   return map[type] || type
 }
+
+function formatChunkSize(kb) {
+  return kb.chunk_size ? String(kb.chunk_size) : '500(默认)'
+}
+
+function shortModelName(model) {
+  if (!model) return '-'
+  const parts = model.split('/')
+  return parts[parts.length - 1]
+}
 </script>
 
 <template>
@@ -163,24 +223,25 @@ function fileTypeLabel(type) {
           >
             <div class="kb-card-top">
               <h3>{{ kb.knowledge_name }}</h3>
-              <NPopconfirm @positive-click="handleDeleteKB(kb.id)">
-                <template #trigger>
-                  <NButton
-                      size="tiny"
-                      type="error"
-                      quaternary
-                      class="delete-btn"
-                      @click.stop
-                  >
-                    删除
-                  </NButton>
-                </template>
-                确定删除该知识库吗？
-              </NPopconfirm>
+              <div class="kb-card-actions" @click.stop>
+                <NButton size="tiny" quaternary @click="openEditKB(kb)">编辑</NButton>
+                <NPopconfirm @positive-click="handleDeleteKB(kb.id)">
+                  <template #trigger>
+                    <NButton size="tiny" type="error" quaternary class="delete-btn">
+                      删除
+                    </NButton>
+                  </template>
+                  确定删除该知识库吗？
+                </NPopconfirm>
+              </div>
             </div>
             <p class="kb-desc">{{ kb.description || '暂无描述' }}</p>
             <div class="kb-meta">
               <span>{{ kb.document_count }} 个文档</span>
+              <span>分块 {{ formatChunkSize(kb) }}</span>
+              <span :title="kb.default_embedding_model">
+                向量 {{ shortModelName(kb.default_embedding_model) }}
+              </span>
               <NTag v-if="kb.is_public" size="small" type="info">公开</NTag>
             </div>
           </div>
@@ -203,12 +264,28 @@ function fileTypeLabel(type) {
                   <NTag v-if="doc.file_type" size="small">{{ fileTypeLabel(doc.file_type) }}</NTag>
                   <span class="doc-size">{{ (doc.file_size / 1024).toFixed(1) }} KB</span>
                   <NTag size="small" :type="statusTagType(doc.status)">{{ statusLabel(doc.status) }}</NTag>
+                  <span
+                      v-if="doc.embedding_model"
+                      class="doc-embedding"
+                      :title="doc.embedding_model"
+                  >
+                    向量 {{ shortModelName(doc.embedding_model) }}
+                  </span>
                 </div>
                 <p v-if="doc.status === 'failed' && doc.error_msg" class="doc-error">
                   {{ doc.error_msg }}
                 </p>
               </div>
               <div class="doc-actions">
+                <NButton
+                    v-if="doc.status === 'failed'"
+                    size="small"
+                    type="warning"
+                    :loading="retryingDocId === doc.id"
+                    @click="handleRetryDoc(doc)"
+                >
+                  重试
+                </NButton>
                 <NButton size="small" @click="viewChunks(doc)">查看分块</NButton>
                 <NPopconfirm @positive-click="handleDeleteDoc(doc.id)">
                   <template #trigger>
@@ -266,6 +343,50 @@ function fileTypeLabel(type) {
           <div class="modal-footer">
             <NButton @click="showCreateModal = false">取消</NButton>
             <NButton type="primary" @click="handleCreateKB">创建</NButton>
+          </div>
+        </template>
+      </NModal>
+
+      <NModal
+          v-model:show="showEditModal"
+          preset="card"
+          title="编辑知识库"
+          :bordered="false"
+          :mask-closable="false"
+          style="width: 420px"
+      >
+        <NInput v-model:value="editKB.knowledge_name" placeholder="知识库名称" class="mb-12" />
+        <NInput
+            v-model:value="editKB.description"
+            type="textarea"
+            placeholder="描述（可选）"
+            :rows="3"
+            class="mb-12"
+        />
+        <NCheckbox v-model:checked="editKB.is_public" class="mb-12">公开知识库</NCheckbox>
+        <div class="chunk-config">
+          <label class="field-label">分块大小（可选，默认 500）</label>
+          <NInputNumber
+              v-model:value="editKB.chunk_size"
+              :min="200"
+              :max="2000"
+              placeholder="留空使用全局默认"
+              class="mb-12"
+              style="width: 100%"
+          />
+          <label class="field-label">分块重叠（可选，默认 100）</label>
+          <NInputNumber
+              v-model:value="editKB.chunk_overlap"
+              :min="0"
+              :max="1000"
+              placeholder="留空使用全局默认"
+              style="width: 100%"
+          />
+        </div>
+        <template #footer>
+          <div class="modal-footer">
+            <NButton @click="showEditModal = false">取消</NButton>
+            <NButton type="primary" @click="handleUpdateKB">保存</NButton>
           </div>
         </template>
       </NModal>
@@ -398,14 +519,26 @@ function fileTypeLabel(type) {
 
 .kb-meta {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
   font-size: 12px;
   color: var(--n-text-color-3, #999);
 }
 
+.kb-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .delete-btn {
   flex-shrink: 0;
+}
+
+.doc-embedding {
+  font-size: 12px;
+  color: var(--n-text-color-3, #666);
 }
 
 .doc-section {

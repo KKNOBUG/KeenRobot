@@ -32,8 +32,10 @@ export default {
           .get(search ? `/knowledge-bases/?search=${encodeURIComponent(search)}` : '/knowledge-bases/')
           .then(payload),
   createKnowledgeBase: (data) => request.post('/knowledge-bases/', data).then(payload),
+  updateKnowledgeBase: (id, data) => request.put(`/knowledge-bases/${id}`, data).then(payload),
   deleteKnowledgeBase: (id) => request.delete(`/knowledge-bases/${id}`).then(payload),
   fetchDocuments: (kbId) => request.get(`/knowledge-bases/${kbId}/documents`).then(payload),
+  retryDocument: (kbId, docId) => request.post(`/knowledge-bases/${kbId}/documents/${docId}/retry`).then(payload),
   deleteDocument: (kbId, docId) => request.delete(`/knowledge-bases/${kbId}/documents/${docId}`).then(payload),
   fetchChunks: (kbId, docId) => request.get(`/knowledge-bases/${kbId}/chunks?doc_id=${docId}`).then(payload),
 

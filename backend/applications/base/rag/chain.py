@@ -73,6 +73,22 @@ def _format_source_label(result: dict) -> str:
     return ""
 
 
+def _filter_embedding_model_consistency(results: List[dict]) -> List[dict]:
+    """过滤与当前 Embedding 模型不一致的检索结果"""
+    current_model = PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
+    filtered = []
+    for item in results:
+        stored_model = (item.get("embedding_model") or "").strip()
+        if stored_model and stored_model != current_model:
+            print(
+                f"[rag] 跳过 embedding 模型不一致的向量: "
+                f"{stored_model} != {current_model}"
+            )
+            continue
+        filtered.append(item)
+    return filtered
+
+
 def format_context_from_results(results: List[dict]) -> str:
     """将检索结果格式化为上下文字符串"""
     parts = []
@@ -103,6 +119,7 @@ def _retrieve_context(
 
     query_embedding = get_single_embedding(question)
     search_results = chroma_store.search(knowledge_ids, query_embedding, top_k=top_k)
+    search_results = _filter_embedding_model_consistency(search_results)
     if score_threshold > 0:
         search_results = [
             item for item in search_results

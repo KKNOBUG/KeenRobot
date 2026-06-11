@@ -14,6 +14,7 @@ from typing import List, Optional, Tuple
 from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel
+from tortoise.exceptions import IntegrityError
 from tortoise.expressions import Q
 
 from backend.applications.base.rag.chroma_store import chroma_store
@@ -219,6 +220,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             is_public=kb.is_public,
             chunk_size=kb.chunk_size,
             chunk_overlap=kb.chunk_overlap,
+            default_embedding_model=PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL,
             created_time=kb.created_time,
             updated_time=kb.updated_time,
             document_count=doc_count,
@@ -280,53 +282,20 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         kb.updated_user = self._operator_name(user)
         await kb.save()
 
-    async def upload_document(
-        self, kb_id: str, user: User, file: UploadFile
-    ) -> DocumentOut:
-        """上传并处理文档"""
-        kb = await self.get_by_id(kb_id)
-        if not kb:
-            raise NotFoundException(message="知识库不存在")
-        self.check_write(kb, user)
+    async def _process_document(self, kb: KnowledgeBase, doc: Document) -> None:
+        """解析文档、分块并写入向量库"""
+        chroma_store.delete_by_doc(doc.id)
+        await DocumentChunk.filter(doc_id=doc.id).delete()
 
-        try:
-            file_type = validate_file_type(file.filename)
-        except ValueError as e:
-            raise ParameterException(message=str(e))
-
-        content = await file.read()
-        content_hash = self._content_hash(content)
-
-        existing_doc = await self.document.get_by_content_hash(kb_id, content_hash)
-        if existing_doc:
-            raise ParameterException(
-                message=(
-                    f"该文档内容已存在于当前知识库"
-                    f"（与「{existing_doc.filename}」相同），请勿重复上传"
-                )
-            )
-
-        kb_upload_dir = PROJECT_CONFIG.upload_path / kb_id
-        kb_upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = kb_upload_dir / file.filename
-        with open(file_path, "wb") as f:
-            f.write(content)
-
-        embedding_model = PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
-        doc = await self.document.create_for_kb(
-            kb_id=kb_id,
-            filename=file.filename,
-            file_type=file_type,
-            file_path=str(file_path),
-            file_size=len(content),
-            content_hash=content_hash,
-            embedding_model=embedding_model,
-            status="processing",
-        )
+        doc.status = "processing"
+        doc.error_msg = None
+        doc.chunk_count = 0
+        doc.embedding_model = PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL
+        await doc.save()
 
         try:
             chunk_size, chunk_overlap = self._resolve_chunk_config(kb)
-            pages = load_document_pages(str(file_path), file_type)
+            pages = load_document_pages(doc.file_path, doc.file_type)
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
@@ -361,11 +330,11 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                     "embedding": emb,
                     "page_number": chunk.page_number,
                     "filename": doc.filename,
-                    "embedding_model": embedding_model,
+                    "embedding_model": doc.embedding_model,
                 }
                 for chunk, emb in zip(chunk_models, embeddings)
             ]
-            chroma_ids = chroma_store.upsert_chunks(kb_id, chroma_chunks)
+            chroma_ids = chroma_store.upsert_chunks(kb.id, chroma_chunks)
 
             for chunk, chroma_id in zip(chunk_models, chroma_ids):
                 chunk.chroma_id = chroma_id
@@ -380,7 +349,81 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             await doc.save()
             raise DataBaseStorageException(message=f"文档处理失败: {str(e)}")
 
+    async def upload_document(
+        self, kb_id: str, user: User, file: UploadFile
+    ) -> DocumentOut:
+        """上传并处理文档"""
+        kb = await self.get_by_id(kb_id)
+        if not kb:
+            raise NotFoundException(message="知识库不存在")
+        self.check_write(kb, user)
+
+        try:
+            file_type = validate_file_type(file.filename)
+        except ValueError as e:
+            raise ParameterException(message=str(e))
+
+        content = await file.read()
+        content_hash = self._content_hash(content)
+
+        existing_doc = await self.document.get_by_content_hash(kb_id, content_hash)
+        if existing_doc:
+            raise ParameterException(
+                message=(
+                    f"该文档内容已存在于当前知识库"
+                    f"（与「{existing_doc.filename}」相同），请勿重复上传"
+                )
+            )
+
+        kb_upload_dir = PROJECT_CONFIG.upload_path / kb_id
+        kb_upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = kb_upload_dir / file.filename
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        try:
+            doc = await self.document.create_for_kb(
+                kb_id=kb_id,
+                filename=file.filename,
+                file_type=file_type,
+                file_path=str(file_path),
+                file_size=len(content),
+                content_hash=content_hash,
+                embedding_model=PROJECT_CONFIG.DEFAULT_EMBEDDING_MODEL,
+                status="processing",
+            )
+        except IntegrityError:
+            raise ParameterException(message="该文档内容已存在于当前知识库，请勿重复上传")
+
+        await self._process_document(kb, doc)
         return self._to_document_out(doc)
+
+    async def retry_document(
+        self, kb_id: str, doc_id: str, user: User
+    ) -> DocumentOut:
+        """重试处理失败的文档（使用已上传的本地文件）"""
+        kb = await self.get_by_id(kb_id)
+        if not kb:
+            raise NotFoundException(message="知识库不存在")
+        self.check_write(kb, user)
+
+        doc = await self.document.get_by_kb(kb_id, doc_id)
+        if not doc:
+            raise NotFoundException(message="文档不存在")
+        if doc.status != "failed":
+            raise ParameterException(message="仅失败状态的文档支持重试")
+        if not os.path.exists(doc.file_path):
+            raise ParameterException(message="原始文件不存在，请重新上传")
+
+        await self._process_document(kb, doc)
+        return self._to_document_out(doc)
+
+    async def reindex_kb_vectors(self, kb_id: str, user: User) -> None:
+        """
+        向量重建入口（预留）。
+        更换 Embedding 模型或 Chroma 存储方案时可在此实现全量重建。
+        """
+        raise NotImplementedError("向量重建功能暂未实现")
 
     async def list_documents(self, kb_id: str, user: User) -> List[DocumentOut]:
         """获取知识库下的文档列表"""

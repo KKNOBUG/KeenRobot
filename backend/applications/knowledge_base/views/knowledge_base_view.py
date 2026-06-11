@@ -163,6 +163,29 @@ async def list_documents(
         return FailureResponse(message=f"查询失败: {e}")
 
 
+@knowledge.post("/{kb_id}/documents/{doc_id}/retry", summary="重试处理失败文档")
+async def retry_document(
+        kb_id: str,
+        doc_id: str,
+        current_user: User = DependAuth,
+        kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
+):
+    try:
+        doc = await kb_crud.retry_document(kb_id, doc_id, current_user)
+        return SuccessResponse(data=doc.model_dump())
+    except NotFoundException as e:
+        return NotFoundResponse(message=e.message)
+    except NoPermissionException as e:
+        return ForbiddenResponse(message=e.message)
+    except ParameterException as e:
+        return ParameterResponse(message=e.message)
+    except DataBaseStorageException as e:
+        return DataBaseStorageResponse(message=e.message)
+    except Exception as e:
+        LOGGER.error(f"重试文档处理失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"重试失败: {e}")
+
+
 @knowledge.delete("/{kb_id}/documents/{doc_id}", summary="删除文档")
 async def delete_document(
         kb_id: str,
