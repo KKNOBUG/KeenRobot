@@ -60,13 +60,30 @@ def get_irrelevant_response() -> str:
 请随时向我提问，我会根据公司的官方资料为您提供准确、详细的解答！"""
 
 
+def _format_source_label(result: dict) -> str:
+    """格式化检索结果的来源标注"""
+    filename = (result.get("filename") or "").strip()
+    page_number = result.get("page_number")
+    if filename and page_number:
+        return f"来源: {filename} 第{page_number}页"
+    if filename:
+        return f"来源: {filename}"
+    if page_number:
+        return f"来源: 第{page_number}页"
+    return ""
+
+
 def format_context_from_results(results: List[dict]) -> str:
     """将检索结果格式化为上下文字符串"""
     parts = []
     for i, result in enumerate(results, 1):
         content = result.get("content", "")
         score = result.get("score", 0)
-        parts.append(f"[{i}] (相关度: {score:.3f})\n{content}")
+        source = _format_source_label(result)
+        header = f"[{i}] (相关度: {score:.3f})"
+        if source:
+            header += f", {source}"
+        parts.append(f"{header}\n{content}")
     return "\n\n".join(parts)
 
 

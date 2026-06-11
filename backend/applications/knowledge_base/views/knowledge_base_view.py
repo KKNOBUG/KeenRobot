@@ -130,8 +130,7 @@ async def upload_document(
 ):
     try:
         doc = await kb_crud.upload_document(kb_id, current_user, file)
-        data = await doc.to_dict()
-        return SuccessResponse(data=data)
+        return SuccessResponse(data=doc.model_dump())
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
     except NoPermissionException as e:
@@ -153,7 +152,7 @@ async def list_documents(
 ):
     try:
         docs = await kb_crud.list_documents(kb_id, current_user)
-        data = [await doc.to_dict() for doc in docs]
+        data = [doc.model_dump() for doc in docs]
         return SuccessResponse(data=data, total=len(data))
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -196,7 +195,7 @@ async def list_chunks(
         chunks = await kb_crud.list_chunks(
             kb_id, current_user, doc_id, page, page_size
         )
-        data = [await chunk.to_dict() for chunk in chunks]
+        data = [chunk.model_dump() for chunk in chunks]
         return SuccessResponse(data=data, total=len(data))
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -216,8 +215,7 @@ async def get_chunk(
 ):
     try:
         chunk = await kb_crud.get_chunk(kb_id, chunk_id, current_user)
-        data = await chunk.to_dict()
-        return SuccessResponse(data=data)
+        return SuccessResponse(data=chunk.model_dump())
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
     except NoPermissionException as e:
@@ -239,8 +237,7 @@ async def update_chunk(
         chunk = await kb_crud.update_chunk(
             kb_id, chunk_id, current_user, chunk_data
         )
-        data = await chunk.to_dict()
-        return SuccessResponse(data=data)
+        return SuccessResponse(data=chunk.model_dump())
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
     except NoPermissionException as e:

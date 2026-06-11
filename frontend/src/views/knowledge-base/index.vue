@@ -7,6 +7,7 @@ import {
   NCheckbox,
   NEmpty,
   NInput,
+  NInputNumber,
   NModal,
   NPopconfirm,
   NTag,
@@ -26,7 +27,13 @@ const showCreateModal = ref(false)
 const showUploadModal = ref(false)
 const showChunksModal = ref(false)
 
-const newKB = ref({ name: '', description: '', is_public: false })
+const newKB = ref({
+  knowledge_name: '',
+  description: '',
+  is_public: false,
+  chunk_size: null,
+  chunk_overlap: null,
+})
 const uploadFile = ref(null)
 
 onMounted(async () => {
@@ -43,14 +50,20 @@ async function loadKnowledgeBases() {
 }
 
 async function handleCreateKB() {
-  if (!newKB.value.name.trim()) {
+  if (!newKB.value.knowledge_name.trim()) {
     window.$message?.warning('请输入知识库名称')
     return
   }
   try {
     await api.createKnowledgeBase(newKB.value)
     showCreateModal.value = false
-    newKB.value = { name: '', description: '', is_public: false }
+    newKB.value = {
+      knowledge_name: '',
+      description: '',
+      is_public: false,
+      chunk_size: null,
+      chunk_overlap: null,
+    }
     window.$message?.success('知识库创建成功')
     await loadKnowledgeBases()
   } catch (err) {
@@ -115,6 +128,18 @@ function statusTagType(status) {
   if (status === 'failed') return 'error'
   return 'default'
 }
+
+function statusLabel(status) {
+  if (status === 'completed') return '已完成'
+  if (status === 'processing') return '处理中'
+  if (status === 'failed') return '失败'
+  return status
+}
+
+function fileTypeLabel(type) {
+  const map = { pdf: 'PDF', txt: 'TXT', docx: 'Word' }
+  return map[type] || type
+}
 </script>
 
 <template>
@@ -137,7 +162,7 @@ function statusTagType(status) {
               @click="selectKB(kb)"
           >
             <div class="kb-card-top">
-              <h3>{{ kb.name }}</h3>
+              <h3>{{ kb.knowledge_name }}</h3>
               <NPopconfirm @positive-click="handleDeleteKB(kb.id)">
                 <template #trigger>
                   <NButton
@@ -164,7 +189,7 @@ function statusTagType(status) {
 
         <div v-if="selectedKB" class="doc-section">
           <div class="doc-header">
-            <h3>{{ selectedKB.name }} - 文档列表</h3>
+            <h3>{{ selectedKB.knowledge_name }} - 文档列表</h3>
             <NButton type="primary" @click="showUploadModal = true">
               + 上传文档
             </NButton>
@@ -172,10 +197,16 @@ function statusTagType(status) {
 
           <div class="doc-list">
             <div v-for="doc in documents" :key="doc.id" class="doc-item">
-              <div class="doc-info">
-                <span class="doc-name">{{ doc.filename }}</span>
-                <span class="doc-size">{{ (doc.file_size / 1024).toFixed(1) }} KB</span>
-                <NTag size="small" :type="statusTagType(doc.status)">{{ doc.status }}</NTag>
+              <div class="doc-main">
+                <div class="doc-info">
+                  <span class="doc-name">{{ doc.filename }}</span>
+                  <NTag v-if="doc.file_type" size="small">{{ fileTypeLabel(doc.file_type) }}</NTag>
+                  <span class="doc-size">{{ (doc.file_size / 1024).toFixed(1) }} KB</span>
+                  <NTag size="small" :type="statusTagType(doc.status)">{{ statusLabel(doc.status) }}</NTag>
+                </div>
+                <p v-if="doc.status === 'failed' && doc.error_msg" class="doc-error">
+                  {{ doc.error_msg }}
+                </p>
               </div>
               <div class="doc-actions">
                 <NButton size="small" @click="viewChunks(doc)">查看分块</NButton>
@@ -203,7 +234,7 @@ function statusTagType(status) {
           :mask-closable="false"
           style="width: 420px"
       >
-        <NInput v-model:value="newKB.name" placeholder="知识库名称" class="mb-12" />
+        <NInput v-model:value="newKB.knowledge_name" placeholder="知识库名称" class="mb-12" />
         <NInput
             v-model:value="newKB.description"
             type="textarea"
@@ -211,7 +242,26 @@ function statusTagType(status) {
             :rows="3"
             class="mb-12"
         />
-        <NCheckbox v-model:checked="newKB.is_public">公开知识库</NCheckbox>
+        <NCheckbox v-model:checked="newKB.is_public" class="mb-12">公开知识库</NCheckbox>
+        <div class="chunk-config">
+          <label class="field-label">分块大小（可选，默认 500）</label>
+          <NInputNumber
+              v-model:value="newKB.chunk_size"
+              :min="200"
+              :max="2000"
+              placeholder="留空使用全局默认"
+              class="mb-12"
+              style="width: 100%"
+          />
+          <label class="field-label">分块重叠（可选，默认 100）</label>
+          <NInputNumber
+              v-model:value="newKB.chunk_overlap"
+              :min="0"
+              :max="1000"
+              placeholder="留空使用全局默认"
+              style="width: 100%"
+          />
+        </div>
         <template #footer>
           <div class="modal-footer">
             <NButton @click="showCreateModal = false">取消</NButton>
@@ -228,15 +278,15 @@ function statusTagType(status) {
           :mask-closable="false"
           style="width: 420px"
       >
-        <p class="upload-tip">仅支持 PDF 文件</p>
+        <p class="upload-tip">支持 PDF、TXT、Word(docx)，当前仅 PDF 可解析</p>
         <NUpload
             :max="1"
-            accept=".pdf"
+            accept=".pdf,.txt,.docx"
             :default-upload="false"
             @change="onFileChange"
         >
           <NUploadDragger>
-            <p>点击或拖拽 PDF 文件到此处</p>
+            <p>点击或拖拽文件到此处</p>
           </NUploadDragger>
         </NUpload>
         <template #footer>
@@ -256,7 +306,10 @@ function statusTagType(status) {
       >
         <div class="chunks-list">
           <div v-for="chunk in chunks" :key="chunk.id" class="chunk-item">
-            <div class="chunk-index">#{{ chunk.chunk_index + 1 }}</div>
+            <div class="chunk-index">
+              #{{ chunk.chunk_index + 1 }}
+              <span v-if="chunk.page_number"> · 第{{ chunk.page_number }}页</span>
+            </div>
             <div class="chunk-content">{{ chunk.content }}</div>
           </div>
           <NEmpty v-if="chunks.length === 0" description="暂无知识块" />
@@ -391,12 +444,17 @@ function statusTagType(status) {
 .doc-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px;
   background: var(--n-color-modal, #f5f5f5);
   border-radius: 6px;
   min-width: 0;
+}
+
+.doc-main {
+  min-width: 0;
+  flex: 1;
 }
 
 .doc-info {
@@ -405,6 +463,14 @@ function statusTagType(status) {
   align-items: center;
   min-width: 0;
   flex-wrap: wrap;
+}
+
+.doc-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--n-error-color, #d03050);
+  word-break: break-word;
 }
 
 .doc-name {
@@ -453,6 +519,17 @@ function statusTagType(status) {
 
 .upload-tip {
   margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--n-text-color-3, #666);
+}
+
+.chunk-config {
+  margin-top: 4px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
   font-size: 13px;
   color: var(--n-text-color-3, #666);
 }

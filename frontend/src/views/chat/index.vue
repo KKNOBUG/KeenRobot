@@ -4,7 +4,7 @@ defineOptions({ name: 'Chat' })
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
-import { NButton, NLayout, NLayoutContent, NLayoutSider } from 'naive-ui'
+import { NButton, NLayout, NLayoutContent, NLayoutSider, NSkeleton } from 'naive-ui'
 import MessageBubble from '../../components/MessageBubble.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
@@ -18,6 +18,7 @@ const conversations = ref([])
 const messages = ref([])
 const inputText = ref('')
 const isLoading = ref(false)
+const isConversationLoading = ref(false)
 const messagesContainer = ref(null)
 const inputRef = ref(null)
 const showScrollFab = ref(false)
@@ -157,6 +158,7 @@ async function switchToConversation(newId) {
   }
   await nextTick()
   scrollToBottom()
+  updateScrollFabState()
 }
 
 // 仅处理浏览器前进/后退、新建对话等外部 URL 变化
@@ -173,20 +175,33 @@ async function loadConversation(id) {
   const targetId = normalizeConversationId(id)
   const seq = ++loadConversationSeq
 
-  const detail = await api.fetchConversation(targetId)
-  if (seq !== loadConversationSeq) return
+  isConversationLoading.value = true
+  messages.value = []
 
-  currentConvId = targetId
-  messages.value = detail.messages.map(m => ({
-    role: m.role,
-    content: m.content,
-  }))
-  // 恢复知识库和模型配置选择
-  if (detail.knowledge_ids) {
-    selectedKBs.value = detail.knowledge_ids
-  }
-  if (detail.model_config_id) {
-    selectedModelConfig.value = detail.model_config_id
+  try {
+    const detail = await api.fetchConversation(targetId)
+    if (seq !== loadConversationSeq) return
+
+    currentConvId = targetId
+    messages.value = detail.messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    }))
+    if (detail.knowledge_ids) {
+      selectedKBs.value = detail.knowledge_ids
+    }
+    if (detail.model_config_id) {
+      selectedModelConfig.value = detail.model_config_id
+    }
+  } catch (err) {
+    if (seq !== loadConversationSeq) return
+    console.error('[Chat] 加载对话失败:', err)
+    messages.value = []
+    window.$message?.error('加载对话失败')
+  } finally {
+    if (seq === loadConversationSeq) {
+      isConversationLoading.value = false
+    }
   }
 }
 
@@ -238,7 +253,7 @@ function scrollToTop() {
 
 function updateScrollFabState() {
   const el = messagesContainer.value
-  if (!el || messages.value.length === 0) {
+  if (!el || isConversationLoading.value || messages.value.length === 0) {
     showScrollFab.value = false
     return
   }
@@ -396,9 +411,44 @@ function renderMarkdown(text) {
             <div
                 ref="messagesContainer"
                 class="messages-area"
-                :class="{ 'is-empty': messages.length === 0 }"
+                :class="{ 'is-empty': !isConversationLoading && messages.length === 0 }"
             >
-              <div v-if="messages.length === 0" class="welcome">
+              <div v-if="isConversationLoading" class="messages-skeleton">
+                <div class="message-skeleton user">
+                  <div class="avatar-col" />
+                  <NSkeleton class="skeleton-bubble" :sharp="false" height="40px" width="38%" />
+                  <div class="avatar-col">
+                    <NSkeleton circle width="36px" height="36px" />
+                  </div>
+                </div>
+                <div class="message-skeleton assistant">
+                  <div class="avatar-col">
+                    <NSkeleton circle width="36px" height="36px" />
+                  </div>
+                  <div class="skeleton-bubble skeleton-bubble--wide">
+                    <NSkeleton text :repeat="3" />
+                  </div>
+                  <div class="avatar-col" />
+                </div>
+                <div class="message-skeleton user">
+                  <div class="avatar-col" />
+                  <NSkeleton class="skeleton-bubble" :sharp="false" height="40px" width="32%" />
+                  <div class="avatar-col">
+                    <NSkeleton circle width="36px" height="36px" />
+                  </div>
+                </div>
+                <div class="message-skeleton assistant">
+                  <div class="avatar-col">
+                    <NSkeleton circle width="36px" height="36px" />
+                  </div>
+                  <div class="skeleton-bubble skeleton-bubble--wide">
+                    <NSkeleton text :repeat="2" />
+                  </div>
+                  <div class="avatar-col" />
+                </div>
+              </div>
+
+              <div v-else-if="messages.length === 0" class="welcome">
                 <div class="welcome-brand">
                   <icon-custom-logo-new text-36 color-primary flex-shrink-0 />
                   <p class="welcome-greeting">
@@ -443,13 +493,13 @@ function renderMarkdown(text) {
                       class="input-textarea"
                       placeholder="请输入您的问题... Enter发送消息 / Shift+Enter换行"
                       rows="3"
-                      :disabled="isLoading"
+                      :disabled="isLoading || isConversationLoading"
                       @keydown="handleKeydown"
                   />
                   <button
                       class="send-btn"
                       type="button"
-                      :disabled="!inputText.trim() || isLoading"
+                      :disabled="!inputText.trim() || isLoading || isConversationLoading"
                       @click="sendMessage()"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -620,6 +670,32 @@ function renderMarkdown(text) {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.messages-skeleton {
+  padding: 8px 0;
+}
+
+.message-skeleton {
+  display: grid;
+  grid-template-columns: var(--avatar-size, 36px) 1fr var(--avatar-size, 36px);
+  gap: var(--avatar-gap, 12px);
+  align-items: start;
+  margin: 0 auto 16px;
+  width: 90%;
+}
+
+.message-skeleton .avatar-col {
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.skeleton-bubble {
+  min-width: 0;
+}
+
+.skeleton-bubble--wide {
+  width: 100%;
 }
 
 .welcome {

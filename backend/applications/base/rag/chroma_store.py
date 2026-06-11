@@ -55,13 +55,18 @@ class ChromaStore:
             ids.append(vector_id)
             embeddings.append(chunk["embedding"])
             documents.append(chunk["content"])
-            metadatas.append(
-                {
-                    "kb_id": kb_id,
-                    "doc_id": chunk["doc_id"],
-                    "chunk_id": chunk["chunk_id"],
-                }
-            )
+            metadata = {
+                "kb_id": kb_id,
+                "doc_id": chunk["doc_id"],
+                "chunk_id": chunk["chunk_id"],
+            }
+            if chunk.get("page_number") is not None:
+                metadata["page_number"] = chunk["page_number"]
+            if chunk.get("filename"):
+                metadata["filename"] = chunk["filename"]
+            if chunk.get("embedding_model"):
+                metadata["embedding_model"] = chunk["embedding_model"]
+            metadatas.append(metadata)
 
         self._collection.upsert(
             ids=ids,
@@ -103,12 +108,18 @@ class ChromaStore:
         for i, doc_id in enumerate(result["ids"][0]):
             metadata = result["metadatas"][0][i] or {}
             distance = result["distances"][0][i] if result["distances"] else 0.0
+            page_number = metadata.get("page_number")
+            if page_number is not None:
+                page_number = int(page_number)
             hits.append(
                 {
                     "id": doc_id,
                     "kb_id": metadata.get("kb_id", ""),
                     "doc_id": metadata.get("doc_id", ""),
                     "chunk_id": metadata.get("chunk_id", ""),
+                    "filename": metadata.get("filename", ""),
+                    "page_number": page_number,
+                    "embedding_model": metadata.get("embedding_model", ""),
                     "content": result["documents"][0][i] or "",
                     "score": 1.0 - distance,
                 }
