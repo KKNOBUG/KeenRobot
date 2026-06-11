@@ -306,6 +306,8 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                 raw_page = page.metadata.get("page")
                 page_number = int(raw_page) + 1 if raw_page is not None else None
                 for chunk_text in splitter.split_text(page.page_content):
+                    if not chunk_text or not chunk_text.strip():
+                        continue
                     chunk_models.append(
                         DocumentChunk(
                             id=str(uuid.uuid4()),
@@ -316,6 +318,9 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                         )
                     )
                     chunk_index += 1
+
+            if not chunk_models:
+                raise DataBaseStorageException(message="文档解析后无有效文本分块，请检查 PDF 内容")
 
             await self.chunk.bulk_create_chunks(chunk_models)
 
@@ -336,14 +341,18 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
 
             for chunk, chroma_id in zip(chunk_models, chroma_ids):
                 chunk.chroma_id = chroma_id
-                await chunk.save()
+            # bulk_create 写入后实例未标记为已持久化，逐条 save() 会再次 INSERT 触发主键冲突
+            await DocumentChunk.bulk_update(chunk_models, fields=["chroma_id"])
 
             doc.status = DocumentStatus.COMPLETED
             doc.chunk_count = len(chunk_models)
             await doc.save()
         except Exception as e:
+            chroma_store.delete_by_doc(doc.id)
+            await DocumentChunk.filter(document_id=doc.id).delete()
             doc.status = DocumentStatus.FAILED
             doc.error_message = str(e)
+            doc.chunk_count = 0
             await doc.save()
             raise DataBaseStorageException(message=f"文档处理失败: {str(e)}")
 

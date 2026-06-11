@@ -95,9 +95,12 @@ class ProjectConfig(BaseSettings):
     LLM_API_KEY: str = Field(default="", validation_alias=AliasChoices("LLM_API_KEY", "DASHSCOPE_API_KEY"))
     LLM_BASE_URL: str = Field(default="https://api.deepseek.com/v1", validation_alias=AliasChoices("LLM_BASE_URL", "DASHSCOPE_BASE_URL"))
     DEFAULT_LLM_MODEL: str = "deepseek-chat"
-    EMBEDDING_API_KEY: str = Field(default="", validation_alias=AliasChoices("EMBEDDING_API_KEY", "SILICONFLOW_API_KEY"))
-    EMBEDDING_BASE_URL: str = Field(default="https://api.siliconflow.cn/v1", validation_alias=AliasChoices("EMBEDDING_BASE_URL", "SILICONFLOW_BASE_URL"))
-    DEFAULT_EMBEDDING_MODEL: str = "BAAI/bge-large-zh-v1.5"
+    # EMBEDDING_API_KEY: str = Field(default="", validation_alias=AliasChoices("EMBEDDING_API_KEY", "SILICONFLOW_API_KEY"))
+    # EMBEDDING_BASE_URL: str = Field(default="https://api.siliconflow.cn/v1", validation_alias=AliasChoices("EMBEDDING_BASE_URL", "SILICONFLOW_BASE_URL"))
+    # DEFAULT_EMBEDDING_MODEL: str = "BAAI/bge-large-zh-v1.5"
+    EMBEDDING_API_KEY: str = Field(default="sk-29254682e10d41f698768aa077e78d0d", validation_alias=AliasChoices("EMBEDDING_API_KEY", "SILICONFLOW_API_KEY"))
+    EMBEDDING_BASE_URL: str = Field(default="https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding", validation_alias=AliasChoices("EMBEDDING_BASE_URL", "SILICONFLOW_BASE_URL"))
+    DEFAULT_EMBEDDING_MODEL: str = "text-embedding-v4"
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 100
     RETRIEVAL_TOP_K: int = 5
