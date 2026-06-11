@@ -8,6 +8,8 @@
 """
 from typing import AsyncIterator, List, Optional
 
+from tortoise.query_utils import Prefetch
+
 from backend.applications.base.rag.chain import rag_stream
 from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.conversation.models.conversation_model import Conversation, Message
@@ -18,14 +20,15 @@ from backend.applications.conversation.schemas.conversation_schema import (
     ConversationUpdate,
     MessageCreate,
     MessageUpdate,
-    encode_knowledge_ids,
-    decode_knowledge_ids,
+    decode_knowledge_base_ids,
+    encode_knowledge_base_ids,
 )
 from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from backend.applications.model_config.models.model_config_model import ModelConfig
 from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
 from backend.applications.user.models.user_model import User
 from backend.core.exceptions import NotFoundException
+from backend.enums.chat_session_enum import ChatMessageRole
 
 
 class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
@@ -33,13 +36,13 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
         super().__init__(model=Message)
 
     async def list_by_conversation(self, conversation_id: str) -> List[Message]:
-        """获取对话下的消息列表"""
-        return await self.model.filter(conversation_id=conversation_id).order_by(
-            "created_time"
-        )
+        """获取对话下的消息列表（排除已禁用）"""
+        return await self.model.filter(
+            conversation_id=conversation_id, state__not=1
+        ).order_by("created_time")
 
     async def add_message(
-        self, conversation_id: str, role: str, content: str
+        self, conversation_id: str, role: ChatMessageRole, content: str
     ) -> Message:
         """添加消息"""
         data = MessageCreate(
@@ -47,10 +50,12 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
         )
         return await self.create(data.create_dict())
 
-    async def delete_by_conversations(self, conversation_ids: List[str]) -> None:
-        """批量删除对话下的消息"""
+    async def soft_delete_by_conversations(self, conversation_ids: List[str]) -> None:
+        """批量软删除对话下的消息"""
         if conversation_ids:
-            await self.model.filter(conversation_id__in=conversation_ids).delete()
+            await self.model.filter(
+                conversation_id__in=conversation_ids, state__not=1
+            ).update(state=1)
 
 
 class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, ConversationUpdate]):
@@ -59,22 +64,33 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         self.message = MessageCrud()
 
     async def list_by_user(self, user_id: int) -> List[Conversation]:
-        """获取用户的对话列表"""
-        return await self.model.filter(user_id=user_id).order_by("-updated_time")
+        """获取用户的对话列表（排除已禁用）"""
+        return await self.model.filter(
+            user_id=user_id, state__not=1
+        ).order_by("-updated_time")
 
     async def get_by_id(
         self, conversation_id: str, user_id: int
     ) -> Optional[Conversation]:
-        """根据 ID 和用户 ID 获取对话"""
-        return await self.model.get_or_none(id=conversation_id, user_id=user_id)
+        """根据 ID 和用户 ID 获取对话（排除已禁用）"""
+        return await self.model.get_or_none(
+            id=conversation_id, user_id=user_id, state__not=1
+        )
 
     async def get_with_messages(
         self, conversation_id: str, user_id: int
     ) -> Optional[Conversation]:
-        """获取对话及其消息列表"""
+        """获取对话及其消息列表（排除已禁用）"""
         return (
-            await self.model.filter(id=conversation_id, user_id=user_id)
-            .prefetch_related("messages")
+            await self.model.filter(
+                id=conversation_id, user_id=user_id, state__not=1
+            )
+            .prefetch_related(
+                Prefetch(
+                    "messages",
+                    Message.filter(state__not=1).order_by("created_time"),
+                )
+            )
             .first()
         )
 
@@ -84,25 +100,27 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         return await self.create(data.create_dict())
 
     async def clear_by_user(self, user_id: int) -> None:
-        """清空用户的所有对话"""
-        conv_ids = await self.model.filter(user_id=user_id).values_list(
-            "id", flat=True
-        )
+        """软删除用户的所有对话及消息"""
+        conv_ids = await self.model.filter(
+            user_id=user_id, state__not=1
+        ).values_list("id", flat=True)
         if conv_ids:
-            await self.message.delete_by_conversations(conv_ids)
-            await self.model.filter(user_id=user_id).delete()
+            await self.message.soft_delete_by_conversations(conv_ids)
+            await self.model.filter(id__in=conv_ids).update(state=1)
 
     async def update_meta(
         self,
         conversation: Conversation,
         *,
-        knowledge_ids: Optional[List[str]] = None,
+        knowledge_base_ids: Optional[List[str]] = None,
         model_config_id: Optional[str] = None,
         title: Optional[str] = None,
     ) -> None:
         """更新对话元数据"""
-        if knowledge_ids is not None:
-            conversation.knowledge_ids = encode_knowledge_ids(knowledge_ids)
+        if knowledge_base_ids is not None:
+            conversation.knowledge_base_ids = encode_knowledge_base_ids(
+                knowledge_base_ids
+            )
         if model_config_id is not None:
             conversation.model_config_id = model_config_id
         if title is not None:
@@ -110,9 +128,9 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         await conversation.save()
 
     @staticmethod
-    def get_knowledge_ids(conversation: Conversation) -> List[str]:
+    def get_knowledge_base_ids(conversation: Conversation) -> List[str]:
         """从对话记录解析知识库 ID 列表"""
-        return decode_knowledge_ids(conversation.knowledge_ids) or []
+        return decode_knowledge_base_ids(conversation.knowledge_base_ids) or []
 
     async def list_conversations(self, user: User) -> List[Conversation]:
         """获取当前用户的对话列表"""
@@ -128,20 +146,24 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         return conv
 
     async def delete_conversation(self, conversation_id: str, user: User) -> None:
-        """删除对话"""
+        """软删除对话及其消息"""
         conv = await self.get_by_id(conversation_id, user.id)
         if not conv:
             raise NotFoundException(message="对话不存在")
-        await conv.delete()
+        await self.message.soft_delete_by_conversations([conv.id])
+        conv.state = 1
+        await conv.save()
 
     async def clear_all(self, user: User) -> None:
-        """清空当前用户的所有对话"""
+        """软删除当前用户的所有对话"""
         await self.clear_by_user(user.id)
 
-    async def _validate_kb_access(self, knowledge_ids: List[str], user: User) -> None:
+    async def _validate_kb_access(
+        self, knowledge_base_ids: List[str], user: User
+    ) -> None:
         """校验知识库访问权限"""
         kb_crud = KnowledgeBaseCrud()
-        for kb_id in knowledge_ids:
+        for kb_id in knowledge_base_ids:
             kb = await kb_crud.get_by_id(kb_id)
             if not kb:
                 raise NotFoundException(message=f"知识库 {kb_id} 不存在")
@@ -162,31 +184,33 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             user, req.model_config_id
         )
 
-        knowledge_ids = req.knowledge_ids or self.get_knowledge_ids(conv)
-        if knowledge_ids:
-            await self._validate_kb_access(knowledge_ids, user)
+        knowledge_base_ids = (
+            req.knowledge_base_ids or self.get_knowledge_base_ids(conv)
+        )
+        if knowledge_base_ids:
+            await self._validate_kb_access(knowledge_base_ids, user)
 
         await self.update_meta(
             conv,
-            knowledge_ids=knowledge_ids,
+            knowledge_base_ids=knowledge_base_ids,
             model_config_id=model_config.id if model_config else None,
         )
 
         history_msgs = await self.message.list_by_conversation(conv.id)
-        chat_history = [{"role": m.role, "content": m.content} for m in history_msgs]
+        chat_history = [{"role": m.role.value, "content": m.content} for m in history_msgs]
 
         if not history_msgs:
             title = req.question[:20] + ("..." if len(req.question) > 20 else "")
             await self.update_meta(conv, title=title)
 
-        await self.message.add_message(conv.id, "user", req.question)
+        await self.message.add_message(conv.id, ChatMessageRole.USER, req.question)
 
-        return conv, model_config, chat_history, knowledge_ids
+        return conv, model_config, chat_history, knowledge_base_ids
 
     async def stream_response(
         self,
         question: str,
-        knowledge_ids: List[str],
+        knowledge_base_ids: List[str],
         chat_history: List[dict],
         model_config: Optional[ModelConfig],
     ) -> AsyncIterator[str]:
@@ -216,7 +240,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
         async for token in rag_stream(
             question=question,
-            knowledge_ids=knowledge_ids,
+            knowledge_ids=knowledge_base_ids,
             chat_history=chat_history,
             **llm_params,
         ):
@@ -224,4 +248,6 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
     async def save_assistant_message(self, conversation_id: str, content: str) -> None:
         """保存助手回复消息"""
-        await self.message.add_message(conversation_id, "assistant", content)
+        await self.message.add_message(
+            conversation_id, ChatMessageRole.ASSISTANT, content
+        )

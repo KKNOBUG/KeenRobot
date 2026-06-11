@@ -12,15 +12,19 @@ from typing import Optional, List
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend.enums.chat_session_enum import ChatMessageRole
 
-def encode_knowledge_ids(knowledge_ids: Optional[List[str]]) -> Optional[str]:
+
+def encode_knowledge_base_ids(
+    knowledge_base_ids: Optional[List[str]],
+) -> Optional[str]:
     """将知识库 ID 列表编码为数据库存储的 JSON 字符串"""
-    if knowledge_ids is None:
+    if knowledge_base_ids is None:
         return None
-    return json.dumps(knowledge_ids) if knowledge_ids else None
+    return json.dumps(knowledge_base_ids) if knowledge_base_ids else None
 
 
-def decode_knowledge_ids(value) -> Optional[List[str]]:
+def decode_knowledge_base_ids(value) -> Optional[List[str]]:
     """将数据库 JSON 字符串解析为知识库 ID 列表"""
     if value is None:
         return None
@@ -35,19 +39,23 @@ def decode_knowledge_ids(value) -> Optional[List[str]]:
 
 
 class ConversationBase(BaseModel):
-    title: Optional[str] = Field(default=None, max_length=200, description="对话标题")
-    knowledge_ids: Optional[List[str]] = Field(default=None, description="关联知识库ID列表")
+    title: Optional[str] = Field(default=None, max_length=255, description="对话标题")
+    knowledge_base_ids: Optional[List[str]] = Field(
+        default=None, description="关联知识库ID列表"
+    )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
 
 
 class ConversationCreate(ConversationBase):
     user_id: int = Field(..., description="用户ID")
-    title: str = Field(default="新对话", max_length=200, description="对话标题")
+    title: str = Field(default="新对话", max_length=255, description="对话标题")
 
     def create_dict(self):
         obj = self.model_dump(exclude_unset=True)
-        if "knowledge_ids" in obj:
-            obj["knowledge_ids"] = encode_knowledge_ids(obj.get("knowledge_ids"))
+        if "knowledge_base_ids" in obj:
+            obj["knowledge_base_ids"] = encode_knowledge_base_ids(
+                obj.get("knowledge_base_ids")
+            )
         return obj
 
 
@@ -65,17 +73,19 @@ class ConversationOut(BaseModel):
     id: str = Field(..., description="对话ID")
     user_id: int = Field(..., description="用户ID")
     title: str = Field(..., description="对话标题")
-    knowledge_ids: Optional[List[str]] = Field(default=None, description="关联知识库ID列表")
+    knowledge_base_ids: Optional[List[str]] = Field(
+        default=None, description="关联知识库ID列表"
+    )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
     created_time: datetime = Field(..., description="创建时间", serialization_alias="created_at")
     updated_time: datetime = Field(..., description="更新时间", serialization_alias="updated_at")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    @field_validator("knowledge_ids", mode="before")
+    @field_validator("knowledge_base_ids", mode="before")
     @classmethod
-    def parse_knowledge_ids(cls, v):
-        return decode_knowledge_ids(v)
+    def parse_knowledge_base_ids(cls, v):
+        return decode_knowledge_base_ids(v)
 
 
 class ConversationDetail(ConversationOut):
@@ -83,17 +93,20 @@ class ConversationDetail(ConversationOut):
 
 
 class MessageBase(BaseModel):
-    role: Optional[str] = Field(default=None, max_length=20, description="消息角色")
+    role: Optional[ChatMessageRole] = Field(default=None, description="消息角色")
     content: Optional[str] = Field(default=None, description="消息内容")
 
 
 class MessageCreate(MessageBase):
     conversation_id: str = Field(..., description="对话ID")
-    role: str = Field(..., max_length=20, description="消息角色")
+    role: ChatMessageRole = Field(..., description="消息角色")
     content: str = Field(..., min_length=1, description="消息内容")
 
     def create_dict(self):
-        return self.model_dump(exclude_unset=True)
+        obj = self.model_dump(exclude_unset=True)
+        if isinstance(obj.get("role"), ChatMessageRole):
+            obj["role"] = obj["role"].value
+        return obj
 
 
 class MessageUpdate(MessageBase):
@@ -109,7 +122,7 @@ class MessageSelect(MessageBase):
 
 class MessageOut(BaseModel):
     id: int = Field(..., description="消息ID")
-    role: str = Field(..., description="消息角色")
+    role: ChatMessageRole = Field(..., description="消息角色")
     content: str = Field(..., description="消息内容")
     created_time: datetime = Field(..., description="创建时间", serialization_alias="created_at")
 
@@ -119,5 +132,7 @@ class MessageOut(BaseModel):
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000, description="用户问题")
     conversation_id: Optional[str] = Field(default=None, description="对话ID")
-    knowledge_ids: Optional[List[str]] = Field(default=None, description="关联知识库ID列表")
+    knowledge_base_ids: Optional[List[str]] = Field(
+        default=None, description="关联知识库ID列表"
+    )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")

@@ -8,6 +8,7 @@
 """
 from .app_enum import Code, Message, Status
 from .base_error_enum import BaseErrorEnum
+from .chat_session_enum import ChatMessageRole
 from .http_enum import HTTPMethod
 
 __all__ = (
@@ -15,5 +16,6 @@ __all__ = (
     "Message",
     "Status",
     "BaseErrorEnum",
+    "ChatMessageRole",
     "HTTPMethod",
 )

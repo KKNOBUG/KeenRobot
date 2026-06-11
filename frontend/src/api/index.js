@@ -77,7 +77,7 @@ export async function uploadDocument(kbId, file) {
 export function chatStream(
     question,
     conversationId,
-    knowledgeIds = [],
+    knowledgeBaseIds = [],
     modelConfigId = null,
     { onToken, onMeta, onDone, onError }
 ) {
@@ -93,7 +93,7 @@ export function chatStream(
     body: JSON.stringify({
       question,
       conversation_id: conversationId,
-      knowledge_ids: knowledgeIds,
+      knowledge_base_ids: knowledgeBaseIds,
       model_config_id: modelConfigId,
     }),
     signal: controller.signal,

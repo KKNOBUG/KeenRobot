@@ -187,8 +187,8 @@ async function loadConversation(id) {
       role: m.role,
       content: m.content,
     }))
-    if (detail.knowledge_ids) {
-      selectedKBs.value = detail.knowledge_ids
+    if (detail.knowledge_base_ids) {
+      selectedKBs.value = detail.knowledge_base_ids
     }
     if (detail.model_config_id) {
       selectedModelConfig.value = detail.model_config_id

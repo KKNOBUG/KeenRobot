@@ -15,6 +15,7 @@ from backend.applications.base.services.scaffold import (
     MaintainMixin,
     unique_identify,
 )
+from backend.enums.chat_session_enum import ChatMessageRole
 
 
 class Conversation(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
@@ -27,7 +28,7 @@ class Conversation(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
         description="所属用户",
     )
     title = fields.CharField(default="新对话", max_length=255, description="对话标题")
-    knowledge_ids = fields.TextField(null=True, description="所属知识库")
+    knowledge_base_ids = fields.TextField(null=True, description="关联知识库ID列表(JSON)")
     model_config = fields.ForeignKeyField(
         "models.ModelConfig",
         related_name="conversations",
@@ -50,7 +51,7 @@ class Message(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
         on_delete=fields.CASCADE,
         description="所属对话",
     )
-    role = fields.CharField(max_length=20, description="消息角色")
+    role = fields.CharEnumField(ChatMessageRole, max_length=20, description="消息角色")
     content = fields.TextField(description="消息内容")
 
     class Meta:
