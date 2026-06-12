@@ -18,7 +18,9 @@ from starlette.datastructures import FormData
 from backend.applications.base.models.audit_model import Audit
 from backend.applications.user.models.user_model import User
 from backend.configure import PROJECT_CONFIG, GLOBAL_CONFIG, LOGGER, ROUTER_SUMMARY, ROUTER_TAGS
-from backend.services import AuthControl
+from backend.services import AuthControl, CTX_USER_ID
+
+LOGIN_ACCESS_TOKEN_PATH = "/base/auth/access_token"
 
 
 def is_upload_request(request: Request) -> bool:
@@ -76,6 +78,39 @@ def is_streaming_response(response: Response) -> bool:
     """判断响应是否为 SSE 等流式传输，此类响应不可缓冲整包 body。"""
     content_type: str = response.headers.get("content-type", "")
     return "text/event-stream" in content_type.lower()
+
+
+async def _resolve_audit_user(
+        request: Request,
+        response_payload: Optional[dict],
+) -> tuple[int, str]:
+    """
+    解析审计日志中的用户身份。
+    优先使用鉴权链已写入的 CTX_USER_ID（避免登出后 token 吊销导致二次鉴权失败）。
+    """
+    ctx_user_id = CTX_USER_ID.get() or 0
+    if ctx_user_id:
+        user = await User.get_or_none(id=ctx_user_id)
+        if user:
+            return user.id, user.username
+        return ctx_user_id, ""
+
+    if request.url.path == LOGIN_ACCESS_TOKEN_PATH and response_payload:
+        data = response_payload.get("data")
+        if isinstance(data, dict):
+            user_id = data.get("id", 0)
+            username = data.get("username", "")
+            return user_id, username
+
+    token = request.headers.get("token")
+    if token:
+        try:
+            user = await AuthControl.is_authed(token)
+            return user.id, user.username
+        except Exception as exc:
+            LOGGER.warning(f"审计日志从请求 Token 解析用户失败: {exc}")
+
+    return 0, ""
 
 
 async def logging_middleware(request: Request, call_next):
@@ -198,10 +233,12 @@ async def logging_middleware(request: Request, call_next):
             "response_header": response_header,
             "response_elapsed": response_elapsed
         }
+        response_payload: Optional[dict] = None
         if isinstance(response_body, str) and response_body:
             try:
                 _response = orjson.loads(response_body)
                 if isinstance(_response, dict):
+                    response_payload = _response
                     audit_log["response_code"] = _response.get("code", "")
                     audit_log["response_message"] = _response.get("message", "")[:512]
                 audit_log["response_params"] = response_body
@@ -227,17 +264,9 @@ async def logging_middleware(request: Request, call_next):
 
         LOGGER.info(request_message)
 
-        try:
-            # 获取用户信息
-            user_obj: Optional[User] = None
-            token = request.headers.get("token")
-            if token:
-                user_obj: User = await AuthControl.is_authed(token)
-            audit_log["user_id"] = user_obj.id if user_obj else 0
-            audit_log["username"] = user_obj.username if user_obj else ""
-        except Exception as e:
-            audit_log["user_id"] = 0
-            audit_log["username"] = ""
+        user_id, username = await _resolve_audit_user(request, response_payload)
+        audit_log["user_id"] = user_id
+        audit_log["username"] = username
 
         # 审计落库
         await Audit.create(**audit_log)
