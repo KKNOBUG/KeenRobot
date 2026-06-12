@@ -32,7 +32,7 @@ class ProjectConfig(BaseSettings):
     )
 
     # 项目描述
-    APP_VERSION: str = "3.0.0"
+    APP_VERSION: str = "1.0.0"
     APP_TITLE: str = "企业级RAG问答系统"
     APP_DESCRIPTION: str = """企业级RAG问答系统"""
     APP_DOCS_URL: str = "/KeenRobot/docs"
