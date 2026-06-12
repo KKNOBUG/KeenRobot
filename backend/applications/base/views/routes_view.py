@@ -15,7 +15,7 @@ from backend.core.responses.http_response import SuccessResponse
 routers = APIRouter()
 
 
-@routers.post("/routers", summary="查询路由列表", description="查询项目中所有的APIRouter信息")
+@routers.post("/routers", summary="APIRouter-查询总应用路由信息")
 async def refresh_router(request: Request):
     app = request.app
     # 获取全部路由数据

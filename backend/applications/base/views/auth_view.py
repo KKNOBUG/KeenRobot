@@ -8,7 +8,7 @@
 """
 from datetime import timedelta, datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 
 from backend.applications.base.schemas.token_schema import CredentialsSchema, JWTOut, JWTPayload
 from backend.applications.user.dependencies import get_user_crud
@@ -17,15 +17,15 @@ from backend.applications.user.services.user_crud import UserCrud
 from backend.configure import PROJECT_CONFIG
 from backend.core.exceptions import NotFoundException, NoPermissionException
 from backend.core.responses import SuccessResponse, NotFoundResponse
-from backend.services import CTX_USER_ID, DependAuth, create_access_token
+from backend.services import CTX_USER_ID, create_access_token
 
 auth_public = APIRouter()
 auth_secure = APIRouter()
 
 
-@auth_public.post("/access_token", summary="用户鉴权", description="验证用户密码和状态并生成令牌")
+@auth_public.post("/access_token", summary="用户鉴权-验证用户密码和状态并生成令牌")
 async def get_login_access_token(
-        credentials: CredentialsSchema,
+        credentials: CredentialsSchema = Body(..., description="用户信息"),
         user_crud: UserCrud = Depends(get_user_crud),
 ):
     try:
@@ -68,7 +68,7 @@ async def get_login_access_token(
     return SuccessResponse(data=data.model_dump())
 
 
-@auth_secure.post("/userinfo", summary="查看用户信息", dependencies=[DependAuth])
+@auth_secure.post("/userinfo", summary="用户鉴权-查看当前用户信息")
 async def get_userinfo(
         user_crud: UserCrud = Depends(get_user_crud),
 ):

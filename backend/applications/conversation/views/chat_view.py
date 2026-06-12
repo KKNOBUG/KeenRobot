@@ -21,7 +21,7 @@ from backend.services import DependAuth
 chat = APIRouter(tags=["chat"])
 
 
-@chat.post("/stream")
+@chat.post("/stream", summary="")
 async def chat_stream(
         req: ChatRequest,
         current_user: User = DependAuth,
