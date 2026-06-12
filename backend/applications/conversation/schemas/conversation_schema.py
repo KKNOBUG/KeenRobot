@@ -66,10 +66,10 @@ class ConversationOut(BaseModel):
         default=None, description="关联知识库ID列表"
     )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
-    created_time: datetime = Field(..., description="创建时间", serialization_alias="created_at")
-    updated_time: datetime = Field(..., description="更新时间", serialization_alias="updated_at")
+    created_time: datetime = Field(..., description="创建时间")
+    updated_time: datetime = Field(..., description="更新时间")
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True)
 
     @field_validator("knowledge_base_ids", mode="before")
     @classmethod
@@ -152,7 +152,7 @@ class ConversationStatSelect(BaseModel):
 class ConversationStatOut(BaseModel):
     conversation: ConversationBrief = Field(..., description="对话信息")
     model_config_info: Optional[ModelConfigBrief] = Field(
-        default=None, description="模型配置", serialization_alias="model_config"
+        default=None, description="模型配置"
     )
     knowledge_bases: List[KnowledgeBaseBrief] = Field(
         default_factory=list, description="关联知识库列表"
@@ -160,8 +160,6 @@ class ConversationStatOut(BaseModel):
     round_count: int = Field(default=0, description="对话轮次")
     token_usage: TokenUsage = Field(..., description="Token消耗量")
     user: UserBrief = Field(..., description="用户信息")
-
-    model_config = ConfigDict(populate_by_name=True)
 
 
 class MessageOut(BaseModel):
@@ -171,9 +169,9 @@ class MessageOut(BaseModel):
     prompt_tokens: Optional[int] = Field(default=None, description="输入Token数(Prompt)")
     completion_tokens: Optional[int] = Field(default=None, description="输出Token数(Completion)")
     reasoning_tokens: Optional[int] = Field(default=None, description="推理Token数(Thinking/Reasoning)")
-    created_time: datetime = Field(..., description="创建时间", serialization_alias="created_at")
+    created_time: datetime = Field(..., description="创建时间")
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ChatRequest(BaseModel):

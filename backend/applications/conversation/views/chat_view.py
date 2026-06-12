@@ -119,7 +119,7 @@ async def list_user_conversation_stats(
             start_time=start_time,
             end_time=end_time,
         )
-        data = [item.model_dump(by_alias=True) for item in items]
+        data = [item.model_dump() for item in items]
         return SuccessResponse(data=data, total=total)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)

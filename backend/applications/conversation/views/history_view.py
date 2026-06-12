@@ -33,7 +33,7 @@ async def list_conversations(
     try:
         items = await conversation_crud.list_conversations(current_user)
         data = [
-            ConversationOut.model_validate(item).model_dump(by_alias=True)
+            ConversationOut.model_validate(item).model_dump()
             for item in items
         ]
         return SuccessResponse(data=data, total=len(data))
@@ -52,7 +52,7 @@ async def get_conversation(
         conv = await conversation_crud.get_with_messages(conversation_id, current_user.id)
         if not conv:
             return NotFoundResponse(message="对话不存在")
-        data = ConversationDetail.model_validate(conv).model_dump(by_alias=True)
+        data = ConversationDetail.model_validate(conv).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)

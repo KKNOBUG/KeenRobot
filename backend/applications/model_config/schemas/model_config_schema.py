@@ -65,7 +65,7 @@ class ModelConfigOut(BaseModel):
     score_threshold: float = Field(..., description="检索相似度阈值(0-1)")
     system_prompt: Optional[str] = Field(default=None, description="系统提示词，支持{context}占位符")
     is_default: bool = Field(..., description="是否默认配置")
-    created_time: datetime = Field(..., description="创建时间", serialization_alias="created_at")
-    updated_time: datetime = Field(..., description="更新时间", serialization_alias="updated_at")
+    created_time: datetime = Field(..., description="创建时间")
+    updated_time: datetime = Field(..., description="更新时间")
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True)
