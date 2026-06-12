@@ -26,7 +26,7 @@ from backend.services import DependAuth
 model_config = APIRouter()
 
 
-@model_config.get("/", summary="查询模型配置列表")
+@model_config.get("/", summary="模型配置-查询配置列表")
 async def list_model_configs(
         current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
@@ -43,7 +43,7 @@ async def list_model_configs(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@model_config.post("/", summary="创建模型配置")
+@model_config.post("/", summary="模型配置-新增配置")
 async def create_model_config(
         config_data: ModelConfigCreate,
         current_user: User = DependAuth,
@@ -58,7 +58,7 @@ async def create_model_config(
         return FailureResponse(message=f"创建失败: {e}")
 
 
-@model_config.get("/default", summary="查询默认模型配置")
+@model_config.get("/default", summary="模型配置-查询默认配置")
 async def get_default_config(
         current_user: User = DependAuth,
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
@@ -74,7 +74,7 @@ async def get_default_config(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@model_config.get("/{config_id}", summary="查询模型配置详情")
+@model_config.get("/{config_id}", summary="模型配置-按id查询配置详情")
 async def get_model_config(
         config_id: str,
         current_user: User = DependAuth,
@@ -91,7 +91,7 @@ async def get_model_config(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@model_config.put("/{config_id}", summary="更新模型配置")
+@model_config.put("/{config_id}", summary="模型配置-按id更新配置")
 async def update_model_config(
         config_id: str,
         config_data: ModelConfigUpdate,
@@ -111,7 +111,7 @@ async def update_model_config(
         return FailureResponse(message=f"更新失败: {e}")
 
 
-@model_config.delete("/{config_id}", summary="删除模型配置")
+@model_config.delete("/{config_id}", summary="模型配置-按id删除配置")
 async def delete_model_config(
         config_id: str,
         current_user: User = DependAuth,
@@ -127,7 +127,7 @@ async def delete_model_config(
         return FailureResponse(message=f"删除失败: {e}")
 
 
-@model_config.post("/{config_id}/default", summary="设为默认模型配置")
+@model_config.post("/{config_id}/default", summary="模型配置-设为默认配置")
 async def set_default_config(
         config_id: str,
         current_user: User = DependAuth,

@@ -25,7 +25,7 @@ from backend.services import DependAuth
 history = APIRouter()
 
 
-@history.get("/", summary="查询对话列表")
+@history.get("/", summary="对话历史-查询对话列表")
 async def list_conversations(
         current_user: User = DependAuth,
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
@@ -42,7 +42,7 @@ async def list_conversations(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@history.get("/{conversation_id}", summary="查询对话详情")
+@history.get("/{conversation_id}", summary="对话历史-按id查询对话详情")
 async def get_conversation(
         conversation_id: str,
         current_user: User = DependAuth,
@@ -61,7 +61,7 @@ async def get_conversation(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@history.delete("/{conversation_id}", summary="删除对话")
+@history.delete("/{conversation_id}", summary="对话历史-按id删除对话")
 async def delete_conversation(
         conversation_id: str,
         current_user: User = DependAuth,
@@ -77,7 +77,7 @@ async def delete_conversation(
         return FailureResponse(message=f"删除失败: {e}")
 
 
-@history.delete("/", summary="清空所有对话")
+@history.delete("/", summary="对话历史-清空所有对话")
 async def clear_all_conversations(
         current_user: User = DependAuth,
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),

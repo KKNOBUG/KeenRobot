@@ -21,7 +21,7 @@ from backend.services import DependAuth
 chat = APIRouter(tags=["chat"])
 
 
-@chat.post("/stream", summary="")
+@chat.post("/stream", summary="对话-流式问答")
 async def chat_stream(
         req: ChatRequest,
         current_user: User = DependAuth,
@@ -97,7 +97,7 @@ async def chat_stream(
     return EventSourceResponse(event_generator())
 
 
-@chat.get("/users/{user_id}/conversation-stats", summary="按用户ID分页查询对话统计详情")
+@chat.get("/users/{user_id}/conversation-stats", summary="对话-按用户分页查询统计详情")
 async def list_user_conversation_stats(
         user_id: int,
         page: int = Query(default=1, ge=1, description="页码"),

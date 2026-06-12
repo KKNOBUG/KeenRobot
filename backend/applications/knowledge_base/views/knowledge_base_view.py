@@ -37,7 +37,7 @@ from backend.services import DependAuth
 knowledge = APIRouter()
 
 
-@knowledge.post("/", summary="创建知识库")
+@knowledge.post("/", summary="知识库-新增知识库")
 async def create_knowledge_base(
         kb_data: KnowledgeBaseCreate,
         current_user: User = DependAuth,
@@ -51,7 +51,7 @@ async def create_knowledge_base(
         return FailureResponse(message=f"创建失败: {e}")
 
 
-@knowledge.get("/", summary="查询知识库列表")
+@knowledge.get("/", summary="知识库-查询知识库列表")
 async def list_knowledge_bases(
         search: str = None,
         current_user: User = DependAuth,
@@ -66,7 +66,7 @@ async def list_knowledge_bases(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@knowledge.get("/{kb_id}", summary="查询知识库详情")
+@knowledge.get("/{kb_id}", summary="知识库-按id查询知识库详情")
 async def get_knowledge_base(
         kb_id: str,
         current_user: User = DependAuth,
@@ -84,7 +84,7 @@ async def get_knowledge_base(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@knowledge.put("/{kb_id}", summary="更新知识库")
+@knowledge.put("/{kb_id}", summary="知识库-按id更新知识库")
 async def update_knowledge_base(
         kb_id: str,
         kb_data: KnowledgeBaseCreate,
@@ -103,7 +103,7 @@ async def update_knowledge_base(
         return FailureResponse(message=f"更新失败: {e}")
 
 
-@knowledge.delete("/{kb_id}", summary="删除知识库")
+@knowledge.delete("/{kb_id}", summary="知识库-按id删除知识库")
 async def delete_knowledge_base(
         kb_id: str,
         current_user: User = DependAuth,
@@ -121,7 +121,7 @@ async def delete_knowledge_base(
         return FailureResponse(message=f"删除失败: {e}")
 
 
-@knowledge.post("/{kb_id}/documents", summary="上传文档")
+@knowledge.post("/{kb_id}/documents", summary="知识库-上传文档")
 async def upload_document(
         kb_id: str,
         file: UploadFile = File(...),
@@ -144,7 +144,7 @@ async def upload_document(
         return FailureResponse(message=f"上传失败: {e}")
 
 
-@knowledge.get("/{kb_id}/documents", summary="查询文档列表")
+@knowledge.get("/{kb_id}/documents", summary="知识库-查询文档列表")
 async def list_documents(
         kb_id: str,
         current_user: User = DependAuth,
@@ -163,7 +163,7 @@ async def list_documents(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@knowledge.post("/{kb_id}/documents/{doc_id}/retry", summary="重试处理失败文档")
+@knowledge.post("/{kb_id}/documents/{doc_id}/retry", summary="知识库-重试处理失败文档")
 async def retry_document(
         kb_id: str,
         doc_id: str,
@@ -186,7 +186,7 @@ async def retry_document(
         return FailureResponse(message=f"重试失败: {e}")
 
 
-@knowledge.delete("/{kb_id}/documents/{doc_id}", summary="删除文档")
+@knowledge.delete("/{kb_id}/documents/{doc_id}", summary="知识库-按id删除文档")
 async def delete_document(
         kb_id: str,
         doc_id: str,
@@ -205,7 +205,7 @@ async def delete_document(
         return FailureResponse(message=f"删除失败: {e}")
 
 
-@knowledge.get("/{kb_id}/chunks", summary="查询知识块列表")
+@knowledge.get("/{kb_id}/chunks", summary="知识库-查询知识块列表")
 async def list_chunks(
         kb_id: str,
         document_id: str = None,
@@ -229,7 +229,7 @@ async def list_chunks(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@knowledge.get("/{kb_id}/chunks/{chunk_id}", summary="查询知识块详情")
+@knowledge.get("/{kb_id}/chunks/{chunk_id}", summary="知识库-按id查询知识块详情")
 async def get_chunk(
         kb_id: str,
         chunk_id: str,
@@ -248,7 +248,7 @@ async def get_chunk(
         return FailureResponse(message=f"查询失败: {e}")
 
 
-@knowledge.put("/{kb_id}/chunks/{chunk_id}", summary="更新知识块")
+@knowledge.put("/{kb_id}/chunks/{chunk_id}", summary="知识库-按id更新知识块")
 async def update_chunk(
         kb_id: str,
         chunk_id: str,
@@ -270,7 +270,7 @@ async def update_chunk(
         return FailureResponse(message=f"更新失败: {e}")
 
 
-@knowledge.delete("/{kb_id}/chunks/{chunk_id}", summary="删除知识块")
+@knowledge.delete("/{kb_id}/chunks/{chunk_id}", summary="知识库-按id删除知识块")
 async def delete_chunk(
         kb_id: str,
         chunk_id: str,
