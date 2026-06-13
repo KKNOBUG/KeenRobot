@@ -103,6 +103,17 @@ export const basicRoutes = [
           componentName: 'SkillsManage',
         },
       },
+      {
+        name: 'TaskCenter',
+        path: 'task-center',
+        component: () => import('@/views/ai-manage/task-center/index.vue'),
+        meta: {
+          title: '任务中心',
+          icon: 'mdi:clock-outline',
+          keepAlive: true,
+          componentName: 'TaskCenter',
+        },
+      },
     ],
   },
   {

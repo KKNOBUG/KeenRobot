@@ -87,28 +87,9 @@ if __name__ == '__main__':
         log_level=None,
     )
 
-    # Tortoise-ORM 1.x 迁移命令参考（通过 tortoise CLI 执行）
-    # =====================================================
-    # 前置条件：在项目根目录执行，并设置 PYTHONPATH
-    #   export PYTHONPATH=./backend:.
-    #
-    # 完整命令格式：
-    #   PYTHONPATH=./backend:. python -m tortoise -c backend.configure.project_config.TORTOISE_ORM <command>
-    #
-    # 常用命令：
-    #   init models                    # 初始化迁移目录（每个 app 只需执行一次）
-    #   makemigrations models          # 根据模型变更生成迁移文件
-    #   migrate models                 # 应用所有待执行的迁移到数据库
-    #   migrate models --fake          # 标记迁移已执行，但不实际运行 SQL（用于已存在的表）
-    #   downgrade models <migration>   # 回滚到指定迁移版本
-    #   history models                 # 查看已应用的迁移历史
-    #   heads models                   # 查看待执行的迁移文件
-    #   sqlmigrate models <migration>  # 预览指定迁移的 SQL（不执行）
-    #
-    # 迁移文件位置：
-    #   backend/applications/<app>/models/migrations/
-    #
-    # 重要限制：
-    #   模型字段的 default 参数不能使用 lambda，必须使用模块级函数。
-    #   错误示例：default=lambda: str(uuid.uuid4())
-    #   正确示例：定义 def _uuid_str(): return str(uuid.uuid4())，然后使用 default=_uuid_str
+    # ========== 启动命令（在项目根目录 Krun_副本_new 下执行，且保证 PYTHONPATH 含 backend 所在目录）==========
+    # Worker（消费 default + autotest_queue）：
+    #   Windows（单线程）：celery -A backend.celery_scheduler.celery_worker worker -Q default,autotest_queue --pool=solo -l INFO
+    #   Linux：          celery -A backend.celery_scheduler.celery_worker worker -Q default,autotest_queue -c 4 -l INFO
+    # Beat（定时下发 scan_and_dispatch_autotest_tasks，必须单独起一个进程）：
+    #   celery -A backend.celery_scheduler.celery_worker beat -l INFO

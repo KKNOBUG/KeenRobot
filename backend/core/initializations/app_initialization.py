@@ -201,3 +201,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=model_router, prefix="/model-configs", tags=["RAG-模型配置"], dependencies=[DependAuth])
     app.include_router(router=skills_router, prefix="/skills", tags=["RAG-Agent技能"], dependencies=[DependAuth])
     app.include_router(router=mcp_servers_router, prefix="/mcp-servers", tags=["RAG-MCP服务"], dependencies=[DependAuth])
+
+    from backend.applications.task_center.views import task_center_router
+    app.include_router(router=task_center_router, prefix="/task-center", tags=["任务中心"], dependencies=[DependAuth])

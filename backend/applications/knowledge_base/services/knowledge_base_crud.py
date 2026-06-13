@@ -341,7 +341,6 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
 
             for chunk, chroma_id in zip(chunk_models, chroma_ids):
                 chunk.chroma_id = chroma_id
-            # bulk_create 写入后实例未标记为已持久化，逐条 save() 会再次 INSERT 触发主键冲突
             await DocumentChunk.bulk_update(chunk_models, fields=["chroma_id"])
 
             doc.status = DocumentStatus.COMPLETED
@@ -428,12 +427,85 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         await self._process_document(kb, doc)
         return self._to_document_out(doc)
 
-    async def reindex_kb_vectors(self, kb_id: str, user: User) -> None:
-        """
-        向量重建入口（预留）。
-        更换 Embedding 模型或 Chroma 存储方案时可在此实现全量重建。
-        """
-        raise NotImplementedError("向量重建功能暂未实现")
+    async def reindex_kb_vectors(self, kb_id: str, user_id: int) -> dict:
+        """全量重建知识库向量：清空 Chroma 索引后重新处理所有可用文档。"""
+        from backend.applications.user.models.user_model import User
+
+        user = await User.get_or_none(id=user_id)
+        if not user:
+            raise NotFoundException(message="用户不存在")
+        kb = await self.get_by_id(kb_id)
+        if not kb:
+            raise NotFoundException(message="知识库不存在")
+        self.check_write(kb, user)
+
+        chroma_store.delete_by_kb(kb_id)
+        docs = await self.document.list_by_knowledge_base(kb_id)
+        result = {"total": 0, "success": 0, "failed": 0, "skipped": 0, "errors": []}
+
+        for doc in docs:
+            if doc.status == DocumentStatus.PROCESSING:
+                result["skipped"] += 1
+                continue
+            if not os.path.exists(doc.file_path):
+                result["failed"] += 1
+                result["errors"].append({
+                    "doc_id": doc.id,
+                    "filename": doc.filename,
+                    "error": "原始文件不存在",
+                })
+                continue
+            result["total"] += 1
+            try:
+                await self._process_document(kb, doc)
+                result["success"] += 1
+            except Exception as e:
+                result["failed"] += 1
+                result["errors"].append({
+                    "doc_id": doc.id,
+                    "filename": doc.filename,
+                    "error": str(e),
+                })
+        return result
+
+    async def retry_failed_documents(self, kb_id: str, user_id: int) -> dict:
+        """批量重试知识库下状态为失败的文档。"""
+        from backend.applications.user.models.user_model import User
+
+        user = await User.get_or_none(id=user_id)
+        if not user:
+            raise NotFoundException(message="用户不存在")
+        kb = await self.get_by_id(kb_id)
+        if not kb:
+            raise NotFoundException(message="知识库不存在")
+        self.check_write(kb, user)
+
+        docs = await Document.filter(
+            knowledge_base_id=kb_id,
+            status=DocumentStatus.FAILED,
+        ).all()
+        result = {"total": len(docs), "success": 0, "failed": 0, "errors": []}
+
+        for doc in docs:
+            if not os.path.exists(doc.file_path):
+                result["failed"] += 1
+                result["errors"].append({
+                    "doc_id": doc.id,
+                    "filename": doc.filename,
+                    "error": "原始文件不存在",
+                })
+                continue
+            try:
+                await self._process_document(kb, doc)
+                result["success"] += 1
+            except Exception as e:
+                result["failed"] += 1
+                result["errors"].append({
+                    "doc_id": doc.id,
+                    "filename": doc.filename,
+                    "error": str(e),
+                })
+        return result
 
     async def list_documents(self, kb_id: str, user: User) -> List[DocumentOut]:
         """获取知识库下的文档列表"""

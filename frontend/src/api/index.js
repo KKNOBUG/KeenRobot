@@ -67,6 +67,25 @@ export default {
   updateModelConfig: (id, data) => request.put(`/model-configs/${id}`, data).then(payload),
   deleteModelConfig: (id) => request.delete(`/model-configs/${id}`).then(payload),
   setDefaultModelConfig: (id) => request.post(`/model-configs/${id}/default`).then(payload),
+
+  fetchTaskCenterPresets: () => request.get('/task-center/presets').then((res) => res?.data ?? res),
+  searchTasks: (data) =>
+      request.post('/task-center/search', data).then((res) => ({
+        data: res?.data ?? [],
+        total: res?.total ?? 0,
+      })),
+  createTask: (data) => request.post('/task-center/create', data).then(payload),
+  updateTask: (data) => request.post('/task-center/update', data).then(payload),
+  deleteTask: (params) => request.delete('/task-center/delete', { params }).then(payload),
+  getTask: (params) => request.get('/task-center/get', { params }).then(payload),
+  runTask: (data) => request.post('/task-center/run', data).then(payload),
+  startTask: (data) => request.post('/task-center/start', data).then(payload),
+  stopTask: (data) => request.post('/task-center/stop', data).then(payload),
+  searchTaskRecords: (data) =>
+      request.post('/task-center/record/search', data).then((res) => ({
+        data: res?.data ?? [],
+        total: res?.total ?? 0,
+      })),
 }
 
 export async function uploadDocument(kbId, file) {
