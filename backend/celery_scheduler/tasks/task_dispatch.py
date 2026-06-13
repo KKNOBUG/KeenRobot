@@ -31,8 +31,8 @@ def dispatch_task_center_task(task: Any, override_kwargs: Optional[Dict[str, Any
     )
 
 
-async def _scan_and_dispatch_impl() -> Dict[str, Any]:
-    tasks = await get_scheduled_tasks(task_type="example")
+async def _scan_and_dispatch_impl(task_type: Optional[str] = None) -> Dict[str, Any]:
+    tasks = await get_scheduled_tasks(task_type=task_type)
     scanned: int = len(tasks)
     dispatched: int = 0
     for task in tasks:
@@ -67,6 +67,14 @@ async def _scan_and_dispatch_impl() -> Dict[str, Any]:
 
 
 @celery.task(name="backend.celery_scheduler.tasks.task_dispatch.scan_and_dispatch_tasks")
-def scan_and_dispatch_tasks():
-    """定时扫描：读取启用且配置了调度的 example 任务，到期则按 task_celery_node 下发。"""
-    return run_async(_scan_and_dispatch_impl())
+def scan_and_dispatch_tasks(task_type: Optional[str] = None):
+    """定时扫描：读取启用且配置了调度的任务，到期则按 task_celery_node 下发。
+    
+    Args:
+        task_type: 任务类型过滤，None 表示扫描所有类型
+        
+    由 Celery Beat 配置决定传递什么 task_type，支持以下方式：
+    1. 扫描所有类型: task_type=None (默认)
+    2. 扫描特定类型: task_type="example"
+    """
+    return run_async(_scan_and_dispatch_impl(task_type=task_type))

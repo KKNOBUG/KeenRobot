@@ -1,11 +1,38 @@
 # -*- coding: utf-8 -*-
 """
 @Project : KeenRobot
-@Module  : record_schema
+@Module  : task_center_record_schema
 """
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+from backend.enums import TaskCenterScheduler, TaskCenterStatus
+
+
+class TaskCenterRecordCreate(BaseModel):
+    task_id: Optional[int] = Field(None, description="任务ID")
+    task_version: Optional[int] = Field(None, description="任务版本(执行时快照)")
+    task_name: Optional[str] = Field(None, max_length=255, description="任务名称")
+    task_kwargs: Optional[Dict[str, Any]] = Field(None, description="任务执行参数快照")
+    task_summary: Optional[str] = Field(None, description="执行摘要")
+    task_error: Optional[str] = Field(None, description="错误信息")
+    celery_id: str = Field(..., max_length=255, description="Celery调度ID")
+    task_celery_node: Optional[str] = Field(None, max_length=512, description="任务调度节点")
+    celery_trace_id: Optional[str] = Field(None, max_length=255, description="调度回溯ID")
+    task_celery_status: Optional[TaskCenterStatus] = Field(TaskCenterStatus.RUNNING, description="任务调度状态")
+    task_celery_scheduler: Optional[TaskCenterScheduler] = Field(None, description="任务调度模式")
+    celery_start_time: Optional[str] = Field(None, max_length=32, description="开始时间")
+    celery_end_time: Optional[str] = Field(None, max_length=32, description="结束时间")
+    celery_duration: Optional[str] = Field(None, max_length=64, description="耗时")
+
+
+class TaskCenterRecordUpdate(BaseModel):
+    task_celery_status: Optional[TaskCenterStatus] = Field(None, description="任务调度状态")
+    celery_end_time: Optional[str] = Field(None, max_length=32, description="结束时间")
+    task_summary: Optional[str] = Field(None, description="执行摘要")
+    task_error: Optional[str] = Field(None, description="错误信息")
+    celery_duration: Optional[str] = Field(None, max_length=64, description="耗时")
 
 
 class TaskCenterRecordSelect(BaseModel):

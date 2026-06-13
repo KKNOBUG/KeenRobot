@@ -15,7 +15,7 @@ from backend.configure import GLOBAL_CONFIG
 
 @celery.task(name="backend.celery_scheduler.tasks.task_example.task_example")
 async def task_example(write_number: int = 10, write_message: Optional[str] = None):
-    if not write_number or (0 > write_number > 100):
+    if not write_number or not (0 < write_number <= 100):
         raise ValueError("参数传[max_number]逻辑错误，必须传递小于100的正整数类型")
 
     if not write_message:
@@ -31,12 +31,12 @@ async def task_example(write_number: int = 10, write_message: Optional[str] = No
             datetime_str: str = datetime.now().strftime(GLOBAL_CONFIG.DATETIME_FORMAT1)
             wfp.write(f"写入时间：{datetime_str}，" + write_message + "\n")
 
-            random_int = random.randint(30, 60)
+            random_int = random.randint(1, write_number) if write_number > 1 else 1
             if i == random_int:
                 wfp.write(f"写入时间：{datetime_str}，写入第{i}行内容时触发随机数{random_int}相等事件，终止写入...\n")
                 break
 
-            if i + i == random_int and random.random() < 0.03:  # 0.03 = 3% 概率触发意外
+            if write_number >= 30 and i + i == random_int and random.random() < 0.03:  # 0.03 = 3% 概率触发意外
                 wfp.write(f"写入时间：{datetime_str}，写入第{i}行内容时触发意外事件，终止写入...\n")
                 raise RuntimeError("触发意外事件...")
 

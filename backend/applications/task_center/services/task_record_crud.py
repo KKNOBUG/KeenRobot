@@ -7,24 +7,21 @@ import traceback
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel
 from tortoise.exceptions import FieldError
 from tortoise.expressions import Q
 
-from backend.applications.task_center.models.task_center_model import TaskCenterRecord
-from backend.applications.task_center.schemas.record_schema import TaskCenterRecordSelect
 from backend.applications.base.services.scaffold import ScaffoldCrud
+from backend.applications.task_center.models.task_center_model import TaskCenterRecord
+from backend.applications.task_center.schemas.record_schema import (
+    TaskCenterRecordCreate,
+    TaskCenterRecordSelect,
+    TaskCenterRecordUpdate,
+)
 from backend.configure import LOGGER
 from backend.core.exceptions import ParameterException
 
 
-class _RecordCreatePlaceholder(BaseModel):
-    pass
-
-
-class TaskCenterRecordCrud(
-    ScaffoldCrud[TaskCenterRecord, _RecordCreatePlaceholder, _RecordCreatePlaceholder]
-):
+class TaskCenterRecordCrud(ScaffoldCrud[TaskCenterRecord, TaskCenterRecordCreate, TaskCenterRecordUpdate]):
     def __init__(self):
         super().__init__(model=TaskCenterRecord)
 

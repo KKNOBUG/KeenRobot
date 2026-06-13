@@ -119,16 +119,15 @@ def get_scheduler_value(scheduler: Any) -> Optional[str]:
     return str(scheduler).strip().lower() or None
 
 
-async def get_scheduled_tasks(task_type: str) -> List[Any]:
-    if not task_type:
-        return []
+async def get_scheduled_tasks(task_type: Optional[str] = None) -> List[Any]:
     Model = get_task_model()
     q = (
             Q(state=0)
             & Q(task_enabled=True)
             & ~Q(task_celery_scheduler__isnull=True)
-            & Q(task_type=task_type)
     )
+    if task_type:
+        q &= Q(task_type=task_type)
     tasks = await Model.filter(q).all()
     return list(tasks)
 

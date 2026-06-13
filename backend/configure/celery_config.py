@@ -86,6 +86,8 @@ class CeleryConfig(BaseSettings):
                     ),
                     "schedule": 60.0,
                     "options": {"queue": "default"},
+                    # 默认扫描所有类型的任务，可以通过配置传递特定 task_type
+                    # "kwargs": {"task_type": "example"},  # 只扫描 example 类型
                 },
             },
             "worker_log_format": (
