@@ -1,7 +1,7 @@
 <script setup>
 import ChatProcessTrace from './chat/ChatProcessTrace.vue'
 
-defineProps({
+const props = defineProps({
   role: String,
   content: String,
   html: String,
@@ -21,6 +21,35 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
       || completionTokens != null
       || (reasoningTokens != null && reasoningTokens > 0)
   )
+}
+
+function canCopy() {
+  return Boolean(props.content?.trim()) && !props.isStreaming
+}
+
+async function copyContent() {
+  const text = props.content?.trim()
+  if (!text) return
+
+  try {
+    await navigator.clipboard.writeText(text)
+    window.$message?.success('已复制')
+  } catch {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      window.$message?.success('已复制')
+    } catch {
+      window.$message?.error('复制失败')
+    } finally {
+      document.body.removeChild(textarea)
+    }
+  }
 }
 </script>
 
@@ -45,9 +74,22 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
       <div v-else-if="role !== 'assistant'" class="text-content bubble-content">{{ content }}</div>
       <span v-if="isStreaming && content" class="cursor-blink"></span>
       <div
-          v-if="role === 'assistant' && hasTokenUsage(promptTokens, completionTokens, reasoningTokens)"
-          class="token-usage"
+          v-if="role === 'assistant' && (canCopy() || hasTokenUsage(promptTokens, completionTokens, reasoningTokens))"
+          class="message-actions"
       >
+        <button
+            v-if="canCopy()"
+            type="button"
+            class="action-badge action-badge--copy"
+            title="复制内容"
+            @click="copyContent"
+        >
+          <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+          </svg>
+          复制
+        </button>
         <span v-if="promptTokens != null" class="token-badge token-badge--prompt">
           <svg class="token-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M12 19V5M12 5l-6 6M12 5l6 6" />
@@ -164,12 +206,42 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
   line-height: 20px;
 }
 
-.token-usage {
+.message-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 6px;
   padding-left: 2px;
+}
+
+.action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.action-badge--copy {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--chat-muted-text, #737373);
+}
+
+.action-badge--copy:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--n-text-color, #333);
+}
+
+.action-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
 }
 
 .token-badge {
@@ -229,6 +301,16 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
   background: rgba(244, 81, 30, 0.12);
   color: #e2e8f0;
   border-color: rgba(244, 81, 30, 0.2);
+}
+
+:global(html.dark) .action-badge--copy {
+  background: rgba(255, 255, 255, 0.08);
+  color: #a3a3a3;
+}
+
+:global(html.dark) .action-badge--copy:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
 }
 
 :global(html.dark) .token-badge--prompt {
