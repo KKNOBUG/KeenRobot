@@ -369,7 +369,7 @@ const taskColumns = computed(() => [
     },
   },
   {
-    title: '任务调度状态',
+    title: '最新调度状态',
     key: 'task_celery_status',
     align: 'center',
     render(row) {
@@ -382,7 +382,7 @@ const taskColumns = computed(() => [
     },
   },
   {
-    title: '任务调度时间',
+    title: '最新调度时间',
     key: 'task_celery_time',
     align: 'center',
     render(row) {
@@ -390,7 +390,7 @@ const taskColumns = computed(() => [
     },
   },
   {
-    title: '任务调度版本',
+    title: '最新调度版本',
     key: 'task_version',
     align: 'center',
     render(row) {

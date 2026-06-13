@@ -167,6 +167,19 @@ class InterceptHandler(logging.Handler):
         "loguru",
     })
 
+    # Celery / broker 框架 DEBUG 不转发到 Loguru（如 TaskPool、Redis MAINT_NOTIFICATIONS）
+    _QUIET_DEBUG_LOGGER_PREFIXES = (
+        "celery.",
+        "kombu",
+        "billiard",
+        "redis",
+        "redbeat",
+        "amqp",
+    )
+    _QUIET_DEBUG_LOGGER_NAMES = frozenset({
+        "celery", "kombu", "billiard", "redis", "logging", "root",
+    })
+
     @classmethod
     def is_excluded(cls, name: str) -> bool:
         """支持精确匹配与 前缀.* 通配排除。"""
@@ -188,8 +201,21 @@ class InterceptHandler(logging.Handler):
             return "INFO"
         return "DEBUG"
 
+    @classmethod
+    def _is_quiet_debug(cls, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.INFO:
+            return False
+        name = record.name or ""
+        if name in cls._QUIET_DEBUG_LOGGER_NAMES:
+            return True
+        return any(name.startswith(prefix) for prefix in cls._QUIET_DEBUG_LOGGER_PREFIXES)
+
     def emit(self, record: logging.LogRecord) -> None:
-        if self.is_excluded(record.name) or getattr(_intercept_guard, "active", False):
+        if (
+            self.is_excluded(record.name)
+            or self._is_quiet_debug(record)
+            or getattr(_intercept_guard, "active", False)
+        ):
             return
 
         # 跳过 logging 内部栈帧，使 Loguru 显示的调用位置指向业务代码
@@ -229,7 +255,7 @@ def wire_standard_loggers() -> None:
     """
     intercept = _get_intercept_handler()
     logging.root.handlers = [intercept]
-    logging.root.setLevel(logging.NOTSET)
+    logging.root.setLevel(logging.INFO)
     for name in _WIRED_STD_LOGGER_NAMES:
         stdlog = logging.getLogger(name)
         stdlog.handlers = [intercept]
@@ -253,6 +279,7 @@ def loguru_logging() -> logger:
         logger.add(
             sys.stdout,
             format=LOG_FORMAT,
+            level="INFO",
             enqueue=True,
             backtrace=True,
             colorize=True,

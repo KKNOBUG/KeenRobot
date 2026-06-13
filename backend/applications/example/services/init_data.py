@@ -18,7 +18,7 @@ async def init_example_data():
     # 检查是否已有数据
     category_count = await Category.filter().count()
     if category_count > 0:
-        LOGGER.info("示例数据已存在，跳过初始化")
+        LOGGER.info("[示例]数据已存在，跳过初始化")
         return
 
     LOGGER.info("开始初始化示例数据...")
