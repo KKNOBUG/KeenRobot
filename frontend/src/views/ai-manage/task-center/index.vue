@@ -58,12 +58,6 @@ const statusTypeMap = {
   失败: 'error',
 }
 
-const schedulerLabelMap = {
-  cron: 'Cron',
-  interval: '固定间隔',
-  datetime: '一次性',
-}
-
 const {
   modalVisible,
   modalAction,
@@ -339,39 +333,34 @@ const taskColumns = computed(() => [
   {
     title: '任务名称',
     key: 'task_name',
-    minWidth: 140,
     ellipsis: { tooltip: true },
   },
   {
-    title: '分类',
+    title: '任务类别',
     key: 'task_type',
-    width: 90,
     render(row) {
       return row.task_type || '-'
     },
   },
-  {
-    title: '任务版本',
-    key: 'task_version',
-    width: 90,
-    align: 'center',
-    render(row) {
-      return row.task_version ?? 0
-    },
-  },
+
   {
     title: '任务调度模式',
     key: 'task_celery_scheduler',
-    width: 100,
     render(row) {
-      if (!row.task_celery_scheduler) return '-'
-      return schedulerLabelMap[row.task_celery_scheduler] || row.task_celery_scheduler
+      return row.task_celery_scheduler || '-'
     },
   },
   {
-    title: '调度状态',
+    title: '任务调度节点',
+    key: 'task_celery_node',
+    ellipsis: { tooltip: true },
+    render(row) {
+      return row.task_celery_node || '-'
+    },
+  },
+  {
+    title: '任务调度状态',
     key: 'task_enabled',
-    width: 90,
     align: 'center',
     render(row) {
       return row.task_enabled
@@ -382,7 +371,6 @@ const taskColumns = computed(() => [
   {
     title: '任务调度状态',
     key: 'task_celery_status',
-    width: 100,
     align: 'center',
     render(row) {
       if (!row.task_celery_status) return '-'
@@ -394,18 +382,24 @@ const taskColumns = computed(() => [
     },
   },
   {
-    title: '最后执行时间',
-    key: 'last_execute_time',
-    width: 170,
+    title: '任务调度时间',
+    key: 'task_celery_time',
     align: 'center',
     render(row) {
-      return row.last_execute_time ? formatDateTime(row.last_execute_time) : '-'
+      return row.task_celery_time ? formatDateTime(row.task_celery_time) : '-'
+    },
+  },
+  {
+    title: '任务调度版本',
+    key: 'task_version',
+    align: 'center',
+    render(row) {
+      return row.task_version ?? 0
     },
   },
   {
     title: '操作',
     key: 'actions',
-    width: 280,
     align: 'center',
     fixed: 'right',
     render(row) {
@@ -538,7 +532,7 @@ const recordColumns = computed(() => [
             v-model:query-items="taskQuery"
             :query-bar-props="taskQueryBarProps"
             :remote="true"
-            :scroll-x="1100"
+            :scroll-x="1300"
             :columns="taskColumns"
             :get-data="fetchTaskList"
             row-key="task_id"

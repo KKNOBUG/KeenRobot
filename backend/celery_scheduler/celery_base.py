@@ -140,7 +140,7 @@ async def check_task_expired(task: Any) -> bool:
         return False
 
     now = datetime.now()
-    last_run = getattr(task, "last_execute_time", None) or getattr(task, "created_time", None)
+    last_run = getattr(task, "task_celery_time", None) or getattr(task, "created_time", None)
     if last_run and getattr(last_run, "tzinfo", None):
         last_run = last_run.replace(tzinfo=None) if last_run.tzinfo else last_run
 

@@ -117,9 +117,9 @@ async def _create_task_record(
                 if isinstance(scheduler, str)
                 else scheduler
             )
-            task_instance.last_execute_time = datetime.now()
+            task_instance.task_celery_time = datetime.now()
             task_instance.task_celery_status = TaskCenterStatus.RUNNING
-            await task_instance.save(update_fields=["last_execute_time", "task_celery_status"])
+            await task_instance.save(update_fields=["task_celery_time", "task_celery_status"])
 
     data: Dict[str, Any] = {
         "task_id": task_id,
@@ -137,8 +137,8 @@ async def _create_task_record(
     LOGGER.info(
         f"【Worker】创建执行记录成功: \n"
         f"任务ID: {task_id}\n"
-        f"任务版本: {task_version}\n"
         f"调度ID: {celery_id}\n"
+        f"任务版本: {task_version}\n"
         f"任务调度节点: {task_celery_node}\n"
     )
 

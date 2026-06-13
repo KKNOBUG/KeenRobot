@@ -34,7 +34,7 @@ class TaskCenterUpdate(BaseModel):
     task_type: Optional[str] = Field(None, max_length=128, description="任务分类")
     task_celery_node: Optional[str] = Field(None, max_length=1024, description="任务调度节点")
     task_kwargs: Optional[Dict[str, Any]] = Field(None, description="任务执行参数")
-    last_execute_time: Optional[str] = Field(None, max_length=32, description="最后执行时间")
+    task_celery_time: Optional[str] = Field(None, max_length=32, description="任务调度时间")
     task_celery_status: Optional[TaskCenterStatus] = Field(None, description="任务调度状态")
     task_celery_scheduler: Optional[TaskCenterScheduler] = Field(None, description="任务调度模式")
     task_interval_expr: Optional[int] = Field(None, description="间隔秒数")
