@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_presets
-"""
 from celery_scheduler.tasks.task_example import task_example
 
 TASK_CENTER_PRESETS = [

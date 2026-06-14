@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : agent_view.py
-"""
 import traceback
 
 from fastapi import APIRouter, Depends, Query

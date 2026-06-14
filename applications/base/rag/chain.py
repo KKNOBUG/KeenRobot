@@ -1,22 +1,15 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : chain.py
-@DateTime: 2025/4/28 18:07
-"""
 """RAG检索增强生成链"""
 
-import re
 import asyncio
+import re
 from collections.abc import AsyncIterator
 from typing import List, Dict, Any
 
-from configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
+from applications.base.rag.chroma_store import chroma_store
 from applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
 from applications.base.rag.llm import OpenAICompatibleLLM, format_messages
-from applications.base.rag.chroma_store import chroma_store
+from configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT
 
 
 def is_irrelevant_question(question: str) -> bool:

@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : __init__.py
-@DateTime: 2025/1/12 19:39
-"""
 from .app_enum import Code, Message, Status
 from .base_error_enum import BaseErrorEnum
 from .chat_session_enum import ChatMessageRole, DocumentStatus

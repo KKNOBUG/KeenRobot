@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : knowledge_base_schema.py
-@DateTime: 2026/6/9
-"""
 from datetime import datetime
 from typing import Optional
 
@@ -32,9 +25,9 @@ class KnowledgeBaseCreate(KnowledgeBaseBase):
     @model_validator(mode="after")
     def validate_chunk_params(self):
         if (
-            self.chunk_overlap is not None
-            and self.chunk_size is not None
-            and self.chunk_overlap > self.chunk_size // 2
+                self.chunk_overlap is not None
+                and self.chunk_size is not None
+                and self.chunk_overlap > self.chunk_size // 2
         ):
             raise ValueError("分块重叠不能超过分块大小的一半")
         return self

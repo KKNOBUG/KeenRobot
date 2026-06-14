@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : chroma_store.py
-@DateTime: 2025/4/28 18:07
-"""
 """ChromaDB 本地向量存储"""
 
 import uuid
@@ -77,10 +70,10 @@ class ChromaStore:
         return ids
 
     def search(
-        self,
-        knowledge_base_ids: List[str],
-        query_embedding: List[float],
-        top_k: int = None,
+            self,
+            knowledge_base_ids: List[str],
+            query_embedding: List[float],
+            top_k: int = None,
     ) -> List[dict]:
         """按知识库过滤的相似度检索"""
         if not knowledge_base_ids:

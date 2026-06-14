@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : routes_view
-@DateTime: 2025/4/29 14:47
-"""
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
 from starlette.requests import Request

@@ -1,11 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : dependencies.py
-@DateTime: 2025/6/7
-
 Example 模块依赖注入工厂。
 
 提供示例模块（分类、商品）CRUD 服务的依赖注入工厂函数。

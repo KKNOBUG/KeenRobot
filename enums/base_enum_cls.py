@@ -1,13 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : base_enum_cls.py
-@DateTime: 2025/1/12 22:58
-"""
 from enum import Enum
-from typing import cast
 
 
 class BaseEnumCls(Enum):

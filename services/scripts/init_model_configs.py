@@ -1,22 +1,14 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : init_model_configs.py
-@DateTime: 2025/4/28 18:07
-"""
 """初始化 / 迁移 DeepSeek 模型配置（直接运行脚本时使用）"""
 
 import asyncio
 
-import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
-
 from tortoise import Tortoise
 
-from configure import PROJECT_CONFIG
-from applications.user.models.user_model import User
+import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
 from applications.model_config.models.model_config_model import ModelConfig
+from applications.user.models.user_model import User
+from configure import PROJECT_CONFIG
 
 DEEPSEEK_CONFIGS = [
     {

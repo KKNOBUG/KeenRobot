@@ -1,26 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : logging_config.py
-@DateTime: 2025/1/16 15:33
-
-统一日志方案：Loguru（LOGGER）+ InterceptHandler 接管标准库 logging。
-
-架构说明
---------
-1. 应用与第三方库仍使用 logging.getLogger(...) 或 uvicorn/gunicorn 内置 logger
-2. InterceptHandler 将上述记录转发到 Loguru，控制台/文件均使用 LOG_FORMAT
-3. 文件落盘经 ConcurrentRotatingFileHandler：多 Gunicorn worker 可共写同一文件
-   按 PROJECT_CONFIG.LOGGER_ROTATION 大小轮转，保留 LOGGER_ROTATION_BACKUP_COUNT 个
-   备份 xxx.log.1 不压缩。
-
-落盘文件命名规则：
---------------------
-INFO 及以上、低于 ERROR： {OUTPUT_LOGS_DIR}/{YYYYMMDD}_INFO_执行日志.log
-ERROR 及以上： {OUTPUT_LOGS_DIR}/{YYYYMMDD}_ERROR_执行日志.log
-"""
 import logging
 import os
 import re
@@ -38,17 +16,11 @@ from configure.project_config import PROJECT_CONFIG
 # 自定义日志格式(控制台与文件共用；文件设置colorize=False)
 # trace_id（X-Trace-ID）/ span_id（X-Span-ID）由 patcher 注入，未绑定则为 -
 LOG_FORMAT = (
-    # 时间信息
     "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-    # 日志级别，居中对齐
     "<level>{level: ^8}</level> | "
-    # 分布式追踪：TraceID（一次前端操作） + SpanID（当前入站/任务）
     "<yellow>{extra[trace_id]}</yellow>:<yellow>{extra[span_id]}</yellow> | "
-    # 进程和线程信息
     "process [<cyan>{process}</cyan>]:<cyan>{thread}</cyan> | "
-    # 文件、函数和行号
     "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> -> "
-    # 日志消息
     "<level>{message}</level>"
 )
 
@@ -212,9 +184,9 @@ class InterceptHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         if (
-            self.is_excluded(record.name)
-            or self._is_quiet_debug(record)
-            or getattr(_intercept_guard, "active", False)
+                self.is_excluded(record.name)
+                or self._is_quiet_debug(record)
+                or getattr(_intercept_guard, "active", False)
         ):
             return
 

@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_example
-"""
 import os.path
 import random
 import time

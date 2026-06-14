@@ -1,17 +1,13 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_crud
-"""
 import traceback
 from typing import Any, Dict, Optional
 
 from tortoise.exceptions import DoesNotExist, FieldError, IntegrityError
 from tortoise.expressions import Q
 
+from applications.base.services.scaffold import ScaffoldCrud
 from applications.task_center.models.task_center_model import TaskCenterInfo
 from applications.task_center.schemas.task_schema import TaskCenterCreate, TaskCenterUpdate
-from applications.base.services.scaffold import ScaffoldCrud
 from configure import LOGGER
 from core.exceptions import (
     DataAlreadyExistsException,

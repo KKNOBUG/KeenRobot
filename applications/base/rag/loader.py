@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : loader.py
-@DateTime: 2025/4/28 18:07
-"""
 """PDF文档加载与分块处理"""
 
 from pathlib import Path
+from typing import Union
 
 from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from configure import PROJECT_CONFIG
-from typing import Union
+
 
 def load_pdf(file_path: Union[str, Path]) -> list[Document]:
     """加载单个PDF文件，返回文档列表"""

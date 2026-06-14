@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : knowledge_base_crud.py
-@DateTime: 2026/6/9
-"""
 import hashlib
 import os
 import uuid
@@ -19,8 +12,6 @@ from tortoise.expressions import Q
 from applications.base.rag.chroma_store import chroma_store
 from applications.base.rag.embeddings import get_embedding
 from applications.base.services.scaffold import ScaffoldCrud
-from applications.knowledge_base.services.document_loader import load_document_pages
-from applications.knowledge_base.services.file_type import validate_file_type
 from applications.knowledge_base.models.knowledge_base_model import (
     Document,
     DocumentChunk,
@@ -36,15 +27,17 @@ from applications.knowledge_base.schemas.knowledge_base_schema import (
     KnowledgeBaseCreate,
     KnowledgeBaseOut,
 )
+from applications.knowledge_base.services.document_loader import load_document_pages
+from applications.knowledge_base.services.file_type import validate_file_type
 from applications.user.models.user_model import User
 from configure import PROJECT_CONFIG
-from enums.chat_session_enum import DocumentStatus
 from core.exceptions import (
     DataBaseStorageException,
     NoPermissionException,
     NotFoundException,
     ParameterException,
 )
+from enums.chat_session_enum import DocumentStatus
 
 
 class DocumentCrud(ScaffoldCrud[Document, DocumentCreate, DocumentUpdate]):
@@ -52,7 +45,7 @@ class DocumentCrud(ScaffoldCrud[Document, DocumentCreate, DocumentUpdate]):
         super().__init__(model=Document)
 
     async def get_by_knowledge_base(
-        self, knowledge_base_id: str, document_id: str
+            self, knowledge_base_id: str, document_id: str
     ) -> Optional[Document]:
         """根据知识库 ID 和文档 ID 获取文档"""
         return await self.model.get_or_none(
@@ -60,7 +53,7 @@ class DocumentCrud(ScaffoldCrud[Document, DocumentCreate, DocumentUpdate]):
         )
 
     async def get_by_content_hash(
-        self, knowledge_base_id: str, content_hash: str
+            self, knowledge_base_id: str, content_hash: str
     ) -> Optional[Document]:
         """根据知识库 ID 和内容哈希获取文档"""
         return await self.model.get_or_none(
@@ -78,7 +71,7 @@ class DocumentCrud(ScaffoldCrud[Document, DocumentCreate, DocumentUpdate]):
         return await self.model.filter(knowledge_base_id=knowledge_base_id).count()
 
     async def create_for_knowledge_base(
-        self, knowledge_base_id: str, **kwargs
+            self, knowledge_base_id: str, **kwargs
     ) -> Document:
         """在指定知识库下创建文档"""
         return await self.model.create(knowledge_base_id=knowledge_base_id, **kwargs)
@@ -93,11 +86,11 @@ class DocumentChunkCrud(ScaffoldCrud[DocumentChunk, DocumentChunkCreate, Documen
         await self.model.bulk_create(chunks)
 
     async def list_by_knowledge_base(
-        self,
-        knowledge_base_id: str,
-        document_id: str = None,
-        page: int = 1,
-        page_size: int = 50,
+            self,
+            knowledge_base_id: str,
+            document_id: str = None,
+            page: int = 1,
+            page_size: int = 50,
     ) -> List[DocumentChunk]:
         """获取知识库下的文档分块列表"""
         qs = self.model.filter(document__knowledge_base_id=knowledge_base_id)
@@ -107,7 +100,7 @@ class DocumentChunkCrud(ScaffoldCrud[DocumentChunk, DocumentChunkCreate, Documen
         return await qs.order_by("chunk_index").offset(offset).limit(page_size)
 
     async def get_by_knowledge_base(
-        self, knowledge_base_id: str, chunk_id: str
+            self, knowledge_base_id: str, chunk_id: str
     ) -> Optional[DocumentChunk]:
         """根据知识库 ID 和分块 ID 获取文档分块"""
         return (
@@ -153,7 +146,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         return await self.model.filter(id=kb_id, state__not=1).first()
 
     async def list_for_user(
-        self, user_id: int, search: str = None
+            self, user_id: int, search: str = None
     ) -> List[KnowledgeBase]:
         """获取用户可见的知识库列表"""
         qs = self.model.filter(
@@ -247,7 +240,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         return await self._to_out(kb)
 
     async def update_kb(
-        self, kb_id: str, user: User, data: KnowledgeBaseCreate
+            self, kb_id: str, user: User, data: KnowledgeBaseCreate
     ) -> KnowledgeBaseOut:
         """更新知识库"""
         kb = await self.get_by_id(kb_id)
@@ -356,7 +349,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             raise DataBaseStorageException(message=f"文档处理失败: {str(e)}")
 
     async def upload_document(
-        self, kb_id: str, user: User, file: UploadFile
+            self, kb_id: str, user: User, file: UploadFile
     ) -> DocumentOut:
         """上传并处理文档"""
         kb = await self.get_by_id(kb_id)
@@ -408,7 +401,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         return self._to_document_out(doc)
 
     async def retry_document(
-        self, kb_id: str, doc_id: str, user: User
+            self, kb_id: str, doc_id: str, user: User
     ) -> DocumentOut:
         """重试处理失败的文档（使用已上传的本地文件）"""
         kb = await self.get_by_id(kb_id)
@@ -531,12 +524,12 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         await doc.delete()
 
     async def list_chunks(
-        self,
-        kb_id: str,
-        user: User,
-        document_id: str = None,
-        page: int = 1,
-        page_size: int = 50,
+            self,
+            kb_id: str,
+            user: User,
+            document_id: str = None,
+            page: int = 1,
+            page_size: int = 50,
     ) -> List[DocumentChunkOut]:
         """获取知识库下的文档分块列表"""
         kb = await self.get_by_id(kb_id)
@@ -560,7 +553,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         return self._to_chunk_out(chunk)
 
     async def update_chunk(
-        self, kb_id: str, chunk_id: str, user: User, data: DocumentChunkUpdate
+            self, kb_id: str, chunk_id: str, user: User, data: DocumentChunkUpdate
     ) -> DocumentChunkOut:
         """更新文档分块"""
         kb = await self.get_by_id(kb_id)

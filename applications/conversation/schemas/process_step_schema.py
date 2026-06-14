@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-前后端约定的 process_trace step 结构。
-
-每条 step 必含 type、status；其余字段按 type 扩展。
-"""
 from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field

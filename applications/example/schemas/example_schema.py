@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : example_schema.py
-@DateTime: 2025/6/7
-"""
 from decimal import Decimal
 from typing import Optional, List
 from uuid import uuid4

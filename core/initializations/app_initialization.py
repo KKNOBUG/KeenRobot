@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : app_initialization.py
-@DateTime: 2025/1/17 21:55
-"""
 import os
 import shutil
 import sys
@@ -99,6 +92,7 @@ async def register_database(app: FastAPI) -> None:
 
     # 应用迁移
     await command.upgrade(run_in_transaction=True)
+
 
 # 注册异常处理器
 def register_exceptions(app: FastAPI) -> None:

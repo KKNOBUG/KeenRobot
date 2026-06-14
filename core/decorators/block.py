@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : block.py
-@DateTime: 2025/1/16 12:48
-"""
 import functools
 import threading
 

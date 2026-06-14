@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : agent_crud.py
-"""
 from typing import List, Optional
 
 from applications.agent.models.agent_model import McpServer, Skill
@@ -22,7 +18,7 @@ class SkillCrud(ScaffoldCrud):
         super().__init__(model=Skill)
 
     async def list_by_user(
-        self, user_id: int, *, search: str = None, manage: bool = False
+            self, user_id: int, *, search: str = None, manage: bool = False
     ) -> List[Skill]:
         """查询技能列表；manage=True 时包含已禁用项（聊天选择器仅返回启用项）"""
         qs = self.model.filter(user_id=user_id, state__not=1)
@@ -52,7 +48,7 @@ class SkillCrud(ScaffoldCrud):
         return await self.create(obj_dict)
 
     async def update_skill(
-        self, skill_id: str, user: User, data: SkillUpdate
+            self, skill_id: str, user: User, data: SkillUpdate
     ) -> Skill:
         effective_id = data.skill_id or skill_id
         skill = await self.get_skill(effective_id, user)
@@ -73,7 +69,7 @@ class McpServerCrud(ScaffoldCrud):
         super().__init__(model=McpServer)
 
     async def list_by_user(
-        self, user_id: int, *, search: str = None, manage: bool = False
+            self, user_id: int, *, search: str = None, manage: bool = False
     ) -> List[McpServer]:
         qs = self.model.filter(user_id=user_id, state__not=1)
         if not manage:
@@ -102,7 +98,7 @@ class McpServerCrud(ScaffoldCrud):
         return await self.create(obj_dict)
 
     async def update_mcp_server(
-        self, mcp_id: str, user: User, data: McpServerUpdate
+            self, mcp_id: str, user: User, data: McpServerUpdate
     ) -> McpServer:
         effective_id = data.mcp_id or mcp_id
         mcp = await self.get_mcp_server(effective_id, user)

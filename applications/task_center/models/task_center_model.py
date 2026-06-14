@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_center_model
-"""
 from tortoise import fields
 
 from applications.base.services.scaffold import (

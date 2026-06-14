@@ -1,13 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : chat_session_enum.py
-@DateTime: 2026/6/11
+# AI 会话相关枚举：消息角色、后续可扩展会话状态、流式事件类型等。
 
-AI 会话相关枚举：消息角色、后续可扩展会话状态、流式事件类型等。
-"""
 from .base_enum_cls import StringEnum
 
 

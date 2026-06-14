@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : example_crud.py
-@DateTime: 2025/6/7
-"""
 from typing import Optional, List, Dict, Any
 
 from tortoise.expressions import Q, F

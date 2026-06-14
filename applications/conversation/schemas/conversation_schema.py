@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : conversation_schema.py
-@DateTime: 2026/6/10
-"""
 import json
 from datetime import datetime
 from typing import Optional, List

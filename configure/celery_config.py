@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : celery_config
-"""
 import os
 from functools import lru_cache
 from typing import Any, Dict

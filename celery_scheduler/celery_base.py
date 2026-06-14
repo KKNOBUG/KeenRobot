@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : celery_base
-"""
 from __future__ import annotations
 
-import threading
+import asyncio
 import traceback
 from contextvars import ContextVar
 from datetime import datetime
@@ -18,7 +14,7 @@ from tortoise.expressions import Q
 from configure import PROJECT_CONFIG, LOGGER
 
 _tortoise_orm_initialized = False
-_init_threading_safe_lock = threading.Lock()
+_init_async_lock: Optional[asyncio.Lock] = None
 
 
 def reset_tortoise_orm_state() -> None:
@@ -32,9 +28,16 @@ def run_async(func: Union[Coroutine, Awaitable]) -> Any:
 
 
 async def init_tortoise_orm() -> None:
-    global _tortoise_orm_initialized
+    global _tortoise_orm_initialized, _init_async_lock
 
-    with _init_threading_safe_lock:
+    from celery_scheduler import ensure_project_root_on_path
+
+    ensure_project_root_on_path()
+
+    if _init_async_lock is None:
+        _init_async_lock = asyncio.Lock()
+
+    async with _init_async_lock:
         if _tortoise_orm_initialized:
             try:
                 conn = connections.get("default")
@@ -90,6 +93,7 @@ def ensure_tortoise_orm_initialized() -> None:
         AsyncEventLoopContextIOPool.run_in_pool(init_tortoise_orm())
     except Exception as e:
         LOGGER.error(f"【Base】确保数据库初始化失败: {str(e)}")
+        raise
 
 
 def get_span_id_for_log() -> str:

@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_record_crud
-"""
 import traceback
 from datetime import datetime
 from typing import Any, Dict, Optional

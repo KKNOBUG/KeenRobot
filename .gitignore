@@ -1,8 +1,8 @@
 .git
-.env
-.venv
-.idea
-.cache
+.env/
+.venv/
+.idea/
+.cache/
 .vscode/*
 .DS_Store
 .pytest_cache
@@ -16,16 +16,9 @@
 *.lock
 *.local
 
-venv
-__pycache__
+venv/
+*/__pycache__/
 
-backend/.idea/
-backend/.venv/
-backend/.env
 core/chroma_db/chroma.sqlite3
 output/logs/*
 output/upload/*
-
-frontend/.idea/
-frontend/node_modules/
-frontend/dist/

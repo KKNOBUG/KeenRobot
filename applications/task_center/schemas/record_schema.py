@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_center_record_schema
-"""
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field

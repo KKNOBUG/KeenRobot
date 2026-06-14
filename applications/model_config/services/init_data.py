@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : init_data.py
-@DateTime: 2026/6/8
-"""
 from applications.model_config.models.model_config_model import ModelConfig
 from applications.user.services.user_crud import UserCrud
 from configure import LOGGER

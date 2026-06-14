@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : init_data
-@DateTime: 2026/6/7 12:39
-"""
 from typing import List
 
 from applications.user.schemas.user_schema import UserCreate

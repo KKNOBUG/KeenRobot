@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_dispatch
-"""
 from __future__ import annotations
 
 import traceback

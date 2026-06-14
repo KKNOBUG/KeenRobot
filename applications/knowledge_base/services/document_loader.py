@@ -1,13 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : document_loader.py
-@DateTime: 2026/6/11
-
-文档内容加载器。按 file_type 分发到具体 loader，后续可扩展 txt/docx 等。
-"""
 from typing import List
 
 from langchain_community.document_loaders import PyMuPDFLoader

@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : __init__.py
-@DateTime: 2025/1/12 19:42
-"""
 from fastapi import APIRouter
 
 from .audit_view import audit

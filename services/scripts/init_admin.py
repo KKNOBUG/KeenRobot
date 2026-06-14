@@ -1,22 +1,14 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : init_admin.py
-@DateTime: 2025/4/28 18:07
-"""
 """初始化管理员账号（直接运行脚本时使用）"""
 
 import asyncio
 
-import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
-
 from tortoise import Tortoise
 
+import _bootstrap  # noqa: F401  将项目根目录加入 sys.path
+from applications.user.models.user_model import User
 from configure import PROJECT_CONFIG
 from services import get_password_hash
-from applications.user.models.user_model import User
 
 
 def build_tortoise_config():

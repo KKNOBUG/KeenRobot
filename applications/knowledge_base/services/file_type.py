@@ -1,13 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : file_type.py
-@DateTime: 2026/6/11
-
-文档类型注册表。定义系统支持的文件格式及 loader 启用状态。
-"""
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 

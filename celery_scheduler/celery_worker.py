@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : celery_worker
-"""
 import asyncio
 import logging
 import traceback
@@ -138,7 +134,7 @@ async def _create_task_record(
         f"【Worker】创建执行记录成功: \n"
         f"任务ID: {task_id}\n"
         f"调度ID: {celery_id}\n"
-        f"任务版本: {task_version}\n"
+        f"任务执行版本: {task_version}\n"
         f"任务调度节点: {task_celery_node}\n"
     )
 
@@ -201,9 +197,7 @@ def receiver_task_pre_run(task: Task, *args, **kwargs):
     celery_id = task.request.id
     task_celery_node = (task.name or "").strip()
     try:
-        if task_celery_node == _SCAN_TASK_NAME:
-            ensure_tortoise_orm_initialized()
-        elif task_id is not None:
+        if task_id is not None:
             try:
                 h = getattr(task.request, "headers", None) or {}
                 if isinstance(h, dict):
@@ -319,7 +313,7 @@ def create_celery():
             celery_id = task_id
             task_center_task_id = _get_task_id_from_request(self.request)
             task_celery_node = self.name or ""
-            
+
             # 解析任务执行结果
             if isinstance(retval, dict):
                 success = retval.get("success", True) is not False
@@ -330,21 +324,21 @@ def create_celery():
             else:
                 success = True
                 summary = str(retval) if retval is not None else ""
-            
+
             if task_celery_node == _SCAN_TASK_NAME:
                 if success and isinstance(retval, dict):
                     LOGGER.info(
-                        f"【Worker】任务扫描完成: \n"
+                        f"【Worker】扫描完成, 按条件()分发任务: \n"
                         f"调度ID: {celery_id}\n"
-                        f"调度节点: {_SCAN_TASK_NAME}\n"
-                        f"扫描数量: {retval.get('scanned')}, 调度数量: {retval.get('dispatched')}, 跳过数量: {retval.get('skipped')}\n"
+                        f"任务调度节点: {_SCAN_TASK_NAME}\n"
+                        f"扫描任务总数: {retval.get('scanned')}, 可调度数: {retval.get('dispatched')}, 被跳过数: {retval.get('skipped')}\n"
                         f"扫描描述: {retval.get('desc')}"
                     )
                 else:
                     LOGGER.error(
                         f"【Worker】任务扫描失败: \n"
                         f"调度ID: {celery_id}\n"
-                        f"调度节点: {_SCAN_TASK_NAME}\n"
+                        f"任务调度节点: {_SCAN_TASK_NAME}\n"
                         f"错误描述: {summary}\n"
                     )
             elif success:
@@ -392,7 +386,6 @@ def create_celery():
 
         def __call__(self, *args, **kwargs):
             try:
-                ensure_tortoise_orm_initialized()
                 hdr = self.request.headers or {}
                 if isinstance(hdr, dict):
                     trace_id, span_id, parent_span_id = _extract_celery_trace_fields(hdr)
@@ -404,6 +397,8 @@ def create_celery():
             except Exception:
                 trace_id = getattr(LOCAL_CONTEXT_VAR, "trace_id", None) or ""
                 enter_celery_span(trace_id, "", "")
+
+            ensure_tortoise_orm_initialized()
 
             _task_stack.push(self)
             self.push_request(args=args, kwargs=kwargs)

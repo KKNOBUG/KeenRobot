@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : async_or_sync_convert
-"""
 from __future__ import annotations
 
 import asyncio
@@ -84,7 +80,7 @@ class AsyncEventLoopContextIOPool:
             task_function = task_function(*args, **kwargs)
 
         if callable(task_function) and not bool(
-            inspect.iscoroutine(task_function) or aio.isfuture(task_function)
+                inspect.iscoroutine(task_function) or aio.isfuture(task_function)
         ):
             task_function = aio.to_thread(task_function, *args, **kwargs)
 

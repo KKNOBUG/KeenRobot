@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : task_center_enum
-"""
 from enums.base_enum_cls import StringEnum
 
 

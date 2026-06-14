@@ -1,15 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : dependencies.py
-@DateTime: 2026/6/9
-
-KnowledgeBase 模块依赖注入工厂。
-
-提供知识库相关 CRUD 服务的依赖注入工厂函数。
-"""
 from dataclasses import dataclass
 
 from applications.knowledge_base.services.knowledge_base_crud import (

@@ -3,7 +3,7 @@
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 WORKSPACE_ROOT="$(dirname "$PROJECT_ROOT")"
 
-CELERY_APP="backend.celery_scheduler.celery_worker:celery"
+CELERY_APP="celery_scheduler.celery_worker:celery"
 CELERY_WORKER_CONCURRENCY=4
 CELERY_WORKER_QUEUES="default"
 CELERY_BEAT_SCHEDULER="redbeat.schedulers:RedBeatScheduler"
@@ -31,7 +31,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
     CELERY_WORKER_CONCURRENCY=1
 fi
 
-export PYTHONPATH="${WORKSPACE_ROOT}:${PYTHONPATH}"
+export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH}"
 
 print_info() { echo -e "\033[32m[INFO]\033[0m $1"; }
 print_warn() { echo -e "\033[33m[WARN]\033[0m $1"; }
@@ -90,7 +90,7 @@ start_celery_worker() {
     : > "$CELERY_WORKER_LOG"
     print_info "启动 Celery Worker (并发: ${CELERY_WORKER_CONCURRENCY}, 队列: ${CELERY_WORKER_QUEUES})..."
     print_info "使用: $CELERY_BIN"
-    cd "$WORKSPACE_ROOT" || exit 1
+    cd "$PROJECT_ROOT" || exit 1
     "$CELERY_BIN" -A "$CELERY_APP" worker \
         --loglevel=info \
         --concurrency=${CELERY_WORKER_CONCURRENCY} \
@@ -117,7 +117,7 @@ start_celery_beat() {
     fi
     : > "$CELERY_BEAT_LOG"
     print_info "启动 Celery Beat (调度器: ${CELERY_BEAT_SCHEDULER})..."
-    cd "$WORKSPACE_ROOT" || exit 1
+    cd "$PROJECT_ROOT" || exit 1
     "$CELERY_BIN" -A "$CELERY_APP" beat \
         --loglevel=info \
         --scheduler="$CELERY_BEAT_SCHEDULER" \

@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : base_response.py
-@DateTime: 2025/1/16 16:14
-"""
 from typing import Optional, Union, List, Any, Dict
 
 import orjson
@@ -23,13 +16,15 @@ class BaseResponse(JSONResponse):
     data: Optional[Union[str, List, Dict[str, Any]]] = None
     total: Optional[int] = None
 
-    def __init__(self,
-                 http_status_code: Optional[int] = None,
-                 code: Optional[Code] = None,
-                 status: Optional[Status] = None,
-                 message: Optional[str] = None,
-                 data: Optional[dict] = None,
-                 total: Optional[int] = None, **kwargs):
+    def __init__(
+            self,
+            http_status_code: Optional[int] = None,
+            code: Optional[Code] = None,
+            status: Optional[Status] = None,
+            message: Optional[str] = None,
+            data: Optional[dict] = None,
+            total: Optional[int] = None, **kwargs
+    ):
 
         if http_status_code and isinstance(http_status_code, int):
             self.http_status_code = http_status_code

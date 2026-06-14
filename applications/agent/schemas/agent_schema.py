@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Project : KeenRobot
-@Module  : agent_schema.py
-"""
 from datetime import datetime
 from typing import Any, Literal, Optional
 

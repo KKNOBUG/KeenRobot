@@ -1,15 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : dependencies.py
-@DateTime: 2026/6/9
-
-Conversation 模块依赖注入工厂。
-
-提供对话相关 CRUD 服务的依赖注入工厂函数。
-"""
 from dataclasses import dataclass
 
 from applications.conversation.services.conversation_crud import (

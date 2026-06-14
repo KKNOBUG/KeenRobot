@@ -1,12 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : rag_config.py
-@DateTime: 2026/6/8
-"""
-
 RAG_SYSTEM_PROMPT = """你是企业知识库智能助手，致力于为员工提供专业、准确、友好的知识咨询服务。
 
 ## 回答原则

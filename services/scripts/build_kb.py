@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : build_kb.py
-@DateTime: 2025/4/28 18:07
-"""
 """构建离线知识库脚本（写入 Chroma 本地库）
 
 用法: python scripts/build_kb.py
@@ -15,11 +8,10 @@ import time
 import uuid
 
 import _bootstrap  # noqa: F401
-
-from configure import PROJECT_CONFIG
 from applications.base.rag.chroma_store import chroma_store
 from applications.base.rag.embeddings import get_embedding
 from applications.base.rag.loader import load_all_pdfs, split_documents
+from configure import PROJECT_CONFIG
 
 
 def main():

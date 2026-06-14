@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : project_config.py
-@DateTime: 2025/1/15 16:08
-"""
 import os.path
 import platform
 from functools import lru_cache
@@ -91,7 +84,6 @@ class ProjectConfig(BaseSettings):
     STATIC_IMG_DIR: str = os.path.abspath(os.path.join(STATIC_DIR, "image"))
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
-
 
     # RAG / LLM / Embedding
     CHROMA_COLLECTION: str = "knowledge_base"

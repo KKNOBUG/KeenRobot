@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : model_config_crud.py
-@DateTime: 2026/6/9
-"""
 from typing import List, Optional
 
 from applications.base.services.scaffold import ScaffoldCrud
@@ -29,7 +22,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         )
 
     async def get_by_id_and_user(
-        self, config_id: str, user_id: int
+            self, config_id: str, user_id: int
     ) -> Optional[ModelConfig]:
         """根据 ID 和用户 ID 获取模型配置"""
         return await self.model.get_or_none(id=config_id, user_id=user_id)
@@ -42,7 +35,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         return await self.model.filter(user_id=user_id).order_by("created_time").first()
 
     async def clear_default(
-        self, user_id: int, exclude_id: Optional[str] = None
+            self, user_id: int, exclude_id: Optional[str] = None
     ) -> None:
         """清除用户的默认配置标记"""
         qs = self.model.filter(user_id=user_id, is_default=True)
@@ -51,7 +44,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         await qs.update(is_default=False)
 
     async def get_first_other(
-        self, user_id: int, exclude_id: str
+            self, user_id: int, exclude_id: str
     ) -> Optional[ModelConfig]:
         """获取用户除指定配置外的第一条配置"""
         return (
@@ -66,7 +59,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         return await self.list_by_user(current_user.id)
 
     async def create_config(
-        self, current_user: User, data: ModelConfigCreate
+            self, current_user: User, data: ModelConfigCreate
     ) -> ModelConfig:
         """创建模型配置"""
         if data.is_default:
@@ -83,7 +76,7 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         return config
 
     async def update_config(
-        self, config_id: str, current_user: User, data: ModelConfigUpdate
+            self, config_id: str, current_user: User, data: ModelConfigUpdate
     ) -> ModelConfig:
         """更新模型配置"""
         effective_id = data.config_id or config_id
@@ -126,9 +119,9 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
         raise NotFoundException(message="没有找到模型配置")
 
     async def resolve_for_chat(
-        self,
-        current_user: User,
-        model_config_id: Optional[str] = None,
+            self,
+            current_user: User,
+            model_config_id: Optional[str] = None,
     ) -> Optional[ModelConfig]:
         """解析聊天场景使用的模型配置：优先当前用户指定/默认，其次降级为管理员默认"""
         if model_config_id:

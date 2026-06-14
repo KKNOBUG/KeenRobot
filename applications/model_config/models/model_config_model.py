@@ -1,11 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-@Author  : yangkai
-@Email   : 807440781@qq.com
-@Project : KeenRobot
-@Module  : model_config_model.py
-@DateTime: 2025/4/28 18:07
-"""
 from tortoise import fields
 
 from applications.base.services.scaffold import (
