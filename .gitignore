@@ -23,8 +23,7 @@ backend/.idea/
 backend/.venv/
 backend/.env
 backend/output/logs/*.log
-backend/workspace
-!backend/workspace/.claude
+
 
 frontend/.idea/
 frontend/node_modules/

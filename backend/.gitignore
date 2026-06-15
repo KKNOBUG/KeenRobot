@@ -44,8 +44,9 @@ output/logs/*.log
 
 
 # Workspace (keep .claude)
-workspace/
+workspace/*
 !workspace/.claude
+!workspace/.claude/**
 
 # Model cache (large files)
 cache/
