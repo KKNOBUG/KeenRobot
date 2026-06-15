@@ -200,5 +200,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(router=history_router, prefix="/conversations", tags=["RAG-对话历史"], dependencies=[DependAuth])
     app.include_router(router=knowledge_router, prefix="/knowledge-bases", tags=["RAG-知识库"], dependencies=[DependAuth])
     app.include_router(router=model_router, prefix="/model-configs", tags=["RAG-模型配置"], dependencies=[DependAuth])
-    app.include_router(router=case_recommendation_router, prefix="/case-recommendation", tags=["用例推荐"], dependencies=[DependAuth])
-    app.include_router(router=test_case_gen_router, prefix="/test-case-gen", tags=["测试用例生成"], dependencies=[DependAuth])
+
+
+    app.include_router(router=case_recommendation_router, prefix="/case-recommendation", tags=["用例推荐"])
+    app.include_router(router=test_case_gen_router, prefix="/test-case-gen", tags=["测试用例生成"])

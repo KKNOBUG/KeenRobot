@@ -7,7 +7,6 @@
 """
 import asyncio
 import functools
-import logging
 import os
 import uuid
 from pathlib import Path
@@ -20,12 +19,11 @@ from applications.weixianzhe.models.test_case_task_model import TestCaseTask
 from applications.weixianzhe.schemas.test_case_schema import TaskInfo, TaskListResponse
 from applications.weixianzhe.services.claude_generator import ClaudeTestCaseGenerator
 from applications.weixianzhe.utils.xlsx_writer import md_to_xlsx
+from common.file_converter import convert_file_to_md
 from configure import LOGGER, PROJECT_CONFIG
 from core.responses import FailureResponse, SuccessResponse
 
 test_case_router = APIRouter()
-
-logger = logging.getLogger(__name__)
 
 
 # ---------- decorators ----------
@@ -101,15 +99,15 @@ def _task_logger(
     return decorator
 
 
-def _create_output_folder(
-    base_dir: str = "",
+def _create_task_folder(
     inject_folder_path: str = "folder_path",
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """创建输出文件夹并注入到函数参数中。"""
+    """在 workspace/test_case 下创建任务文件夹并注入到函数参数中。"""
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            base_dir = os.path.join(PROJECT_CONFIG.WORKSPACE_DIR, "test_case")
             folder_path = os.path.abspath(os.path.join(base_dir, uuid.uuid4().hex))
             os.makedirs(folder_path, exist_ok=True)
             kwargs[inject_folder_path] = folder_path
@@ -163,7 +161,7 @@ async def generate_test_cases(
     return SuccessResponse(data={"status": "accepted", "task_id": task_id})
 
 
-@_create_output_folder(base_dir="", inject_folder_path="folder_path")
+@_create_task_folder(inject_folder_path="folder_path")
 @_task_logger(
     state_field="status",
     start_state="generating",
@@ -197,6 +195,14 @@ async def _run_generation(
         source_path = os.path.join(folder_path, filename)
         with open(source_path, "wb") as f:
             f.write(docx_bytes)
+
+        # 将 docx 转换为 md，转换成功后删除原文件
+        try:
+            convert_file_to_md(source_path)
+        except Exception as exc:
+            LOGGER.exception("文件转换失败: %s", exc)
+            raise RuntimeError(f"文件「{filename}」转换失败: {exc}")
+        os.remove(source_path)
 
     generator = ClaudeTestCaseGenerator()
     result = await generator.generate(folder_path, output_dir=folder_path)

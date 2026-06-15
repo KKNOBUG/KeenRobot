@@ -47,11 +47,19 @@ class ProjectConfig(BaseSettings):
 
     # 调试配置
     SERVER_APP: str = "backend_main:app"
-    SERVER_HOST: str = ShellUtils.acquire_localhost()
+    SERVER_HOST: str = "0.0.0.0"
+    #SERVER_HOST: str = ShellUtils.acquire_localhost()
     SERVER_SYSTEM: str = platform.system()
     SERVER_PORT: int = 8519
     SERVER_DEBUG: bool = SERVER_SYSTEM != "Linux"  # Windows | Linux | Darwin
     SERVER_DELAY: int = 5
+    SERVER_RELOAD_EXCLUDES: List[str] = [
+        "*/workspace/*",
+        "*/output/*",
+        "*/cache/*",
+        "*/.venv/*",
+        "*/__pycache__/*",
+    ]
 
     # 安全认证配置（必须在.env文件或环境变量中配置）
     AUTH_SECRET_KEY: str = Field(default="", min_length=64, description="JWT密钥，建议: openssl rand -hex 32")
@@ -106,7 +114,7 @@ class ProjectConfig(BaseSettings):
 
     # 测试用例生成配置
     TEST_CASE_MODEL_POOL: str = Field(
-        default="claude-sonnet-4-6;claude-opus-4-6;claude-haiku-4-5-20251001",
+        default="claude-sonnet-4-6",
         description="Claude 模型池，用分号分隔"
     )
     TEST_CASE_MODEL_TIMEOUT: int = Field(default=1200, description="模型调用超时秒数")

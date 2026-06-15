@@ -88,6 +88,9 @@ async def auth_middleware(request: Request, call_next):
         f"GET {PROJECT_CONFIG.APP_REDOC_URL}",
         f"GET {PROJECT_CONFIG.APP_OPENAPI_URL}",
 
+        "POST /case-recommendation/*",
+        "POST /test-case-gen/*",
+
         # static assets
         "* /static/*",
     ]
