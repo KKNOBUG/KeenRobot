@@ -71,17 +71,6 @@ export const basicRoutes = [
         },
       },
       {
-        name: 'AgentManage',
-        path: 'agent',
-        component: () => import('@/views/ai-manage/agent/index.vue'),
-        meta: {
-          title: 'Agent管理',
-          icon: 'mdi:robot-outline',
-          keepAlive: true,
-          componentName: 'AgentManage',
-        },
-      },
-      {
         name: 'McpManage',
         path: 'mcp',
         component: () => import('@/views/ai-manage/mcp/index.vue'),
