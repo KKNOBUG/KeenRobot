@@ -78,9 +78,12 @@ export default {
   updateTask: (data) => request.post('/task-center/update', data).then(payload),
   deleteTask: (params) => request.delete('/task-center/delete', { params }).then(payload),
   getTask: (params) => request.get('/task-center/get', { params }).then(payload),
-  runTask: (data) => request.post('/task-center/run', data).then(payload),
-  startTask: (data) => request.post('/task-center/start', data).then(payload),
-  stopTask: (data) => request.post('/task-center/stop', data).then(payload),
+  /** Form：task_id */
+  runTask: (formData) => request.post('/task-center/run', formData).then(payload),
+  /** Form：task_id */
+  startTask: (formData) => request.post('/task-center/start', formData).then(payload),
+  /** Form：task_id */
+  stopTask: (formData) => request.post('/task-center/stop', formData).then(payload),
   searchTaskRecords: (data) =>
       request.post('/task-center/record/search', data).then((res) => ({
         data: res?.data ?? [],

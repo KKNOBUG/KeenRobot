@@ -242,7 +242,9 @@ async function fetchRecordList(params) {
 async function handleRunTask(row) {
   const taskId = row.task_id ?? row.id
   try {
-    await api.runTask({ task_id: taskId })
+    const fd = new FormData()
+    fd.append('task_id', String(taskId))
+    await api.runTask(fd)
     $message.success('任务已下发执行')
     $taskTable.value?.handleSearch()
     if (activeTab.value === 'records') {
@@ -256,7 +258,9 @@ async function handleRunTask(row) {
 async function handleStartTask(row) {
   const taskId = row.task_id ?? row.id
   try {
-    await api.startTask({ task_id: taskId })
+    const fd = new FormData()
+    fd.append('task_id', String(taskId))
+    await api.startTask(fd)
     $message.success('任务调度已启动')
     $taskTable.value?.handleSearch()
   } catch {
@@ -267,7 +271,9 @@ async function handleStartTask(row) {
 async function handleStopTask(row) {
   const taskId = row.task_id ?? row.id
   try {
-    await api.stopTask({ task_id: taskId })
+    const fd = new FormData()
+    fd.append('task_id', String(taskId))
+    await api.stopTask(fd)
     $message.success('任务调度已停止')
     $taskTable.value?.handleSearch()
   } catch {
