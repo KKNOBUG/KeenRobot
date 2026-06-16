@@ -34,7 +34,7 @@ async def list_model_configs(
     try:
         items = await model_config_crud.list_configs(current_user)
         data = [
-            ModelConfigOut.model_validate(item).model_dump()
+            ModelConfigOut.from_model(item).model_dump()
             for item in items
         ]
         return SuccessResponse(data=data, total=len(data))
@@ -51,7 +51,7 @@ async def create_model_config(
 ):
     try:
         instance = await model_config_crud.create_config(current_user, config_data)
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except Exception as e:
         LOGGER.error(f"创建模型配置失败: {e}\n{traceback.format_exc()}")
@@ -65,7 +65,7 @@ async def get_default_config(
 ):
     try:
         instance = await model_config_crud.get_default(current_user)
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -82,7 +82,7 @@ async def get_model_config(
 ):
     try:
         instance = await model_config_crud.get_config(config_id, current_user)
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -102,7 +102,7 @@ async def update_model_config(
         instance = await model_config_crud.update_config(
             config_id, current_user, config_data
         )
-        data = ModelConfigOut.model_validate(instance).model_dump()
+        data = ModelConfigOut.from_model(instance).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)

@@ -209,10 +209,10 @@ proxy: { '/api': { target: 'http://localhost:8000' } }
 | `AUTH_JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Token 过期时间（分钟） | `10080`（7天） |
 | `LLM_API_KEY` | 大模型 Key（兼容 `DASHSCOPE_API_KEY`） | — |
 | `LLM_BASE_URL` | 大模型 API 地址 | `https://api.deepseek.com/v1` |
-| `DEFAULT_LLM_MODEL` | 默认模型名 | `deepseek-chat` |
+| `LLM_MODEL_NAME` | 默认模型名 | `deepseek-chat` |
 | `EMBEDDING_API_KEY` | 向量模型 Key（兼容 `SILICONFLOW_API_KEY`） | — |
 | `EMBEDDING_BASE_URL` | 向量 API 地址 | `https://api.siliconflow.cn/v1` |
-| `DEFAULT_EMBEDDING_MODEL` | 默认 Embedding 模型 | `BAAI/bge-large-zh-v1.5` |
+| `EMBEDDING_MODEL_NAME` | 默认 Embedding 模型 | `BAAI/bge-large-zh-v1.5` |
 | `CHROMA_COLLECTION` | Chroma 集合名 | `knowledge_base` |
 | `REDIS_HOST` | Redis 主机 | `localhost` |
 | `REDIS_PORT` | Redis 端口 | `6379` |
@@ -322,7 +322,7 @@ SSE 事件类型：
 | DELETE | `/api/model-configs/{config_id}` | 删除配置 | 是 |
 | POST | `/api/model-configs/{config_id}/default` | 设为默认 | 是 |
 
-列表仅返回**当前登录用户**自己创建的配置。聊天时优先使用用户指定/默认配置；若用户尚无配置，后端自动降级使用管理员（`admin`）的默认配置。
+列表仅返回**当前登录用户**自己创建的配置。聊天时优先使用用户指定/默认配置；若用户尚无配置，后端走 `.env` 中的 LLM 连接与默认生成参数兜底。
 
 ### Agent 技能 `/api/agent`
 

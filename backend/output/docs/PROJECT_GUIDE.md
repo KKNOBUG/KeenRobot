@@ -184,7 +184,7 @@ backend/
 │   │   └── views/knowledge_base_view.py
 │   └── model_config/
 │       ├── models/model_config_model.py
-│       ├── services/model_config_crud.py  # 列表按用户；聊天 resolve 降级 admin
+│       ├── services/model_config_crud.py  # 列表按用户；无配置时聊天走 .env 兜底
 │       └── views/model_config_view.py
 ├── migrations/models/              # Aerich 迁移脚本（0_init → …）
 ├── enums/                          # DocumentStatus、ChatMessageRole 等
@@ -215,7 +215,7 @@ chat_view.py → ConversationCrud.prepare_for_chat()
 1. **领域分包**：用户、对话、知识库、模型配置各自独立，共享 `base/rag` 与 `ScaffoldCrud`。
 2. **OpenAI 兼容接口**：LLM 与 Embedding 均通过 `/chat/completions`、`/embeddings` 调用，便于切换 DeepSeek、千问、硅基流动等。
 3. **双存储**：MySQL/SQLite 存结构化元数据与原文分块；`core/chroma_db/` 存向量，检索时按 `kb_id`（支持 `$in` 多库）过滤。
-4. **多租户轻量隔离**：知识库按 `user_id` + `is_public` 控制；模型配置列表按当前用户过滤，聊天时无个人配置则降级 admin 默认。
+4. **多租户轻量隔离**：知识库按 `user_id` + `is_public` 控制；模型配置列表按当前用户过滤，聊天时无个人配置则走 `.env` 兜底。
 5. **降级友好**：Embedding 未配置时跳过检索，退化为纯 LLM 对话。
 6. **迁移由 Aerich 管理**：模型变更后 `aerich migrate` → `aerich upgrade`（启动时也可自动执行，见 `app_initialization.py`）。
 
@@ -445,12 +445,12 @@ class ModelConfig:
 # LLM（对话）
 LLM_API_KEY=sk-xxx
 LLM_BASE_URL=https://api.deepseek.com/v1
-DEFAULT_LLM_MODEL=deepseek-chat
+LLM_MODEL_NAME=deepseek-chat
 
 # Embedding（向量检索，与 LLM 独立）
 EMBEDDING_API_KEY=sk-xxx
 EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
-DEFAULT_EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
+EMBEDDING_MODEL_NAME=BAAI/bge-large-zh-v1.5
 
 # 数据库
 DB_TYPE=mysql          # 或 sqlite（默认）
@@ -467,7 +467,7 @@ MYSQL_HOST=...
 | `EMBEDDING_API_KEY 未设置` | 未配硅基流动 Key | 配 Key 或取消选知识库 |
 | 选了知识库但回答不基于文档 | Chroma 无向量 / 未重新上传文档 | 看后端 `[Chroma]` 日志，重新上传 PDF |
 | 上传 PDF 超时 | 同步处理大文件 | 改异步任务队列 |
-| 模型配置列表为空但聊天仍可用 | 聊天降级使用 admin 默认配置 | 在「模型管理」为当前用户创建配置，或由 admin 维护默认配置 |
+| 模型配置列表为空但聊天仍可用 | 无个人配置，聊天走 `.env` LLM 兜底 | 在「模型管理」为当前用户创建配置以自定义 Prompt/参数/接入点 |
 | 同 PDF 无法重传 | 已有 completed 记录占唯一约束 | 删除旧文档后再传；failed/processing 可直接同内容覆盖 |
 
 ---

@@ -40,7 +40,7 @@ chain._retrieve_context()
   ├─ chroma_store.search(knowledge_base_ids, embedding, top_k)
   │     where: kb_id = x 或 kb_id $in [...]
   │     score = 1 - cosine_distance
-  ├─ _filter_embedding_model_consistency()  # 过滤与 DEFAULT_EMBEDDING_MODEL 不一致的向量
+  ├─ _filter_embedding_model_consistency()  # 过滤与 EMBEDDING_MODEL_NAME 不一致的向量
   ├─ score_threshold 过滤（来自 ModelConfig，默认 0）
   └─ format_context_from_results()  # [n] (相关度) + 来源: 文件名 第N页
   │
@@ -62,7 +62,7 @@ _resolve_system_prompt() + format_messages() + llm.stream_chat()
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | 500 / 100 | `.env` 或 `KnowledgeBase.chunk_*` |
 | `RETRIEVAL_TOP_K` | 5 | `.env`；聊天以 `ModelConfig.top_k` 为准 |
 | `score_threshold` | 0.0 | `ModelConfig` |
-| `DEFAULT_EMBEDDING_MODEL` | BAAI/bge-large-zh-v1.5 | `.env` |
+| `EMBEDDING_MODEL_NAME` | BAAI/bge-large-zh-v1.5 | `.env` |
 | 历史轮数 | 10 | `chain.rag_stream(max_history_rounds)` 硬编码 |
 
 ---

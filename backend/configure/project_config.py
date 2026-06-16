@@ -94,10 +94,10 @@ class ProjectConfig(BaseSettings):
     CHROMA_COLLECTION: str = "knowledge_base"
     LLM_API_KEY: str = Field(default="", description="LLM API Key")
     LLM_BASE_URL: str = Field(default="", description="LLM API Base URL")
-    DEFAULT_LLM_MODEL: str = Field(default="", description="Default LLM Model")
+    LLM_MODEL_NAME: str = Field(default="", description="LLM Model Name")
     EMBEDDING_API_KEY: str = Field(default="", description="Embedding API Key")
     EMBEDDING_BASE_URL: str = Field(default="", description="Embedding API Base URL")
-    DEFAULT_EMBEDDING_MODEL: str = Field(default="", description="Default Embedding Model")
+    EMBEDDING_MODEL_NAME: str = Field(default="", description="Embedding Model Name")
 
     # RAG 分块 / 检索全局默认值（.env 可选；不写则用下列 default）
     # - CHUNK_SIZE / CHUNK_OVERLAP：KnowledgeBase.chunk_* 为空时回退；仅影响新上传/重处理文档

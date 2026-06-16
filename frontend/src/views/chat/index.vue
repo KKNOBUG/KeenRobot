@@ -8,6 +8,7 @@ import { NButton, NLayout, NLayoutContent, NLayoutSider, NSkeleton } from 'naive
 import MessageBubble from '../../components/MessageBubble.vue'
 import ChatFeaturePicker from '../../components/chat/ChatFeaturePicker.vue'
 import ChatDeepThinkingToggle from '../../components/chat/ChatDeepThinkingToggle.vue'
+import ChatModelSelector from '../../components/chat/ChatModelSelector.vue'
 import ChatTurnNodes from '../../components/chat/ChatTurnNodes.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
@@ -70,6 +71,22 @@ const mcpPickerItems = computed(() =>
       tag: mcp.transport || undefined,
     })),
 )
+
+const modelPickerItems = computed(() =>
+    modelConfigs.value.map((config) => ({
+      id: config.id,
+      label: config.llm_model_name,
+      sublabel: config.config_name,
+    })),
+)
+
+const selectedConfig = computed(() =>
+    modelConfigs.value.find((c) => c.id === selectedModelConfig.value) || null,
+)
+
+const showDeepThinking = computed(() => selectedConfig.value?.model_thinking === true)
+
+const showModelSelector = computed(() => modelConfigs.value.length > 0)
 
 // 从URL获取对话ID
 const conversationId = ref(normalizeConversationId(route.query.conversation))
@@ -171,7 +188,7 @@ function bumpConversationToTop(id) {
 onMounted(async () => {
   await loadConversations()
 
-  // 加载知识库和模型配置（后台默认，不在界面展示）
+  // 加载知识库和模型配置（默认模型自动选中，下拉框仅用于切换）
   try {
     const kbs = await api.fetchKnowledgeBases()
     knowledgeBases.value = kbs || []
@@ -227,6 +244,12 @@ onMounted(async () => {
 onUnmounted(() => {
   if (messagesContainer.value) {
     messagesContainer.value.removeEventListener('scroll', onMessagesScroll)
+  }
+})
+
+watch(selectedModelConfig, () => {
+  if (!showDeepThinking.value) {
+    enableDeepThinking.value = false
   }
 })
 
@@ -488,8 +511,8 @@ async function sendMessage() {
       question,
       currentConvId,
       selectedKBs.value,
-      selectedModelConfig.value,
-      enableDeepThinking.value,
+      selectedModelConfig.value || null,
+      showDeepThinking.value ? enableDeepThinking.value : false,
       selectedSkills.value,
       selectedMcps.value,
       {
@@ -751,16 +774,27 @@ function renderMarkdown(text) {
                           :items="mcpPickerItems"
                           allow-empty
                       />
-                      <ChatDeepThinkingToggle v-model="enableDeepThinking" />
+                      <ChatDeepThinkingToggle
+                          v-if="showDeepThinking"
+                          v-model="enableDeepThinking"
+                      />
                     </div>
-                    <button
-                        class="send-btn"
-                        type="button"
-                        :disabled="!inputText.trim() || isLoading || isConversationLoading"
-                        @click="sendMessage()"
-                    >
-                      <TheIcon icon="material-symbols:send-rounded" :size="18" color="#fff" />
-                    </button>
+                    <div class="input-box-actions-right">
+                      <ChatModelSelector
+                          v-if="showModelSelector"
+                          v-model="selectedModelConfig"
+                          :items="modelPickerItems"
+                          :disabled="isLoading || isConversationLoading"
+                      />
+                      <button
+                          class="send-btn"
+                          type="button"
+                          :disabled="!inputText.trim() || isLoading || isConversationLoading"
+                          @click="sendMessage()"
+                      >
+                        <TheIcon icon="material-symbols:send-rounded" :size="18" color="#fff" />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <p class="input-disclaimer">内容由 AI 生成，请仔细甄别 · KEENROBOT助手</p>
@@ -1083,6 +1117,14 @@ function renderMarkdown(text) {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+}
+
+.input-box-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .input-textarea {
