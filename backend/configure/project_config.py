@@ -52,6 +52,13 @@ class ProjectConfig(BaseSettings):
     SERVER_PORT: int = 8519
     SERVER_DEBUG: bool = SERVER_SYSTEM != "Linux"  # Windows | Linux | Darwin
     SERVER_DELAY: int = 5
+    SERVER_RELOAD_EXCLUDES: List[str] = [
+        "*/workspace/*",
+        "*/output/*",
+        "*/docling_offline/*",
+        "*/.venv/*",
+        "*/__pycache__/*",
+    ]
 
     # 安全认证配置（必须在.env文件或环境变量中配置）
     AUTH_SECRET_KEY: str = Field(default="", min_length=64, description="JWT密钥，建议: openssl rand -hex 32")
