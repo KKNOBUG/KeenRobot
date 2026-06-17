@@ -21,7 +21,43 @@ export default {
   login: (data) => request.post('/base/auth/access_token', data, { noNeedToken: true }),
   register: (data) => request.post('/user/create', data, { noNeedToken: true }),
   getUserInfo: () => request.post('/base/auth/userinfo'),
+  getUserMenu: () => request.post('/base/auth/usermenu'),
+  getUserRouters: () => request.post('/base/auth/getUserRouters'),
   logout: () => request.post('/user/logout'),
+
+  getUserList: (params = {}) => request.get('/user/list', { params }),
+  getUserById: (params = {}) => request.get('/user/get', { params }),
+  createUser: (data = {}) => request.post('/user/create', data),
+  updateUser: (data = {}) => {
+    const { id, user_id, roles, ...rest } = data
+    return request.post('/user/update', { ...rest, user_id: user_id ?? id })
+  },
+  deleteUser: (params = {}) => request.delete('/user/delete', { params }),
+  deleteUserBatch: (data = {}) => request.post('/user/deletes', data),
+  resetPassword: (data = {}) => request.post('/user/reset_password', data),
+  updatePassword: (data = {}) => request.post('/user/update_password', data),
+
+  getRoleList: (params = {}) => request.get('/base/role/list', { params }),
+  createRole: (data = {}) => request.post('/base/role/create', data),
+  updateRole: (data = {}) => request.post('/base/role/update', data),
+  deleteRole: (params = {}) => request.delete('/base/role/delete', { params }),
+  deleteRoleBatch: (data = {}) => request.post('/base/role/deletes', data),
+  updateRoleAuthorized: (data = {}) => request.post('/base/role/authorized', data),
+  getRoleAuthorized: (params = {}) => request.get('/base/role/authorized', { params }),
+
+  getMenus: (params = {}) => request.post('/base/menu/list', {}, { params }),
+  createMenu: (data = {}) => request.post('/base/menu/create', data),
+  updateMenu: (data = {}) => request.post('/base/menu/update', data),
+  deleteMenu: (params = {}) => request.delete('/base/menu/delete', { params }),
+
+  getRouters: (params = {}) => request.get('/base/router/list', { params }),
+  createRouter: (data = {}) => request.post('/base/router/create', data),
+  updateRouter: (data = {}) => request.post('/base/router/update', data),
+  deleteRouter: (params = {}) => request.delete('/base/router/delete', { params }),
+  refreshRouter: (data = {}) => request.post('/base/router/refresh', data),
+
+  getAuditLogList: (params = {}) => request.get('/base/audit/list', { params }),
+  deleteAuditLogBatch: (data = {}) => request.post('/base/audit/delete', data),
 
   fetchConversations: () => request.get('/conversations/').then(payload),
   fetchConversation: (id) => request.get(`/conversations/${id}`).then(payload),

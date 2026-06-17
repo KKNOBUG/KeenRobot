@@ -21,14 +21,17 @@ export const useUserStore = defineStore('user', {
       return this.userInfo?.email || ''
     },
     alias() {
-      return this.userInfo?.username || ''
+      return this.userInfo?.alias || this.userInfo?.username || ''
     },
     avatar() {
-      const name = this.userInfo?.username || 'U'
+      const name = this.userInfo?.alias || this.userInfo?.username || 'U'
       return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=F4511E`
     },
-    isAdmin() {
+    isSuperUser() {
       return this.userInfo?.is_superuser || false
+    },
+    isAdmin() {
+      return this.isSuperUser
     },
     lastLogin() {
       return this.userInfo?.last_login || '-'

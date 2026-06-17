@@ -27,85 +27,6 @@ export const basicRoutes = [
     meta: { order: 1 },
   },
   {
-    name: 'AiManage',
-    path: '/ai-manage',
-    component: Layout,
-    redirect: '/ai-manage/chat',
-    meta: {
-      title: 'AI管理',
-      icon: 'mdi:robot-outline',
-      order: 2,
-    },
-    children: [
-      {
-        name: 'Chat',
-        path: 'chat',
-        component: () => import('@/views/chat/index.vue'),
-        meta: {
-          title: '智能聊天',
-          icon: 'mdi:chat-outline',
-          keepAlive: true,
-          componentName: 'Chat',
-        },
-      },
-      {
-        name: 'KnowledgeBase',
-        path: 'knowledge-base',
-        component: () => import('@/views/knowledge-base/index.vue'),
-        meta: {
-          title: '知识库管理',
-          icon: 'mdi:book-open-outline',
-          keepAlive: true,
-          componentName: 'KnowledgeBase',
-        },
-      },
-      {
-        name: 'ModelManage',
-        path: 'model',
-        component: () => import('@/views/ai-manage/model/index.vue'),
-        meta: {
-          title: '模型管理',
-          icon: 'mdi:brain',
-          keepAlive: true,
-          componentName: 'ModelManage',
-        },
-      },
-      {
-        name: 'McpManage',
-        path: 'mcp',
-        component: () => import('@/views/ai-manage/mcp/index.vue'),
-        meta: {
-          title: 'MCP管理',
-          icon: 'mdi:connection',
-          keepAlive: true,
-          componentName: 'McpManage',
-        },
-      },
-      {
-        name: 'SkillsManage',
-        path: 'skills',
-        component: () => import('@/views/ai-manage/skills/index.vue'),
-        meta: {
-          title: 'Skills管理',
-          icon: 'mdi:puzzle-outline',
-          keepAlive: true,
-          componentName: 'SkillsManage',
-        },
-      },
-      {
-        name: 'TaskCenter',
-        path: 'task-center',
-        component: () => import('@/views/ai-manage/task-center/index.vue'),
-        meta: {
-          title: '任务中心',
-          icon: 'mdi:clock-outline',
-          keepAlive: true,
-          componentName: 'TaskCenter',
-        },
-      },
-    ],
-  },
-  {
     name: 'Profile',
     path: '/profile',
     component: Layout,
@@ -194,3 +115,5 @@ export const EMPTY_ROUTE = {
   path: '/:pathMatch(.*)*',
   component: null,
 }
+
+export const vueModules = import.meta.glob('@/views/**/index.vue')

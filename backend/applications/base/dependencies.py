@@ -5,22 +5,28 @@
 @Project : KeenRobot
 @Module  : dependencies.py
 @DateTime: 2025/6/7
-
-Base 模块依赖注入工厂。
-
-提供基础服务（审计日志等）CRUD 服务的依赖注入工厂函数。
-
-使用方式:
-    from fastapi import Depends
-    from applications.base.dependencies import get_audit_crud
-    
-    @router.get("/list")
-    async def list_audit(crud: AuditCrud = Depends(get_audit_crud)):
-        return await crud.list_audit()
 """
 from backend.applications.base.services.audit_crud import AuditCrud
+from backend.applications.base.services.menu_crud import MenuCrud
+from backend.applications.base.services.role_crud import RoleCrud
+from backend.applications.base.services.router_crud import RouterCrud
 
 
 async def get_audit_crud() -> AuditCrud:
     """获取审计日志 CRUD 服务实例"""
     return AuditCrud()
+
+
+async def get_menu_crud() -> MenuCrud:
+    """获取菜单 CRUD 服务实例"""
+    return MenuCrud()
+
+
+async def get_role_crud() -> RoleCrud:
+    """获取角色 CRUD 服务实例"""
+    return RoleCrud()
+
+
+async def get_router_crud() -> RouterCrud:
+    """获取路由 CRUD 服务实例"""
+    return RouterCrud()

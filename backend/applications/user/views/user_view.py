@@ -64,7 +64,7 @@ async def delete_user(
         return FailureResponse(message=f"删除失败，异常描述:{e}")
 
 
-@user_secure.post("/delete", summary="按id列表删除用户")
+@user_secure.post("/deletes", summary="按id列表删除用户")
 async def delete_user_batch(
         user_in: UserBatchDelete = Body(..., description="用户信息"),
         user_crud: UserCrud = Depends(get_user_crud),
@@ -86,7 +86,9 @@ async def update_user(
 ):
     try:
         instance = await user_crud.update_user(user_in)
-        data = await instance.to_dict(exclude_fields=["password"])
+        if user_in.role_ids is not None:
+            await user_crud.update_roles(instance, user_in.role_ids)
+        data = await instance.to_dict(m2m=True, exclude_fields=["password"])
         return SuccessResponse(data=data)
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -101,7 +103,7 @@ async def get_user(
 ):
     try:
         instance = await user_crud.get_by_id(user_id=user_id, on_error=True)
-        data: dict = await instance.to_dict(exclude_fields=["password"])
+        data: dict = await instance.to_dict(m2m=True, exclude_fields=["password"])
         return SuccessResponse(data=data)
     except ParameterException as e:
         return FailureResponse(message=e.message)
@@ -158,7 +160,7 @@ async def list_user(
         q &= Q(is_superuser=is_superuser)
     q &= Q(state=0)
     total, user_objs = await user_crud.list(page=page, page_size=page_size, order=order, search=q)
-    data = [await obj.to_dict(exclude_fields=["password"]) for obj in user_objs]
+    data = [await obj.to_dict(m2m=True, exclude_fields=["password"]) for obj in user_objs]
     return SuccessResponse(data=data, total=total)
 
 
@@ -202,7 +204,7 @@ async def get_users(
         search=q,
         order=user_in.order
     )
-    data = [await obj.to_dict(exclude_fields=["password"]) for obj in instances]
+    data = [await obj.to_dict(m2m=True, exclude_fields=["password"]) for obj in instances]
     return SuccessResponse(data=data, total=total)
 
 

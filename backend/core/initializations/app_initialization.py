@@ -32,7 +32,7 @@ from backend.core.exceptions.http_exceptions import (
 from backend.core.middlewares.app_middleware import logging_middleware
 from backend.core.middlewares.auth_middleware import auth_middleware
 from backend.core.middlewares.request_context_middleware import request_context_middleware
-from backend.services import DependAuth
+from backend.services import DependPermission
 
 
 async def register_database(app: FastAPI) -> None:
@@ -176,31 +176,39 @@ def register_routers(app: FastAPI) -> None:
     redoc_modules["redoc_favicon_url"] = "/static/redoc/favicon.png"
 
     # 导入路由蓝图
-    from backend.applications.base.views import base_public, base_secure, router_secure, audit_secure
+    from backend.applications.base.views import (
+        base_public,
+        base_secure,
+        router_secure,
+        menu_secure,
+        role_secure,
+        audit_secure,
+    )
     from backend.applications.user.views import user_public_router, user_secure_router
     from backend.applications.example.views import example_category_router, example_product_router
 
-    # 挂在路由蓝图
     app.include_router(router=base_public, prefix="/base", tags=["基础服务"])
-    app.include_router(router=base_secure, prefix="/base", tags=["基础服务"], dependencies=[DependAuth])
-    app.include_router(router=audit_secure, prefix="/base", tags=["基础服务-审计模块"], dependencies=[DependAuth])
-    app.include_router(router=router_secure, prefix="/base", tags=["基础服务-路由模块"], dependencies=[DependAuth])
+    app.include_router(router=base_secure, prefix="/base", tags=["基础服务"], dependencies=[DependPermission])
+    app.include_router(router=router_secure, prefix="/base", tags=["基础服务-路由模块"], dependencies=[DependPermission])
+    app.include_router(router=menu_secure, prefix="/base", tags=["基础服务-菜单模块"], dependencies=[DependPermission])
+    app.include_router(router=role_secure, prefix="/base", tags=["基础服务-角色模块"], dependencies=[DependPermission])
+    app.include_router(router=audit_secure, prefix="/base", tags=["基础服务-审计模块"], dependencies=[DependPermission])
     app.include_router(router=user_public_router, prefix="/user", tags=["用户服务"])
-    app.include_router(router=user_secure_router, prefix="/user", tags=["用户服务"], dependencies=[DependAuth])
-    app.include_router(router=example_category_router, prefix="/example", tags=["示例服务-商品分类"], dependencies=[DependAuth])
-    app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependAuth])
+    app.include_router(router=user_secure_router, prefix="/user", tags=["用户服务"], dependencies=[DependPermission])
+    app.include_router(router=example_category_router, prefix="/example", tags=["示例服务-商品分类"], dependencies=[DependPermission])
+    app.include_router(router=example_product_router, prefix="/example", tags=["示例服务-商品模型"], dependencies=[DependPermission])
 
     from backend.applications.agent.views import mcp_servers_router, skills_router
     from backend.applications.conversation.views import chat_router, history_router
     from backend.applications.knowledge_base.views import knowledge_router
     from backend.applications.model_config.views import model_router
 
-    app.include_router(router=chat_router, prefix="/chat", tags=["RAG-对话"], dependencies=[DependAuth])
-    app.include_router(router=history_router, prefix="/conversations", tags=["RAG-历史"], dependencies=[DependAuth])
-    app.include_router(router=knowledge_router, prefix="/knowledge-bases", tags=["RAG-知识库"], dependencies=[DependAuth])
-    app.include_router(router=model_router, prefix="/model-configs", tags=["RAG-模型配置"], dependencies=[DependAuth])
-    app.include_router(router=skills_router, prefix="/skills", tags=["RAG-Agent技能"], dependencies=[DependAuth])
-    app.include_router(router=mcp_servers_router, prefix="/mcp-servers", tags=["RAG-MCP服务"], dependencies=[DependAuth])
+    app.include_router(router=chat_router, prefix="/chat", tags=["RAG-对话"], dependencies=[DependPermission])
+    app.include_router(router=history_router, prefix="/conversations", tags=["RAG-历史"], dependencies=[DependPermission])
+    app.include_router(router=knowledge_router, prefix="/knowledge-bases", tags=["RAG-知识库"], dependencies=[DependPermission])
+    app.include_router(router=model_router, prefix="/model-configs", tags=["RAG-模型配置"], dependencies=[DependPermission])
+    app.include_router(router=skills_router, prefix="/skills", tags=["RAG-Agent技能"], dependencies=[DependPermission])
+    app.include_router(router=mcp_servers_router, prefix="/mcp-servers", tags=["RAG-MCP服务"], dependencies=[DependPermission])
 
     from backend.applications.task_center.views import task_center_router
-    app.include_router(router=task_center_router, prefix="/task-center", tags=["任务中心"], dependencies=[DependAuth])
+    app.include_router(router=task_center_router, prefix="/task-center", tags=["任务中心"], dependencies=[DependPermission])

@@ -6,13 +6,15 @@
 @Module  : dependency.py
 @DateTime: 2025/2/19 13:03
 """
-from typing import Optional
+from typing import Optional, List
 
 import jwt
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 
+from backend.applications.base.models.role_model import Role
 from backend.applications.user.models.user_model import User
 from backend.configure import PROJECT_CONFIG
+from backend.enums import HTTPMethod
 from backend.services import CTX_USER_ID
 
 
@@ -57,4 +59,23 @@ class AuthControl:
             raise HTTPException(status_code=500, detail=f"{repr(e)}")
 
 
+class PermissionControl:
+    @classmethod
+    async def has_permission(cls, request: Request, current_user: User = Depends(AuthControl.is_authed)) -> None:
+        if current_user.is_superuser:
+            return
+        method = str(HTTPMethod(request.method))
+        path = request.url.path
+        if path != "/" and path.endswith("/"):
+            path = path.rstrip("/")
+        roles: List[Role] = await current_user.roles
+        if not roles:
+            raise HTTPException(status_code=403, detail="请求服务不被接受, 暂无任何角色策略")
+        routers = [await role.routers for role in roles]
+        permission_apis = list(set((str(router.method), router.path) for router in sum(routers, [])))
+        if (method, path) not in permission_apis:
+            raise HTTPException(status_code=403, detail=f"请求服务不被接受, Method:{method} Path:{path}")
+
+
 DependAuth = Depends(AuthControl.is_authed)
+DependPermission = Depends(PermissionControl.has_permission)

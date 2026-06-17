@@ -25,6 +25,7 @@ class UserBase(BaseModel):
     is_superuser: Optional[bool] = Field(default=None, description="是否为超级管理员")
     emergency_name: Optional[str] = Field(default=None, max_length=32, description="紧急联系人")
     emergency_phone: Optional[str] = Field(default=None, max_length=20, description="紧急联系电话")
+    role_ids: Optional[List[int]] = Field(default=None, description="角色ID列表")
 
 
 class UserCreate(UserBase):
@@ -37,9 +38,12 @@ class UserCreate(UserBase):
     user_type: int = Field(default=0, le=9, description="用户类型：0xx 1xx 2xx")
     is_active: bool = Field(default=True, description="是否激活")
     is_superuser: bool = Field(default=False, description="是否为超级管理员")
+    role_ids: Optional[List[int]] = Field(default=[], description="角色ID列表")
 
     def create_dict(self):
-        return self.model_dump(exclude_unset=True)
+        data = self.model_dump(exclude_unset=True)
+        data.pop("role_ids", None)
+        return data
 
 
 class UserUpdate(UserBase):

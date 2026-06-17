@@ -13,6 +13,7 @@ from tortoise.exceptions import DoesNotExist
 from tortoise.expressions import F
 
 from backend.applications.base.schemas.token_schema import CredentialsSchema
+from backend.applications.base.services.role_crud import RoleCrud
 from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.user.models.user_model import User
 from backend.applications.user.schemas.user_schema import UserCreate, UserUpdate, UserBatchDelete
@@ -85,13 +86,17 @@ class UserCrud(ScaffoldCrud[User, UserCreate, UserUpdate]):
         await user.save()
 
     async def create_user(self, user_in: UserCreate) -> User:
+        email = user_in.email
         username = user_in.username
-        instances = await self.model.filter(username=username, state__not=1).first()
+        instances = await self.get_by_conditions(only_one=True, on_error=False, email=email, username=username)
         if instances:
-            raise DataAlreadyExistsException(message=f"用户(username={username})信息已存在")
+            raise DataAlreadyExistsException(message=f"用户(email={email},username={username})信息已存在")
 
         user_in.password = get_password_hash(password=user_in.password)
-        instance = await self.create(user_in)
+        user_dict = user_in.create_dict()
+        user_dict["password"] = user_in.password
+        instance = await self.model.create(**user_dict)
+        await self.update_roles(instance, user_in.role_ids or [])
         return instance
 
     async def delete_user(self, user_id: int, **kwargs) -> User:
@@ -116,17 +121,20 @@ class UserCrud(ScaffoldCrud[User, UserCreate, UserUpdate]):
         return deleted_ids
 
     async def update_user(self, user_in: UserUpdate) -> User:
-        user_id: int = user_in.id
-        user_if: dict = {
-            key: value for key, value in user_in.items()
-            if value is not None
-        }
+        user_id: int = user_in.user_id
+        user_if: dict = user_in.model_dump(exclude_none=True, exclude={"user_id", "role_ids"})
         try:
             instance = await self.update(id=user_id, obj_in=user_if)
-        except DoesNotExist as e:
+        except DoesNotExist:
             raise NotFoundException(message=f"用户(id={user_id})信息不存在")
-
         return instance
+
+    @classmethod
+    async def update_roles(cls, user: User, role_ids: List[int]) -> None:
+        await user.roles.clear()
+        for role_id in role_ids:
+            role_obj = await RoleCrud().get_or_error(id=role_id)
+            await user.roles.add(role_obj)
 
     async def reset_password(self, user_id: int):
         instance = await self.get_by_id(user_id=user_id, on_error=True)

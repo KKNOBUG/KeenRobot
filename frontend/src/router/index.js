@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { setupRouterGuard } from './guard/index.js'
 import { basicRoutes, EMPTY_ROUTE, NOT_FOUND_ROUTE } from './routes/index.js'
 import { getToken, isNullOrWhitespace } from '@/utils'
-import { useUserStore } from '@/store'
+import { usePermissionStore, useUserStore } from '@/store'
 
 export const router = createRouter({
   history: createWebHistory('/'),
@@ -35,15 +35,28 @@ export async function addDynamicRoutes() {
   }
 
   const userStore = useUserStore()
+  const permissionStore = usePermissionStore()
   if (!userStore.userId) {
     await userStore.getUserInfo()
   }
 
-  if (router.hasRoute(EMPTY_ROUTE.name)) {
-    router.removeRoute(EMPTY_ROUTE.name)
-  }
-  if (!router.hasRoute(NOT_FOUND_ROUTE.name)) {
-    router.addRoute(NOT_FOUND_ROUTE)
+  try {
+    const accessRoutes = await permissionStore.generateRoutes()
+    await permissionStore.getAccessApis()
+    accessRoutes.forEach((route) => {
+      if (!router.hasRoute(route.name)) {
+        router.addRoute(route)
+      }
+    })
+    if (router.hasRoute(EMPTY_ROUTE.name)) {
+      router.removeRoute(EMPTY_ROUTE.name)
+    }
+    if (!router.hasRoute(NOT_FOUND_ROUTE.name)) {
+      router.addRoute(NOT_FOUND_ROUTE)
+    }
+  } catch (error) {
+    console.error('加载动态路由失败', error)
+    await userStore.logout()
   }
 }
 

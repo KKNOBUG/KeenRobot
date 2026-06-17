@@ -28,6 +28,11 @@ class User(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
     user_type = fields.SmallIntField(default=0, description="用户类型：0xx 1xx 2xx")
     emergency_name = fields.CharField(max_length=32, null=True, description="紧急联系人")
     emergency_phone = fields.CharField(max_length=20, null=True, description="紧急联系电话")
+    roles = fields.ManyToManyField(
+        model_name="models.Role",
+        related_name="user_roles",
+        through="keenrobot_user_role",
+    )
 
     class Meta:
         table = "keenrobot_user"
