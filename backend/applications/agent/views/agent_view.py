@@ -187,3 +187,22 @@ async def delete_mcp_server(
     except Exception as e:
         LOGGER.error(f"删除MCP服务失败: {e}\n{traceback.format_exc()}")
         return FailureResponse(message=f"删除失败: {e}")
+
+
+@mcp_servers.post("/{mcp_id}/tools/refresh", summary="Agent-刷新MCP工具列表")
+async def refresh_mcp_server_tools(
+        mcp_id: str,
+        current_user: User = DependAuth,
+        mcp_crud: McpServerCrud = Depends(get_mcp_server_crud),
+):
+    try:
+        instance = await mcp_crud.refresh_tools(mcp_id, current_user)
+        tools = (instance.config or {}).get("tools") or []
+        return SuccessResponse(data={"tools": tools, "total": len(tools)}, total=len(tools))
+    except NotFoundException as e:
+        return NotFoundResponse(message=e.message)
+    except ValueError as e:
+        return FailureResponse(message=str(e))
+    except Exception as e:
+        LOGGER.error(f"刷新MCP工具列表失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"刷新失败: {e}")

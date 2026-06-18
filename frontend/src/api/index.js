@@ -97,6 +97,8 @@ export default {
   createMcpServer: (data) => request.post('/mcp-servers/', data).then(payload),
   updateMcpServer: (id, data) => request.put(`/mcp-servers/${id}`, data).then(payload),
   deleteMcpServer: (id) => request.delete(`/mcp-servers/${id}`).then(payload),
+  fetchMcpServer: (id) => request.get(`/mcp-servers/${id}`).then(payload),
+  refreshMcpTools: (id) => request.post(`/mcp-servers/${id}/tools/refresh`).then(payload),
 
   fetchModelConfigs: () => request.get('/model-configs/').then(payload),
   createModelConfig: (data) => request.post('/model-configs/', data).then(payload),
@@ -162,7 +164,7 @@ export function chatStream(
     enableThinking = false,
     skillIds = [],
     mcpIds = [],
-    { onToken, onReasoning, onMeta, onDone, onError }
+    { onToken, onReasoning, onMeta, onProcess, onDone, onError }
 ) {
   const controller = new AbortController()
   const token = getToken()
@@ -227,6 +229,7 @@ export function chatStream(
                 if (eventType === 'token' && onToken) onToken(data.content)
                 else if (eventType === 'reasoning' && onReasoning) onReasoning(data.content)
                 else if (eventType === 'meta' && onMeta) onMeta(data)
+                else if (eventType === 'process' && onProcess) onProcess(data)
                 else if (eventType === 'done' && onDone) onDone(data)
                 else if (eventType === 'error' && onError) onError(new Error(data.message))
               } catch {

@@ -116,3 +116,14 @@ class McpServerCrud(ScaffoldCrud):
         mcp = await self.get_mcp_server(mcp_id, user)
         mcp.state = 1
         await mcp.save()
+
+    async def refresh_tools(self, mcp_id: str, user: User) -> McpServer:
+        from backend.applications.agent.services.mcp_tools import refresh_mcp_tools
+
+        mcp = await self.get_mcp_server(mcp_id, user)
+        tools = await refresh_mcp_tools(mcp.transport, mcp.config)
+        config = dict(mcp.config or {})
+        config["tools"] = tools
+        mcp.config = config
+        await mcp.save()
+        return mcp

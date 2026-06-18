@@ -105,6 +105,45 @@ class OpenAICompatibleLLM:
 
         return resp.json()["choices"][0]["message"]["content"]
 
+    async def chat_with_tools(
+            self,
+            messages: List[Dict[str, Any]],
+            tools: List[Dict[str, Any]],
+            temperature: float = 0.7,
+            max_tokens: int = 2048,
+            top_p: float = 0.95,
+            enable_thinking: bool = False,
+    ) -> Dict[str, Any]:
+        """非流式对话，支持 OpenAI tools / function calling。"""
+        if not self.api_key:
+            raise ValueError("LLM_API_KEY 未设置")
+
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+            "tools": tools,
+            "tool_choice": "auto",
+        }
+        _apply_thinking_params(payload, self.model, enable_thinking)
+
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                self.base_url,
+                headers=self._get_headers(),
+                json=payload,
+            )
+            if response.status_code != 200:
+                raise Exception(f"LLM API调用失败: {response.text}")
+            data = response.json()
+            message = data["choices"][0]["message"]
+            usage = parse_usage_from_chunk(data)
+            if usage:
+                message["usage"] = usage
+            return message
+
     async def stream_chat(
             self,
             messages: List[Dict[str, str]],

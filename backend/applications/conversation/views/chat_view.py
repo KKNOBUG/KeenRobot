@@ -29,7 +29,7 @@ async def chat_stream(
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     # 1. 准备阶段：同步操作，阻塞等待
-    conv, model_config, chat_history, knowledge_base_ids = (
+    conv, model_config, chat_history, knowledge_base_ids, mcp_ids, skill_ids = (
         await conversation_crud.prepare_for_chat(req, current_user)
     )
     conversation_id = conv.id
@@ -39,20 +39,21 @@ async def chat_stream(
         full_response = ""
         full_reasoning = ""
         usage_data = None
+        process_trace = []
 
-        # 2.1 发送元数据事件（第一个事件）
         yield {
             "event": "meta",
             "data": json.dumps({"type": "meta", "conversation_id": conversation_id}),
         }
 
         try:
-            # 2.2 流式生成内容（核心）
             async for chunk in conversation_crud.stream_response(
                     req.question,
                     knowledge_base_ids,
                     chat_history,
                     model_config,
+                    mcp_ids=mcp_ids,
+                    user=current_user,
                     enable_thinking=req.enable_thinking,
             ):
                 if chunk.get("type") == "reasoning":
@@ -69,6 +70,30 @@ async def chat_stream(
                         "event": "token",
                         "data": json.dumps({"type": "token", "content": token}),
                     }
+                elif chunk.get("type") == "process":
+                    step = chunk.get("step") or {}
+                    replaced = False
+                    for idx, existing in enumerate(process_trace):
+                        if (
+                            existing.get("type") == "mcp"
+                            and existing.get("tool") == step.get("tool")
+                            and existing.get("server") == step.get("server")
+                        ):
+                            process_trace[idx] = step
+                            replaced = True
+                            break
+                    if not replaced:
+                        process_trace.append(step)
+                    yield {
+                        "event": "process",
+                        "data": json.dumps({
+                            "type": "process",
+                            "step": step,
+                            "process_trace": process_trace,
+                        }),
+                    }
+                elif chunk.get("type") == "process_trace":
+                    process_trace = chunk.get("process_trace") or process_trace
                 elif chunk.get("type") == "usage":
                     usage_data = {
                         "prompt_tokens": chunk.get("prompt_tokens"),
@@ -77,17 +102,16 @@ async def chat_stream(
                     }
         except Exception as e:
             print(f"[chat_stream] 错误: {e}")
-            # 2.3 错误处理
             yield {
                 "event": "error",
                 "data": json.dumps({"type": "error", "message": str(e)}),
             }
             return
 
-        process_trace = []
         if full_reasoning.strip():
-            process_trace.append(
-                ReasoningStep(content=full_reasoning, status="done").model_dump()
+            process_trace.insert(
+                0,
+                ReasoningStep(content=full_reasoning, status="done").model_dump(),
             )
 
         # 2.4 保存完整回复到数据库

@@ -1,314 +1,167 @@
 <script setup>
-import { computed, h, onMounted, ref } from 'vue'
-import {
-  NAlert,
-  NButton,
-  NForm,
-  NFormItem,
-  NInput,
-  NPopconfirm,
-  NSelect,
-  NSwitch,
-  NTag,
-} from 'naive-ui'
+import { computed, onMounted, ref } from 'vue'
+import { NButton, NEmpty, NInput, NSpin } from 'naive-ui'
 
 import CommonPage from '@/components/page/CommonPage.vue'
-import QueryBarItem from '@/components/query-bar/QueryBarItem.vue'
-import CrudModal from '@/components/table/CrudModal.vue'
-import CrudTable from '@/components/table/CrudTable.vue'
-
-import { formatDateTime, renderIcon } from '@/utils'
-import { useCRUD } from '@/composables'
+import { renderIcon } from '@/utils'
 import api from '@/api'
+
+import McpCard from './components/McpCard.vue'
+import McpEditDrawer from './components/McpEditDrawer.vue'
 
 defineOptions({ name: 'McpManage' })
 
-const transportOptions = [
-  { label: 'stdio', value: 'stdio' },
-  { label: 'sse', value: 'sse' },
-  { label: 'http', value: 'http' },
-]
+const loading = ref(false)
+const keyword = ref('')
+const mcpList = ref([])
 
-const $table = ref(null)
-const queryItems = ref({ name: '' })
+const drawerVisible = ref(false)
+const drawerMode = ref('edit')
+const currentRecord = ref(null)
 
-const queryBarProps = {
-  addReset: true,
-  addSearch: true,
-  addCreate: true,
-  addDelete: false,
-  actionMode: 'dropdown',
-}
-
-const {
-  modalVisible,
-  modalAction,
-  modalTitle,
-  modalLoading,
-  handleAdd,
-  handleDelete,
-  handleEdit,
-  handleSave,
-  modalForm,
-  modalFormRef,
-} = useCRUD({
-  name: 'MCP 服务',
-  initForm: {
-    name: '',
-    description: '',
-    transport: 'stdio',
-    is_enabled: true,
-    config_text: '',
-  },
-  doCreate: (form) => api.createMcpServer(buildPayload(form)),
-  doDelete: (params) => api.deleteMcpServer(params.id),
-  doUpdate: (form) => api.updateMcpServer(form.id, buildPayload(form)),
-  refresh: () => $table.value?.handleSearch(),
+const filteredList = computed(() => {
+  const kw = keyword.value.trim().toLowerCase()
+  if (!kw) return mcpList.value
+  return mcpList.value.filter((item) => {
+    const desc = item.description || ''
+    const category = item.config?.category || ''
+    return (
+      item.name?.toLowerCase().includes(kw) ||
+      desc.toLowerCase().includes(kw) ||
+      category.toLowerCase().includes(kw)
+    )
+  })
 })
 
-function configToText(config) {
-  if (!config) return ''
+async function loadList() {
+  loading.value = true
   try {
-    return JSON.stringify(config, null, 2)
-  } catch {
-    return ''
+    mcpList.value = (await api.fetchMcpServers('', true)) || []
+  } catch (err) {
+    window.$message?.error(err?.message || '加载 MCP 列表失败')
+    mcpList.value = []
+  } finally {
+    loading.value = false
   }
 }
 
-function parseConfigText(text) {
-  const trimmed = (text || '').trim()
-  if (!trimmed) return null
-  return JSON.parse(trimmed)
+function openCreate() {
+  drawerMode.value = 'create'
+  currentRecord.value = null
+  drawerVisible.value = true
 }
 
-function buildPayload(form) {
-  return {
-    name: form.name,
-    description: form.description || null,
-    transport: form.transport || 'stdio',
-    is_enabled: !!form.is_enabled,
-    config: parseConfigText(form.config_text),
-  }
+function openEdit(item) {
+  drawerMode.value = 'edit'
+  currentRecord.value = item
+  drawerVisible.value = true
 }
 
-function openEdit(row) {
-  handleEdit({
-    ...row,
-    config_text: configToText(row.config),
+async function handleDelete(item) {
+  await window.$dialog?.confirm({
+    title: '删除确认',
+    type: 'warning',
+    content: `确定删除 MCP 服务「${item.name}」吗？`,
+    positiveText: '删除',
+    negativeText: '取消',
+    async onPositiveClick() {
+      try {
+        await api.deleteMcpServer(item.id)
+        window.$message?.success('删除成功')
+        await loadList()
+      } catch (err) {
+        window.$message?.error(err?.message || '删除失败')
+      }
+    },
   })
 }
 
-async function fetchMcpList(params) {
-  const list = await api.fetchMcpServers('', true)
-  const kw = (params.name || '').trim()
-  const filtered = kw
-      ? list.filter((item) => item.name.includes(kw) || (item.description || '').includes(kw))
-      : list
-  return { data: filtered, total: filtered.length }
-}
-
-function validateConfig(_rule, value) {
-  if (!value?.trim()) return true
-  try {
-    JSON.parse(value)
-    return true
-  } catch {
-    return new Error('配置须为合法 JSON')
-  }
+async function handleSaved() {
+  await loadList()
 }
 
 onMounted(() => {
-  $table.value?.handleSearch()
+  loadList()
 })
-
-const columns = computed(() => [
-  {
-    title: '服务名称',
-    key: 'name',
-    minWidth: 140,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: '传输方式',
-    key: 'transport',
-    width: 100,
-    align: 'center',
-    render(row) {
-      return h(NTag, { size: 'small' }, { default: () => row.transport || 'stdio' })
-    },
-  },
-  {
-    title: '描述',
-    key: 'description',
-    minWidth: 180,
-    ellipsis: { tooltip: true },
-    render(row) {
-      return row.description || '-'
-    },
-  },
-  {
-    title: '状态',
-    key: 'is_enabled',
-    width: 90,
-    align: 'center',
-    render(row) {
-      return row.is_enabled
-          ? h(NTag, { type: 'success', size: 'small' }, { default: () => '启用' })
-          : h(NTag, { size: 'small' }, { default: () => '禁用' })
-    },
-  },
-  {
-    title: '创建时间',
-    key: 'created_time',
-    width: 170,
-    align: 'center',
-    render(row) {
-      return formatDateTime(row.created_time)
-    },
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 160,
-    align: 'center',
-    fixed: 'right',
-    render(row) {
-      return [
-        h(
-            NButton,
-            {
-              size: 'tiny',
-              quaternary: true,
-              type: 'info',
-              onClick: () => openEdit(row),
-            },
-            {
-              default: () => '编辑',
-              icon: renderIcon('material-symbols:edit-outline', { size: 16 }),
-            },
-        ),
-        h(
-            NPopconfirm,
-            {
-              onPositiveClick: () => handleDelete({ id: row.id }),
-            },
-            {
-              trigger: () =>
-                  h(
-                      NButton,
-                      {
-                        size: 'tiny',
-                        quaternary: true,
-                        type: 'error',
-                      },
-                      {
-                        default: () => '删除',
-                        icon: renderIcon('material-symbols:delete-outline', { size: 16 }),
-                      },
-                  ),
-              default: () => '确定删除该 MCP 服务吗？',
-            },
-        ),
-      ]
-    },
-  },
-])
 </script>
 
 <template>
-  <CommonPage show-footer title="MCP 管理">
-    <NAlert type="info" :bordered="false" class="manage-tip">
-      管理 MCP 服务连接配置。仅「启用」状态的服务会出现在聊天页选择器中；config 为 JSON，stdio 示例：
-      <code>{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/path"]}</code>
-    </NAlert>
-    <CrudTable
-        ref="$table"
-        v-model:query-items="queryItems"
-        :query-bar-props="queryBarProps"
-        :is-pagination="true"
-        :remote="false"
-        :scroll-x="960"
-        :columns="columns"
-        :get-data="fetchMcpList"
-        row-key="id"
-        @query-bar-create="handleAdd"
-    >
-      <template #queryBar>
-        <QueryBarItem label="服务名称：">
-          <NInput
-              v-model:value="queryItems.name"
-              clearable
-              placeholder="请输入服务名称或描述"
-              @keypress.enter="$table?.handleSearch()"
-          />
-        </QueryBarItem>
-      </template>
-    </CrudTable>
+  <CommonPage :show-header="false" :show-footer="false">
+    <div class="mcp-page">
+      <div class="mcp-page__toolbar">
+        <NInput
+          v-model:value="keyword"
+          clearable
+          class="mcp-page__search"
+          placeholder="搜索 MCP 服务名称、描述或分类"
+        >
+          <template #prefix>
+            <span class="i-material-symbols:search text-18 text-gray-400" />
+          </template>
+        </NInput>
+        <NButton type="primary" @click="openCreate">
+          <template #icon>
+            <component :is="renderIcon('material-symbols:add', { size: 18 })" />
+          </template>
+          新建 MCP
+        </NButton>
+      </div>
 
-    <CrudModal
-        v-model:visible="modalVisible"
-        :title="modalTitle"
-        :loading="modalLoading"
-        width="640px"
-        @save="handleSave"
-    >
-      <NForm
-          ref="modalFormRef"
-          label-placement="left"
-          label-align="left"
-          :label-width="90"
-          :model="modalForm"
-          :disabled="modalAction === 'view'"
-      >
-        <NFormItem
-            label="服务名称"
-            path="name"
-            :rule="{ required: true, message: '请输入服务名称', trigger: ['input', 'blur'] }"
-        >
-          <NInput v-model:value="modalForm.name" placeholder="如：文件系统 MCP" />
-        </NFormItem>
-        <NFormItem label="传输方式" path="transport">
-          <NSelect
-              v-model:value="modalForm.transport"
-              :options="transportOptions"
-              placeholder="选择传输方式"
+      <NSpin :show="loading">
+        <div v-if="filteredList.length" class="mcp-page__grid">
+          <McpCard
+            v-for="(item, index) in filteredList"
+            :key="item.id"
+            :item="item"
+            :index="index"
+            @edit="openEdit"
+            @delete="handleDelete"
           />
-        </NFormItem>
-        <NFormItem label="服务描述" path="description">
-          <NInput
-              v-model:value="modalForm.description"
-              type="textarea"
-              :rows="2"
-              placeholder="可选，描述该 MCP 服务能力"
-          />
-        </NFormItem>
-        <NFormItem label="是否启用" path="is_enabled">
-          <NSwitch v-model:value="modalForm.is_enabled" />
-        </NFormItem>
-        <NFormItem
-            label="连接配置"
-            path="config_text"
-            :rule="{ validator: validateConfig, trigger: ['input', 'blur'] }"
-        >
-          <NInput
-              v-model:value="modalForm.config_text"
-              type="textarea"
-              :rows="8"
-              placeholder='JSON，stdio 示例：{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}'
-          />
-        </NFormItem>
-      </NForm>
-    </CrudModal>
+        </div>
+        <NEmpty v-else class="mcp-page__empty" description="暂无 MCP 服务">
+          <template #extra>
+            <NButton type="primary" @click="openCreate">新建 MCP</NButton>
+          </template>
+        </NEmpty>
+      </NSpin>
+    </div>
+
+    <McpEditDrawer
+      v-model:show="drawerVisible"
+      :mode="drawerMode"
+      :record="currentRecord"
+      @saved="handleSaved"
+    />
   </CommonPage>
 </template>
 
-<style scoped>
-.manage-tip {
-  margin-bottom: 12px;
+<style scoped lang="scss">
+.mcp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100%;
+  padding: 4px 2px 20px;
 }
 
-.manage-tip code {
-  font-size: 12px;
-  word-break: break-all;
+.mcp-page__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mcp-page__search {
+  max-width: 360px;
+}
+
+.mcp-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.mcp-page__empty {
+  padding: 80px 0;
 }
 </style>

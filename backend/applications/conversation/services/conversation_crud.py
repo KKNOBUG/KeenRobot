@@ -11,6 +11,7 @@ from typing import AsyncIterator, List, Optional, Dict, Any
 from tortoise.query_utils import Prefetch
 
 from backend.applications.base.rag.chain import rag_stream
+from backend.applications.base.rag.mcp_agent import mcp_agent_stream
 from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.conversation.models.conversation_model import Conversation, Message
 from backend.applications.conversation.schemas.conversation_schema import (
@@ -285,7 +286,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
         await self.message.add_message(conv.id, ChatMessageRole.USER, req.question)
 
-        return conv, model_config, chat_history, knowledge_base_ids
+        return conv, model_config, chat_history, knowledge_base_ids, mcp_ids, skill_ids
 
     async def stream_response(
         self,
@@ -293,6 +294,8 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         knowledge_base_ids: List[str],
         chat_history: List[dict],
         model_config: Optional[ModelConfig],
+        mcp_ids: Optional[List[str]] = None,
+        user: Optional[User] = None,
         enable_thinking: bool = False,
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
@@ -302,6 +305,19 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             and model_config is not None
             and model_config.model_thinking
         )
+
+        if mcp_ids and user:
+            async for chunk in mcp_agent_stream(
+                question=question,
+                knowledge_base_ids=knowledge_base_ids,
+                chat_history=chat_history,
+                mcp_ids=mcp_ids,
+                user=user,
+                enable_thinking=effective_thinking,
+                **llm_params,
+            ):
+                yield chunk
+            return
 
         async for chunk in rag_stream(
             question=question,

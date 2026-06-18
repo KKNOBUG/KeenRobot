@@ -534,6 +534,26 @@ async function sendMessage() {
           }
           nextTick(scrollToBottom)
         },
+        onProcess(data) {
+          if (data?.process_trace) {
+            messages.value[assistantIdx].process_trace = data.process_trace
+          } else if (data?.step) {
+            const trace = messages.value[assistantIdx].process_trace
+            const step = data.step
+            const idx = trace.findIndex(
+                (item) =>
+                    item.type === 'mcp' &&
+                    item.tool === step.tool &&
+                    item.server === step.server
+            )
+            if (idx >= 0) {
+              trace[idx] = step
+            } else {
+              trace.push(step)
+            }
+          }
+          nextTick(scrollToBottom)
+        },
         onToken(token) {
           finishRunningStep(messages.value[assistantIdx].process_trace, 'reasoning')
           messages.value[assistantIdx].content += token

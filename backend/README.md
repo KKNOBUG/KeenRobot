@@ -352,6 +352,47 @@ from configure import PROJECT_CONFIG
 | POST | `/api/agent/mcp-servers` | 创建 MCP 服务 | 是 |
 | PUT | `/api/agent/mcp-servers/{server_id}` | 更新 MCP 服务 | 是 |
 | DELETE | `/api/agent/mcp-servers/{server_id}` | 删除 MCP 服务 | 是 |
+| POST | `/api/agent/mcp-servers/{server_id}/tools/refresh` | 从远程 MCP 拉取并缓存工具列表 | 是 |
+
+#### MCP 服务配置说明
+
+1. **传输类型**：聊天中实际调用工具仅支持 `http` / `sse`（Streamable HTTP）。`stdio` 类型可在管理页保存配置，但无法在服务端远程执行。
+2. **服务地址**：在 `config` 中填写 `url`（或 `endpoint` / `base_url`），可选 `headers`、`timeout`。
+3. **工具列表**：创建或修改 MCP 后，需在管理页点击「刷新」调用 `tools/refresh`，将远程 `tools/list` 结果缓存到 `config.tools`；未刷新时聊天会提示先刷新。
+4. **HTTP 头**：客户端会自动附加 `Accept: application/json, text/event-stream`（Streamable HTTP 协议要求）；若服务需鉴权，在 `config.headers` 中配置如 `Authorization`。
+5. **图标与分类**：`config.icon`、`config.category`、`config.url`（展示用官网链接）仅存于 JSON，无需数据库迁移。
+
+#### 智能聊天中的 MCP 工具调用
+
+在「智能聊天」页选择已启用的 MCP 服务后，请求体会携带 `mcp_ids`。后端流程：
+
+```
+POST /api/chat/stream
+  → prepare_for_chat：校验 mcp_ids、写入会话
+  → 若 mcp_ids 非空 → mcp_agent_stream（ReAct 循环，最多 6 轮）
+      → 将 config.tools 转为 OpenAI function tools
+      → LLM chat_with_tools（tool_choice=auto）
+      → 命中 tool_calls → JSON-RPC tools/call 到远程 MCP
+      → SSE 推送 process（工具步骤）与 token（最终回答）
+  → 否则 → rag_stream（纯 RAG + 流式 LLM，不调用 MCP）
+```
+
+**前置条件**：
+
+| 条件 | 说明 |
+|------|------|
+| 选择 MCP | 聊天输入框上方 MCP 选择器需勾选服务 |
+| 服务已启用 | `is_enabled=true` |
+| 已刷新工具 | `config.tools` 非空 |
+| 模型支持 Function Calling | 须为 OpenAI 兼容且支持 `tools` 参数的模型（如 GPT-4o、DeepSeek 等） |
+
+**SSE 事件**（除 `token` / `reasoning` / `meta` / `done` 外）：
+
+| 事件 | 说明 |
+|------|------|
+| `process` | MCP 工具调用步骤（`step` + 累计 `process_trace`），前端可实时展示 |
+
+`process_trace` 中 MCP 步骤结构：`{ type: "mcp", status, server, tool, arguments, result }`。
 
 ### 任务中心 `/api/task-center`
 
