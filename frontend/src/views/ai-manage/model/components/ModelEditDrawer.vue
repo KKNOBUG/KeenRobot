@@ -12,6 +12,7 @@ import {
   NSlider,
   NSpace,
   NSwitch,
+  NTooltip,
 } from 'naive-ui'
 
 import api from '@/api'
@@ -115,12 +116,21 @@ function formatMaxTokensTooltip(index) {
                     path="config_name"
                     :rule="{ required: true, message: '请输入模型名称', trigger: ['input', 'blur'] }"
                 >
-                  <NInput v-model:value="form.config_name" placeholder="如：客服-DeepSeek" />
+                  <NInput v-model:value="form.config_name" placeholder="系统助手" />
                 </NFormItem>
 
                 <div class="model-edit__row">
-                  <NFormItem label="模型供应商" path="model_provider" class="model-edit__col">
-                    <NSelect v-model:value="form.model_provider" :options="PROVIDER_OPTIONS" />
+                  <NFormItem
+                      label="模型供应商"
+                      path="model_provider"
+                      class="model-edit__col"
+                      :rule="{ required: true, message: '请选择模型供应商', trigger: ['change', 'blur'] }"
+                  >
+                    <NSelect
+                        v-model:value="form.model_provider"
+                        :options="PROVIDER_OPTIONS"
+                        placeholder="DeepSeek"
+                    />
                   </NFormItem>
                   <NFormItem
                       label="模型标识"
@@ -128,7 +138,7 @@ function formatMaxTokensTooltip(index) {
                       class="model-edit__col"
                       :rule="{ required: true, message: '请输入模型标识', trigger: ['input', 'blur'] }"
                   >
-                    <NInput v-model:value="form.llm_model_name" placeholder="如：deepseek-chat" />
+                    <NInput v-model:value="form.llm_model_name" placeholder="deepseek-v4-flash" />
                   </NFormItem>
                 </div>
 
@@ -167,7 +177,7 @@ function formatMaxTokensTooltip(index) {
                 <NFormItem label="API 地址" path="llm_base_url">
                   <NInput
                       v-model:value="form.llm_base_url"
-                      placeholder="留空使用 .env 中的 LLM_BASE_URL"
+                      placeholder="请输入完整请求地址"
                   />
                 </NFormItem>
                 <NFormItem label="API Key" path="llm_api_key">
@@ -175,7 +185,7 @@ function formatMaxTokensTooltip(index) {
                       v-model:value="form.llm_api_key"
                       type="password"
                       show-password-on="click"
-                      :placeholder="form.has_llm_api_key ? '留空则不修改已保存的 Key' : '留空使用 .env 中的 LLM_API_KEY'"
+                      placeholder="请输入正确请求密钥"
                   />
                 </NFormItem>
               </div>
@@ -186,18 +196,53 @@ function formatMaxTokensTooltip(index) {
               <div class="model-edit__section-head model-edit__section-head--params">
                 <TheIcon icon="material-symbols:tune" :size="18" />
                 <span>参数配置</span>
+                <NTooltip trigger="hover" :style="{ maxWidth: '440px' }">
+                  <template #trigger>
+                    <span class="model-edit__section-tip" @click.stop>
+                      <TheIcon icon="material-symbols:help-outline" :size="16" />
+                    </span>
+                  </template>
+                  <div class="model-edit__params-tip">
+                    <div class="model-edit__params-tip-title">场景实用组合推荐：</div>
+                    - 只讲有把握的话，绝不瞎编：<br>
+                    TOP-K：10～20，TOP-P：0.1～0.3，Temperature：0.1～0.2<br><br>
+                    - 既要把事情说准，也要把话说顺：<br>
+                    TOP-K：30～50，TOP-P：0.6～0.8，Temperature：0.5～0.8<br><br>
+                    - 放开想，大胆试，天马行空也没关系：<br>
+                    TOP-K：80～120，TOP-P：0.9～0.98，Temperature：1.0～1.3<br><br>
+                    - 按规矩来，别自己发挥：<br>
+                    TOP-K：5，TOP-P：0.1，Temperature：0.1<br><br>
+                    <div class="model-edit__params-tip-title">场景通用调优技巧：</div>
+                    - 组合调参，先K后P：优先用K值缩小候选池，剔除绝对不合适的词；
+                    再用P值在池中动态筛选最优子集，避免无效采样；两者结合比单独使用效果更稳定。<br>
+                    <br>
+                    - 温度需配合K/P调整：当T值较高以增加多样性时，可适当降低P值，以过滤掉因分布平滑而产生的低概率噪音，减少逻辑混乱。
+                  </div>
+                </NTooltip>
               </div>
               <div class="model-edit__section-body">
                 <NFormItem path="temperature" :show-label="false" class="model-edit__slider-form-item">
                   <div class="model-edit__slider-row">
-                    <span class="model-edit__slider-label">创意温度控制(Temperature)</span>
-                    <span class="model-edit__slider-hint">精确</span>
-                    <NSlider v-model:value="form.temperature" :min="0" :max="1" :step="0.1" class="model-edit__slider" />
-                    <span class="model-edit__slider-hint">多样</span>
+                    <span class="model-edit__slider-label">
+                      <span class="model-edit__slider-label-text">温度控制(Temperature)</span>
+                      <NTooltip trigger="hover" :style="{ maxWidth: '320px' }">
+                        <template #trigger>
+                          <span class="model-edit__slider-tip" @click.stop>
+                            <TheIcon icon="material-symbols:help-outline" :size="16" />
+                          </span>
+                        </template>
+                        通过平滑或锐化概率分布来影响随机性；
+                        <br>
+                        - 温度越低，模型越贪婪，输出高度确定；
+                        <br>
+                        - 温度越高，概率分布越平坦，低概率词被选中的机会增加，输出更具想象力。
+                      </NTooltip>
+                    </span>
+                    <NSlider v-model:value="form.temperature" :min="0" :max="2" :step="0.1" class="model-edit__slider" />
                     <NInputNumber
                         v-model:value="form.temperature"
                         :min="0"
-                        :max="1"
+                        :max="2"
                         :step="0.1"
                         class="model-edit__slider-input"
                     />
@@ -206,7 +251,21 @@ function formatMaxTokensTooltip(index) {
 
                 <NFormItem path="top_p" :show-label="false" class="model-edit__slider-form-item">
                   <div class="model-edit__slider-row">
-                    <span class="model-edit__slider-label">核采样概率数(TOP-P)</span>
+                    <span class="model-edit__slider-label">
+                      <span class="model-edit__slider-label-text">核采样概率数(TOP-P)</span>
+                      <NTooltip trigger="hover" :style="{ maxWidth: '320px' }">
+                        <template #trigger>
+                          <span class="model-edit__slider-tip" @click.stop>
+                            <TheIcon icon="material-symbols:help-outline" :size="16" />
+                          </span>
+                        </template>
+                        模型会从概率最高的词开始，逐个累加其概率，直到累计概率达到 P 值，只从这组词中采样；
+                        <br>
+                        - P 值越低，输出越确定、聚焦。
+                        <br>
+                        - P 值越高，内容越多样、发散。
+                      </NTooltip>
+                    </span>
                     <NSlider v-model:value="form.top_p" :min="0" :max="1" :step="0.05" class="model-edit__slider" />
                     <NInputNumber
                         v-model:value="form.top_p"
@@ -220,7 +279,21 @@ function formatMaxTokensTooltip(index) {
 
                 <NFormItem path="top_k" :show-label="false" class="model-edit__slider-form-item">
                   <div class="model-edit__slider-row">
-                    <span class="model-edit__slider-label">固定候选词数(TOP-K)</span>
+                    <span class="model-edit__slider-label">
+                      <span class="model-edit__slider-label-text">固定候选词数(TOP-K)</span>
+                      <NTooltip trigger="hover" :style="{ maxWidth: '320px' }">
+                        <template #trigger>
+                          <span class="model-edit__slider-tip" @click.stop>
+                            <TheIcon icon="material-symbols:help-outline" :size="16" />
+                          </span>
+                        </template>
+                        模型只从概率最高的 K 个候选词中采样；
+                        <br>
+                        - K 值越小，输出越保守、严谨；
+                        <br>
+                        - K 值越大，候选词池越广，创意性越强。
+                      </NTooltip>
+                    </span>
                     <NSlider v-model:value="form.top_k" :min="0" :max="100" :step="1" class="model-edit__slider" />
                     <NInputNumber
                         v-model:value="form.top_k"
@@ -300,7 +373,7 @@ function formatMaxTokensTooltip(index) {
                       v-model:value="form.config_desc"
                       type="textarea"
                       :rows="3"
-                      placeholder="模型用途备注（可选）"
+                      placeholder="请输入模型用途备注"
                   />
                 </NFormItem>
 
@@ -309,7 +382,7 @@ function formatMaxTokensTooltip(index) {
                       v-model:value="form.system_prompt"
                       type="textarea"
                       :rows="4"
-                      placeholder="留空使用全局默认；可包含 {context} 占位符注入检索内容"
+                      placeholder="请输入模型系统级提示词"
                   />
                 </NFormItem>
               </div>
@@ -375,6 +448,29 @@ function formatMaxTokensTooltip(index) {
   &--other :deep(.n-icon) {
     color: #6b7280;
   }
+}
+
+.model-edit__section-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  color: #9ca3af;
+  cursor: help;
+
+  &:hover {
+    color: #6b7280;
+  }
+}
+
+.model-edit__params-tip {
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.model-edit__params-tip-title {
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .model-edit__section-body {
@@ -448,13 +544,32 @@ function formatMaxTokensTooltip(index) {
 }
 
 .model-edit__slider-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   width: 220px;
   flex-shrink: 0;
   font-size: 14px;
   line-height: 1;
   color: var(--n-label-text-color);
   text-align: left;
+}
+
+.model-edit__slider-label-text {
   white-space: nowrap;
+}
+
+.model-edit__slider-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #9ca3af;
+  cursor: help;
+
+  &:hover {
+    color: #6b7280;
+  }
 }
 
 .model-edit__slider {
@@ -499,6 +614,22 @@ html.dark .model-edit__section-head {
 html.dark .model-edit__capability-item {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .model-edit__slider-tip {
+  color: #94a3b8;
+
+  &:hover {
+    color: #cbd5e1;
+  }
+}
+
+html.dark .model-edit__section-tip {
+  color: #94a3b8;
+
+  &:hover {
+    color: #cbd5e1;
+  }
 }
 
 html.dark .model-edit__capability-title {

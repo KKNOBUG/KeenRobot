@@ -23,12 +23,6 @@ const iconStyle = computed(() => getIconStyle(props.item?.name, props.index))
 const toolCount = computed(() => getToolCount(props.item))
 const category = computed(() => props.item?.config?.category || '其他')
 
-const endpointText = computed(() => {
-  if ((props.item?.transport || '').toLowerCase() === 'stdio') return 'STDIO 本地进程'
-  const url = props.item?.config?.url || props.item?.config?.endpoint || props.item?.config?.service_url || ''
-  return url || '未配置服务地址'
-})
-
 const menuOptions = [
   { label: '编辑', key: 'edit' },
   { label: '删除', key: 'delete' },
@@ -69,7 +63,6 @@ function handleMenuSelect(key) {
       </NDropdown>
     </div>
 
-    <div class="mcp-card__endpoint">{{ endpointText }}</div>
     <div class="mcp-card__desc">{{ item.description || '暂无描述' }}</div>
 
     <div class="mcp-card__footer">
@@ -186,13 +179,6 @@ function handleMenuSelect(key) {
   }
 }
 
-.mcp-card__endpoint {
-  font-size: 13px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #6b7280;
-  word-break: break-all;
-}
-
 .mcp-card__desc {
   flex: 1;
   font-size: 13px;
@@ -258,10 +244,6 @@ html.dark .mcp-card {
 html.dark .mcp-card:hover {
   border-color: rgba(255, 255, 255, 0.16);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
-}
-
-html.dark .mcp-card__endpoint {
-  color: #9ca3af;
 }
 
 html.dark .mcp-card__title {
