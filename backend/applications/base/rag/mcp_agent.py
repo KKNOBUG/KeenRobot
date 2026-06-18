@@ -32,6 +32,13 @@ MCP_AGENT_SYSTEM_PROMPT = """你是一个可以调用外部 MCP 工具的智能�
 """
 
 
+def _merge_usage(accumulator: Dict[str, int], part: Optional[Dict[str, Any]]) -> None:
+    if not part:
+        return
+    for key in ("prompt_tokens", "completion_tokens", "reasoning_tokens"):
+        accumulator[key] = (accumulator.get(key) or 0) + (part.get(key) or 0)
+
+
 async def _load_mcp_servers(mcp_ids: List[str], user: User) -> List[McpServer]:
     crud = McpServerCrud()
     servers: List[McpServer] = []
@@ -96,6 +103,7 @@ async def mcp_agent_stream(
 
     llm = OpenAICompatibleLLM(model=model_name, api_key=api_key, base_url=base_url)
     process_trace: List[dict] = []
+    usage_acc = {"prompt_tokens": 0, "completion_tokens": 0, "reasoning_tokens": 0}
 
     for _round in range(MAX_MCP_TOOL_ROUNDS):
         completion = await llm.chat_with_tools(
@@ -106,6 +114,7 @@ async def mcp_agent_stream(
             top_p=top_p,
             enable_thinking=enable_thinking,
         )
+        _merge_usage(usage_acc, completion.get("usage"))
 
         tool_calls = completion.get("tool_calls") or []
         if tool_calls:
@@ -176,9 +185,14 @@ async def mcp_agent_stream(
                     top_p=top_p,
                     enable_thinking=enable_thinking,
             ):
+                if chunk.get("type") == "usage":
+                    _merge_usage(usage_acc, chunk)
+                    continue
                 yield chunk
 
         yield {"type": "process_trace", "process_trace": process_trace}
+        if any(usage_acc.values()):
+            yield {"type": "usage", **usage_acc}
         return
 
     raise RuntimeError(f"MCP 工具调用超过最大轮次 {MAX_MCP_TOOL_ROUNDS}")

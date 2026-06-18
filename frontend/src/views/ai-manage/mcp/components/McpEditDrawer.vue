@@ -14,12 +14,16 @@ import {
 } from 'naive-ui'
 
 import api from '@/api'
+import TheIcon from '@/components/icon/TheIcon.vue'
 import { renderIcon } from '@/utils'
 import {
   CATEGORY_OPTIONS,
   TRANSPORT_OPTIONS,
   emptyForm,
   formToPayload,
+  getIconStyle,
+  getToolParams,
+  hasToolParams,
   rowToForm,
 } from '../mcpUtils.js'
 
@@ -35,6 +39,7 @@ const formRef = ref(null)
 const saving = ref(false)
 const refreshing = ref(false)
 const form = ref(emptyForm())
+const expandedTools = ref(new Set())
 
 const title = computed(() => (props.mode === 'create' ? '新建 MCP 服务' : '编辑 MCP 服务'))
 const isStdio = computed(() => form.value.transport === 'stdio')
@@ -43,14 +48,36 @@ const toolCountText = computed(() => `${(form.value.tools || []).length} 个工�
 watch(
   () => [props.show, props.record, props.mode],
   () => {
-    if (!props.show) return
+    if (!props.show) {
+      expandedTools.value = new Set()
+      return
+    }
+    expandedTools.value = new Set()
     form.value = props.mode === 'create' ? emptyForm() : rowToForm(props.record || {})
   },
   { immediate: true },
 )
 
+function isToolExpanded(name) {
+  return expandedTools.value.has(name)
+}
+
+function toggleTool(name) {
+  const next = new Set(expandedTools.value)
+  if (next.has(name)) {
+    next.delete(name)
+  } else {
+    next.add(name)
+  }
+  expandedTools.value = next
+}
+
 function close() {
   emit('update:show', false)
+}
+
+function toolIconStyle(index) {
+  return getIconStyle(form.value.name, index)
 }
 
 async function handleRefreshTools() {
@@ -62,6 +89,7 @@ async function handleRefreshTools() {
   try {
     const res = await api.refreshMcpTools(form.value.id)
     form.value.tools = res?.tools || []
+    expandedTools.value = new Set()
     window.$message?.success(`已刷新 ${form.value.tools.length} 个工具`)
   } catch (err) {
     window.$message?.error(err?.message || '刷新工具列表失败')
@@ -114,20 +142,22 @@ function validateStdioConfig(_rule, value) {
             <div class="mcp-edit__panel-title">基础配置</div>
             <NForm
               ref="formRef"
-              label-placement="top"
+              label-placement="left"
+              label-align="left"
+              :label-width="96"
               :model="form"
               require-mark-placement="right-hanging"
             >
+              <NFormItem label="服务图标" path="icon">
+                <NInput v-model:value="form.icon" placeholder="支持 emoji 或单字，如 🎉" />
+              </NFormItem>
+
               <NFormItem
                 label="服务名称"
                 path="name"
                 :rule="{ required: true, message: '请输入服务名称', trigger: ['input', 'blur'] }"
               >
                 <NInput v-model:value="form.name" placeholder="如：高德地图-MCP" />
-              </NFormItem>
-
-              <NFormItem label="连接类型" path="transport">
-                <NSelect v-model:value="form.transport" :options="TRANSPORT_OPTIONS" />
               </NFormItem>
 
               <NFormItem
@@ -142,21 +172,8 @@ function validateStdioConfig(_rule, value) {
                 />
               </NFormItem>
 
-              <NFormItem label="图标" path="icon">
-                <NInput v-model:value="form.icon" placeholder="支持 emoji 或单字，如 🎉" />
-              </NFormItem>
-
-              <NFormItem label="分类" path="category">
-                <NSelect v-model:value="form.category" :options="CATEGORY_OPTIONS" />
-              </NFormItem>
-
-              <NFormItem label="描述" path="description">
-                <NInput
-                  v-model:value="form.description"
-                  type="textarea"
-                  :rows="3"
-                  placeholder="MCP 服务用途描述（可选）"
-                />
+              <NFormItem label="服务类型" path="transport">
+                <NSelect v-model:value="form.transport" :options="TRANSPORT_OPTIONS" />
               </NFormItem>
 
               <NFormItem v-if="isStdio" label="STDIO 配置" path="config_text" :rule="{ validator: validateStdioConfig }">
@@ -168,7 +185,20 @@ function validateStdioConfig(_rule, value) {
                 />
               </NFormItem>
 
-              <NFormItem label="状态" path="is_enabled">
+              <NFormItem label="服务分类" path="category">
+                <NSelect v-model:value="form.category" :options="CATEGORY_OPTIONS" />
+              </NFormItem>
+
+              <NFormItem label="服务描述" path="description">
+                <NInput
+                  v-model:value="form.description"
+                  type="textarea"
+                  :rows="9"
+                  placeholder="MCP 服务用途描述（可选）"
+                />
+              </NFormItem>
+
+              <NFormItem label="服务状态" path="is_enabled">
                 <div class="mcp-edit__switch">
                   <span>禁用</span>
                   <NSwitch v-model:value="form.is_enabled" />
@@ -184,7 +214,7 @@ function validateStdioConfig(_rule, value) {
                 <div class="mcp-edit__panel-title">工具列表</div>
                 <div class="mcp-edit__tools-sub">{{ toolCountText }}</div>
               </div>
-              <NButton :loading="refreshing" @click="handleRefreshTools">
+              <NButton secondary :loading="refreshing" @click="handleRefreshTools">
                 <template #icon>
                   <component :is="renderIcon('material-symbols:refresh', { size: 16 })" />
                 </template>
@@ -192,18 +222,71 @@ function validateStdioConfig(_rule, value) {
               </NButton>
             </div>
 
-            <NSpin :show="refreshing">
+            <NSpin :show="refreshing" class="mcp-edit__tools-spin">
               <div v-if="form.tools?.length" class="mcp-edit__tool-list cus-scroll">
-                <div v-for="tool in form.tools" :key="tool.name" class="mcp-edit__tool-item">
-                  <div class="mcp-edit__tool-icon">M</div>
-                  <div class="mcp-edit__tool-body">
-                    <div class="mcp-edit__tool-top">
-                      <span class="mcp-edit__tool-name">{{ tool.name }}</span>
-                      <span class="mcp-edit__tool-params">{{ tool.param_count || 0 }} 个参数</span>
+                <div
+                    v-for="(tool, index) in form.tools"
+                    :key="tool.name"
+                    class="mcp-edit__tool-item"
+                    :class="{ 'is-expanded': isToolExpanded(tool.name) }"
+                >
+                  <button
+                      type="button"
+                      class="mcp-edit__tool-header"
+                      @click="toggleTool(tool.name)"
+                  >
+                    <div
+                        class="mcp-edit__tool-icon"
+                        :style="{
+                          background: toolIconStyle(index).bg,
+                          color: toolIconStyle(index).color,
+                        }"
+                    >
+                      {{ (tool.name || 'M').slice(0, 1).toUpperCase() }}
                     </div>
-                    <div class="mcp-edit__tool-desc">{{ tool.description || '暂无描述' }}</div>
+                    <div class="mcp-edit__tool-body">
+                      <div class="mcp-edit__tool-top">
+                        <span class="mcp-edit__tool-name">{{ tool.name }}</span>
+                        <span class="mcp-edit__tool-params">{{ tool.param_count || 0 }} 个参数</span>
+                      </div>
+                      <div
+                          class="mcp-edit__tool-desc"
+                          :class="{ 'is-expanded': isToolExpanded(tool.name) }"
+                      >
+                        {{ tool.description || '暂无描述' }}
+                      </div>
+                    </div>
+                    <TheIcon
+                        :icon="isToolExpanded(tool.name)
+                          ? 'material-symbols:keyboard-arrow-down'
+                          : 'material-symbols:keyboard-arrow-right'"
+                        :size="18"
+                        class="mcp-edit__tool-arrow"
+                    />
+                  </button>
+
+                  <div
+                      v-if="isToolExpanded(tool.name)"
+                      class="mcp-edit__tool-detail"
+                  >
+                    <template v-if="hasToolParams(tool)">
+                      <div
+                          v-for="param in getToolParams(tool)"
+                          :key="param.name"
+                          class="mcp-edit__param-row"
+                      >
+                        <div class="mcp-edit__param-head">
+                          <span class="mcp-edit__param-name">{{ param.name }}</span>
+                          <span class="mcp-edit__param-type">{{ param.type }}</span>
+                          <span v-if="param.required" class="mcp-edit__param-required">必填</span>
+                        </div>
+                        <div v-if="param.description" class="mcp-edit__param-desc">
+                          {{ param.description }}
+                        </div>
+                      </div>
+                    </template>
+                    <div v-else class="mcp-edit__param-empty">该工具无输入参数</div>
                   </div>
-                  <span class="i-material-symbols:chevron-right text-18 mcp-edit__tool-arrow" />
                 </div>
               </div>
               <div v-else class="mcp-edit__tool-empty">
@@ -245,17 +328,43 @@ function validateStdioConfig(_rule, value) {
 .mcp-edit__panel {
   padding: 20px 24px;
   overflow: auto;
+  background: #fff;
 }
 
 .mcp-edit__panel--tools {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   border-left: 1px solid #eef0f4;
   background: #fafbfc;
+}
+
+.mcp-edit__tools-spin {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  :deep(.n-spin-container) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  :deep(.n-spin-content) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 .mcp-edit__panel-title {
   font-size: 15px;
   font-weight: 600;
-  color: #111827;
+  color: #1f2937;
   margin-bottom: 16px;
 }
 
@@ -263,6 +372,7 @@ function validateStdioConfig(_rule, value) {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 34px;
   color: #6b7280;
 }
 
@@ -272,6 +382,7 @@ function validateStdioConfig(_rule, value) {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .mcp-edit__tools-sub {
@@ -281,21 +392,39 @@ function validateStdioConfig(_rule, value) {
 }
 
 .mcp-edit__tool-list {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: calc(100vh - 220px);
+  gap: 10px;
+  overflow-y: auto;
   padding-right: 4px;
 }
 
 .mcp-edit__tool-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  flex-shrink: 0;
   background: #fff;
   border: 1px solid #eef0f4;
-  border-radius: 12px;
+  border-radius: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover,
+  &.is-expanded {
+    border-color: #dbe0e8;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+}
+
+.mcp-edit__tool-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
 }
 
 .mcp-edit__tool-icon {
@@ -303,12 +432,12 @@ function validateStdioConfig(_rule, value) {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: #eff6ff;
-  color: #3b82f6;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .mcp-edit__tool-body {
@@ -319,39 +448,116 @@ function validateStdioConfig(_rule, value) {
 .mcp-edit__tool-top {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .mcp-edit__tool-name {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: #1f2937;
+  word-break: break-word;
 }
 
 .mcp-edit__tool-params {
   padding: 2px 8px;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #3b82f6;
+  background: #f3f4f6;
+  color: #6b7280;
   font-size: 12px;
 }
 
 .mcp-edit__tool-desc {
   font-size: 13px;
   line-height: 1.5;
-  color: #6b7280;
+  color: #9ca3af;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  word-break: break-word;
+
+  &.is-expanded {
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    overflow: visible;
+    white-space: normal;
+  }
 }
 
 .mcp-edit__tool-arrow {
+  flex-shrink: 0;
   color: #cbd5e1;
+
+  :deep(.n-icon) {
+    color: inherit;
+  }
+}
+
+.mcp-edit__tool-detail {
+  margin: 0 14px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #eef0f4;
+}
+
+.mcp-edit__param-row + .mcp-edit__param-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #eef0f4;
+}
+
+.mcp-edit__param-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.mcp-edit__param-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.mcp-edit__param-type {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.mcp-edit__param-required {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 11px;
+}
+
+.mcp-edit__param-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #9ca3af;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.mcp-edit__param-empty {
+  font-size: 12px;
+  color: #9ca3af;
+  padding: 4px 0;
 }
 
 .mcp-edit__tool-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -378,5 +584,93 @@ function validateStdioConfig(_rule, value) {
   padding: 14px 24px;
   border-top: 1px solid #eef0f4;
   background: #fff;
+}
+</style>
+
+<style scoped lang="scss">
+html.dark .mcp-edit__panel {
+  background: #18181c;
+}
+
+html.dark .mcp-edit__panel--tools {
+  border-left-color: rgba(255, 255, 255, 0.1);
+  background: #141419;
+}
+
+html.dark .mcp-edit__panel-title {
+  color: #e5e7eb;
+}
+
+html.dark .mcp-edit__switch {
+  color: #9ca3af;
+}
+
+html.dark .mcp-edit__tools-sub {
+  color: #9ca3af;
+}
+
+html.dark .mcp-edit__tool-item {
+  background: #18181c;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .mcp-edit__tool-item:hover,
+html.dark .mcp-edit__tool-item.is-expanded {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
+}
+
+html.dark .mcp-edit__tool-detail {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .mcp-edit__param-row + .mcp-edit__param-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .mcp-edit__param-name {
+  color: #e5e7eb;
+}
+
+html.dark .mcp-edit__param-type {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+html.dark .mcp-edit__param-required {
+  background: rgba(220, 38, 38, 0.16);
+  color: #fca5a5;
+}
+
+html.dark .mcp-edit__param-desc,
+html.dark .mcp-edit__param-empty {
+  color: #9ca3af;
+}
+
+html.dark .mcp-edit__tool-name {
+  color: #e5e7eb;
+}
+
+html.dark .mcp-edit__tool-params {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+html.dark .mcp-edit__tool-desc {
+  color: #9ca3af;
+}
+
+html.dark .mcp-edit__tool-arrow {
+  color: #94a3b8;
+}
+
+html.dark .mcp-edit__tool-empty-title {
+  color: #cbd5e1;
+}
+
+html.dark .mcp-edit__footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  background: #18181c;
 }
 </style>

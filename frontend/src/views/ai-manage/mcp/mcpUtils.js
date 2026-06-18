@@ -49,6 +49,24 @@ export function getToolCount(item) {
   return Array.isArray(tools) ? tools.length : 0
 }
 
+/** 从 MCP 工具的 input_schema 解析参数列表 */
+export function getToolParams(tool) {
+  const schema = tool?.input_schema || tool?.inputSchema || {}
+  const properties = schema.properties || {}
+  const required = new Set(schema.required || [])
+
+  return Object.entries(properties).map(([name, meta]) => ({
+    name,
+    type: meta?.type || meta?.format || 'string',
+    description: meta?.description || '',
+    required: required.has(name),
+  }))
+}
+
+export function hasToolParams(tool) {
+  return getToolParams(tool).length > 0
+}
+
 export function emptyForm() {
   return {
     id: null,
