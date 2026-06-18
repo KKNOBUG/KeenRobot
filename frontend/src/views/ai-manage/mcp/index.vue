@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { NButton, NEmpty, NInput, NSpin } from 'naive-ui'
+import { NAlert, NButton, NEmpty, NInput, NSpin } from 'naive-ui'
 
 import CommonPage from '@/components/page/CommonPage.vue'
 import { renderIcon } from '@/utils'
@@ -88,6 +88,10 @@ onMounted(() => {
 <template>
   <CommonPage :show-header="false" :show-footer="false">
     <div class="mcp-page">
+      <NAlert type="info" :bordered="false" class="mcp-page__tip">
+        管理 MCP 服务连接与工具列表。在智能聊天中勾选 MCP 后，模型可调用已启用服务的工具完成任务。
+      </NAlert>
+
       <div class="mcp-page__toolbar">
         <NInput
           v-model:value="keyword"
@@ -139,9 +143,13 @@ onMounted(() => {
 .mcp-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-height: 100%;
   padding: 4px 2px 20px;
+}
+
+.mcp-page__tip {
+  margin-bottom: 0;
 }
 
 .mcp-page__toolbar {

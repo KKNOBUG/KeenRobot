@@ -134,87 +134,120 @@ function validateStdioConfig(_rule, value) {
 </script>
 
 <template>
-  <NDrawer :show="show" :width="1080" placement="right" @update:show="emit('update:show', $event)">
+  <NDrawer :show="show" :width="800" placement="right" @update:show="emit('update:show', $event)">
     <NDrawerContent :title="title" closable :native-scrollbar="false" body-content-style="padding: 0;">
       <div class="mcp-edit">
-        <div class="mcp-edit__main">
-          <section class="mcp-edit__panel">
-            <div class="mcp-edit__panel-title">基础配置</div>
-            <NForm
-              ref="formRef"
-              label-placement="left"
-              label-align="left"
-              :label-width="96"
-              :model="form"
-              require-mark-placement="right-hanging"
-            >
-              <NFormItem label="服务图标" path="icon">
-                <NInput v-model:value="form.icon" placeholder="支持 emoji 或单字，如 🎉" />
-              </NFormItem>
-
-              <NFormItem
-                label="服务名称"
-                path="name"
-                :rule="{ required: true, message: '请输入服务名称', trigger: ['input', 'blur'] }"
-              >
-                <NInput v-model:value="form.name" placeholder="如：高德地图-MCP" />
-              </NFormItem>
-
-              <NFormItem
-                v-if="!isStdio"
-                label="服务地址"
-                path="service_url"
-                :rule="{ required: true, message: '请输入服务地址', trigger: ['input', 'blur'] }"
-              >
-                <NInput
-                  v-model:value="form.service_url"
-                  placeholder="https://mcp.example.com/..."
-                />
-              </NFormItem>
-
-              <NFormItem label="服务类型" path="transport">
-                <NSelect v-model:value="form.transport" :options="TRANSPORT_OPTIONS" />
-              </NFormItem>
-
-              <NFormItem v-if="isStdio" label="STDIO 配置" path="config_text" :rule="{ validator: validateStdioConfig }">
-                <NInput
-                  v-model:value="form.config_text"
-                  type="textarea"
-                  :rows="6"
-                  placeholder='{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}'
-                />
-              </NFormItem>
-
-              <NFormItem label="服务分类" path="category">
-                <NSelect v-model:value="form.category" :options="CATEGORY_OPTIONS" />
-              </NFormItem>
-
-              <NFormItem label="服务描述" path="description">
-                <NInput
-                  v-model:value="form.description"
-                  type="textarea"
-                  :rows="9"
-                  placeholder="MCP 服务用途描述（可选）"
-                />
-              </NFormItem>
-
-              <NFormItem label="服务状态" path="is_enabled">
-                <div class="mcp-edit__switch">
-                  <span>禁用</span>
-                  <NSwitch v-model:value="form.is_enabled" />
-                  <span>启用</span>
+        <div class="mcp-edit__body cus-scroll">
+          <NForm
+            ref="formRef"
+            label-placement="top"
+            :model="form"
+            require-mark-placement="right-hanging"
+          >
+            <section class="mcp-edit__section">
+              <div class="mcp-edit__section-head mcp-edit__section-head--basic">
+                <TheIcon icon="material-symbols:hub-outline" :size="18" />
+                <span>基本配置</span>
+              </div>
+              <div class="mcp-edit__section-body">
+                <div class="mcp-edit__row">
+                  <NFormItem label="服务图标" path="icon" class="mcp-edit__col">
+                    <NInput v-model:value="form.icon" placeholder="支持 emoji 或单字，如 🎉" />
+                  </NFormItem>
+                  <NFormItem
+                      label="服务名称"
+                      path="name"
+                      class="mcp-edit__col"
+                      :rule="{ required: true, message: '请输入服务名称', trigger: ['input', 'blur'] }"
+                  >
+                    <NInput v-model:value="form.name" placeholder="如：高德地图-MCP" />
+                  </NFormItem>
                 </div>
-              </NFormItem>
-            </NForm>
-          </section>
 
-          <section class="mcp-edit__panel mcp-edit__panel--tools">
+                <div class="mcp-edit__row">
+                  <NFormItem label="服务类型" path="transport" class="mcp-edit__col">
+                    <NSelect v-model:value="form.transport" :options="TRANSPORT_OPTIONS" />
+                  </NFormItem>
+                  <NFormItem label="服务分类" path="category" class="mcp-edit__col">
+                    <NSelect v-model:value="form.category" :options="CATEGORY_OPTIONS" />
+                  </NFormItem>
+                </div>
+
+                <div class="mcp-edit__switch-row">
+                  <div class="mcp-edit__switch-info">
+                    <TheIcon icon="material-symbols:power-settings-new" :size="18" color="#22c55e" />
+                    <div>
+                      <div class="mcp-edit__switch-title">启用服务</div>
+                      <div class="mcp-edit__switch-desc">禁用后聊天中不可选用</div>
+                    </div>
+                  </div>
+                  <NSwitch v-model:value="form.is_enabled" />
+                </div>
+              </div>
+            </section>
+
+            <section class="mcp-edit__section">
+              <div class="mcp-edit__section-head mcp-edit__section-head--connection">
+                <TheIcon icon="material-symbols:link" :size="18" />
+                <span>连接配置</span>
+              </div>
+              <div class="mcp-edit__section-body">
+                <NFormItem
+                    v-if="!isStdio"
+                    label="服务地址"
+                    path="service_url"
+                    :rule="{ required: true, message: '请输入服务地址', trigger: ['input', 'blur'] }"
+                >
+                  <NInput
+                      v-model:value="form.service_url"
+                      placeholder="https://mcp.example.com/..."
+                  />
+                </NFormItem>
+
+                <NFormItem
+                    v-if="isStdio"
+                    label="STDIO 配置"
+                    path="config_text"
+                    :rule="{ validator: validateStdioConfig }"
+                >
+                  <NInput
+                      v-model:value="form.config_text"
+                      type="textarea"
+                      :rows="6"
+                      placeholder='{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}'
+                  />
+                </NFormItem>
+              </div>
+            </section>
+
+            <section class="mcp-edit__section">
+              <div class="mcp-edit__section-head mcp-edit__section-head--other">
+                <TheIcon icon="material-symbols:more-horiz" :size="18" />
+                <span>其他配置</span>
+              </div>
+              <div class="mcp-edit__section-body">
+                <NFormItem label="服务描述" path="description">
+                  <NInput
+                      v-model:value="form.description"
+                      type="textarea"
+                      :rows="4"
+                      placeholder="MCP 服务用途描述（可选）"
+                  />
+                </NFormItem>
+              </div>
+            </section>
+          </NForm>
+
+          <section class="mcp-edit__section mcp-edit__section--tools">
             <div class="mcp-edit__tools-head">
               <div>
-                <div class="mcp-edit__panel-title">工具列表</div>
+                <div class="mcp-edit__section-head mcp-edit__section-head--tools">
+                  <TheIcon icon="material-symbols:build-outline" :size="18" />
+                  <span>工具列表</span>
+                </div>
                 <div class="mcp-edit__tools-sub">{{ toolCountText }}</div>
               </div>
-              <NButton secondary :loading="refreshing" @click="handleRefreshTools">
+              <NButton secondary :loading="refreshing" :disabled="!form.id" @click="handleRefreshTools">
                 <template #icon>
                   <component :is="renderIcon('material-symbols:refresh', { size: 16 })" />
                 </template>
@@ -223,7 +256,7 @@ function validateStdioConfig(_rule, value) {
             </div>
 
             <NSpin :show="refreshing" class="mcp-edit__tools-spin">
-              <div v-if="form.tools?.length" class="mcp-edit__tool-list cus-scroll">
+              <div v-if="form.tools?.length" class="mcp-edit__tool-list">
                 <div
                     v-for="(tool, index) in form.tools"
                     :key="tool.name"
@@ -289,11 +322,14 @@ function validateStdioConfig(_rule, value) {
                   </div>
                 </div>
               </div>
-              <div v-else class="mcp-edit__tool-empty">
+              <div v-else-if="form.id" class="mcp-edit__tool-empty">
                 <div class="mcp-edit__tool-empty-title">暂无工具</div>
-                <div class="mcp-edit__tool-empty-desc">
-                  {{ form.id ? '点击右上角刷新，从远程 MCP 服务获取工具列表' : '保存服务后可刷新工具列表' }}
-                </div>
+                <div class="mcp-edit__tool-empty-desc">点击右上角刷新，从远程 MCP 服务获取工具列表</div>
+              </div>
+              <div v-else class="mcp-edit__tool-empty">
+                <TheIcon icon="material-symbols:build-circle-outline" :size="28" color="#9ca3af" />
+                <div class="mcp-edit__tool-empty-title">工具列表</div>
+                <div class="mcp-edit__tool-empty-desc">保存服务后可刷新工具列表</div>
               </div>
             </NSpin>
           </section>
@@ -302,7 +338,9 @@ function validateStdioConfig(_rule, value) {
         <div class="mcp-edit__footer">
           <NSpace justify="end">
             <NButton @click="close">取消</NButton>
-            <NButton type="primary" :loading="saving" @click="handleSave">保存</NButton>
+            <NButton type="primary" :loading="saving" @click="handleSave">
+              {{ mode === 'create' ? '创建' : '保存' }}
+            </NButton>
           </NSpace>
         </div>
       </div>
@@ -317,63 +355,96 @@ function validateStdioConfig(_rule, value) {
   height: calc(100vh - 56px);
 }
 
-.mcp-edit__main {
+.mcp-edit__body {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 0;
-}
-
-.mcp-edit__panel {
   padding: 20px 24px;
-  overflow: auto;
+  overflow-y: auto;
+}
+
+.mcp-edit__section {
+  margin-bottom: 16px;
   background: #fff;
-}
-
-.mcp-edit__panel--tools {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  border: 1px solid #eef0f4;
+  border-radius: 12px;
   overflow: hidden;
-  border-left: 1px solid #eef0f4;
-  background: #fafbfc;
 }
 
-.mcp-edit__tools-spin {
-  flex: 1;
-  min-height: 0;
+.mcp-edit__section-head {
   display: flex;
-  flex-direction: column;
-
-  :deep(.n-spin-container) {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  :deep(.n-spin-content) {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-}
-
-.mcp-edit__panel-title {
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
   font-size: 15px;
   font-weight: 600;
   color: #1f2937;
-  margin-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+
+  &--basic :deep(.n-icon) {
+    color: #3b82f6;
+  }
+
+  &--connection :deep(.n-icon) {
+    color: #22c55e;
+  }
+
+  &--other :deep(.n-icon) {
+    color: #6b7280;
+  }
+
+  &--tools :deep(.n-icon) {
+    color: #f59e0b;
+    border-bottom: none;
+  }
 }
 
-.mcp-edit__switch {
+.mcp-edit__section-body {
+  padding: 16px 18px 6px;
+}
+
+.mcp-edit__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mcp-edit__col {
+  min-width: 0;
+}
+
+.mcp-edit__switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: #f8fafc;
+  border: 1px solid #eef0f4;
+  border-radius: 10px;
+}
+
+.mcp-edit__switch-info {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 34px;
-  color: #6b7280;
+  min-width: 0;
+}
+
+.mcp-edit__switch-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.mcp-edit__switch-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.mcp-edit__section--tools {
+  padding-bottom: 12px;
 }
 
 .mcp-edit__tools-head {
@@ -381,29 +452,32 @@ function validateStdioConfig(_rule, value) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
-  flex-shrink: 0;
+  padding: 14px 18px 0;
 }
 
 .mcp-edit__tools-sub {
   margin-top: 4px;
+  padding: 0 18px 12px;
   font-size: 12px;
   color: #9ca3af;
 }
 
+.mcp-edit__tools-spin {
+  padding: 0 18px 6px;
+}
+
 .mcp-edit__tool-list {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: 480px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
 .mcp-edit__tool-item {
   flex-shrink: 0;
-  background: #fff;
+  background: #f8fafc;
   border: 1px solid #eef0f4;
   border-radius: 10px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -501,7 +575,7 @@ function validateStdioConfig(_rule, value) {
   margin: 0 14px 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #f8fafc;
+  background: #fff;
   border: 1px solid #eef0f4;
 }
 
@@ -557,12 +631,13 @@ function validateStdioConfig(_rule, value) {
 }
 
 .mcp-edit__tool-empty {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 280px;
+  gap: 8px;
+  min-height: 180px;
+  padding: 24px 18px;
   color: #9ca3af;
   text-align: center;
 }
@@ -571,11 +646,10 @@ function validateStdioConfig(_rule, value) {
   font-size: 15px;
   font-weight: 600;
   color: #6b7280;
-  margin-bottom: 8px;
 }
 
 .mcp-edit__tool-empty-desc {
-  max-width: 280px;
+  max-width: 320px;
   font-size: 13px;
   line-height: 1.6;
 }
@@ -588,36 +662,25 @@ function validateStdioConfig(_rule, value) {
 </style>
 
 <style scoped lang="scss">
-html.dark .mcp-edit__panel {
-  background: #18181c;
-}
-
-html.dark .mcp-edit__panel--tools {
-  border-left-color: rgba(255, 255, 255, 0.1);
-  background: #141419;
-}
-
-html.dark .mcp-edit__panel-title {
-  color: #e5e7eb;
-}
-
-html.dark .mcp-edit__switch {
-  color: #9ca3af;
-}
-
-html.dark .mcp-edit__tools-sub {
-  color: #9ca3af;
-}
-
-html.dark .mcp-edit__tool-item {
+html.dark .mcp-edit__section {
   background: #18181c;
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-html.dark .mcp-edit__tool-item:hover,
-html.dark .mcp-edit__tool-item.is-expanded {
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
+html.dark .mcp-edit__section-head {
+  color: #e5e7eb;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .mcp-edit__switch-row,
+html.dark .mcp-edit__tool-item {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .mcp-edit__switch-title,
+html.dark .mcp-edit__tool-name {
+  color: #e5e7eb;
 }
 
 html.dark .mcp-edit__tool-detail {
@@ -644,12 +707,9 @@ html.dark .mcp-edit__param-required {
 }
 
 html.dark .mcp-edit__param-desc,
-html.dark .mcp-edit__param-empty {
+html.dark .mcp-edit__param-empty,
+html.dark .mcp-edit__tools-sub {
   color: #9ca3af;
-}
-
-html.dark .mcp-edit__tool-name {
-  color: #e5e7eb;
 }
 
 html.dark .mcp-edit__tool-params {
@@ -667,6 +727,12 @@ html.dark .mcp-edit__tool-arrow {
 
 html.dark .mcp-edit__tool-empty-title {
   color: #cbd5e1;
+}
+
+html.dark .mcp-edit__tool-item:hover,
+html.dark .mcp-edit__tool-item.is-expanded {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.24);
 }
 
 html.dark .mcp-edit__footer {
