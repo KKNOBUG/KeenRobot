@@ -3,7 +3,6 @@ defineOptions({ name: 'Chat' })
 
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { marked } from 'marked'
 import { NButton, NLayout, NLayoutContent, NLayoutSider, NSkeleton } from 'naive-ui'
 import MessageBubble from '../../components/MessageBubble.vue'
 import ChatFeaturePicker from '../../components/chat/ChatFeaturePicker.vue'
@@ -592,11 +591,6 @@ function handleKeydown(e) {
   }
 }
 
-function renderMarkdown(text) {
-  if (!text) return ''
-  return marked.parse(text, { breaks: true })
-}
-
 </script>
 
 <template>
@@ -726,7 +720,6 @@ function renderMarkdown(text) {
                     <MessageBubble
                         :role="msg.role"
                         :content="msg.content"
-                        :html="msg.role === 'assistant' ? renderMarkdown(msg.content) : ''"
                         :process-trace="msg.process_trace || []"
                         :is-streaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
                         :prompt-tokens="msg.prompt_tokens"

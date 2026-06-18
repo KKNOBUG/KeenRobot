@@ -1,10 +1,11 @@
 <script setup>
+import { ref, watch } from 'vue'
 import ChatProcessTrace from './chat/ChatProcessTrace.vue'
+import { renderMarkdown } from '@/utils/markdown'
 
 const props = defineProps({
   role: String,
   content: String,
-  html: String,
   processTrace: {
     type: Array,
     default: () => [],
@@ -14,6 +15,24 @@ const props = defineProps({
   completionTokens: Number,
   reasoningTokens: Number,
 })
+
+const renderedHtml = ref('')
+
+watch(
+    () => [props.content, props.isStreaming, props.role],
+    ([content, streaming, role]) => {
+      if (role !== 'assistant') {
+        renderedHtml.value = ''
+        return
+      }
+      if (!streaming && content) {
+        renderedHtml.value = renderMarkdown(content)
+      } else if (!streaming) {
+        renderedHtml.value = ''
+      }
+    },
+    { immediate: true },
+)
 
 function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
   return (
@@ -25,6 +44,10 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
 
 function canCopy() {
   return Boolean(props.content?.trim()) && !props.isStreaming
+}
+
+function showAssistantContent() {
+  return props.content || !props.processTrace.length
 }
 
 async function copyContent() {
@@ -67,12 +90,16 @@ async function copyContent() {
           :streaming="isStreaming"
       />
       <div
-          v-if="role === 'assistant' && (content || !processTrace.length)"
+          v-if="role === 'assistant' && showAssistantContent()"
           class="markdown-body bubble-content"
-          v-html="html"
-      />
+      >
+        <div
+            v-if="isStreaming"
+            class="assistant-plain-text"
+        >{{ content }}<span v-if="content" class="cursor-blink" /></div>
+        <div v-else v-html="renderedHtml" />
+      </div>
       <div v-else-if="role !== 'assistant'" class="text-content bubble-content">{{ content }}</div>
-      <span v-if="isStreaming && content" class="cursor-blink"></span>
       <div
           v-if="role === 'assistant' && (canCopy() || hasTokenUsage(promptTokens, completionTokens, reasoningTokens))"
           class="message-actions"
@@ -173,7 +200,6 @@ async function copyContent() {
   box-sizing: border-box;
   min-height: 36px;
   padding: 8px 14px;
-  line-height: 20px;
   word-break: break-word;
   font-size: 14px;
   border-radius: 12px;
@@ -182,6 +208,7 @@ async function copyContent() {
 .message.user .bubble-content {
   background-color: var(--chat-input-border);
   white-space: pre-wrap;
+  line-height: 1.7;
   tab-size: 4;
 }
 
@@ -189,21 +216,10 @@ async function copyContent() {
   background: rgba(244, 81, 30, 0.1);
 }
 
-.message.assistant .bubble-content :deep(p) {
-  margin: 0.4em 0;
-}
-
-.message.assistant .bubble-content :deep(p:first-child) {
-  margin-top: 0;
-}
-
-.message.assistant .bubble-content :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-.message.assistant .bubble-content :deep(p:only-child) {
-  margin: 0;
-  line-height: 20px;
+.assistant-plain-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  tab-size: 4;
 }
 
 .message-actions {
@@ -279,7 +295,7 @@ async function copyContent() {
 .cursor-blink {
   display: inline-block;
   width: 7px;
-  height: 16px;
+  height: 14px;
   background: var(--primary-color, #f4511e);
   border-radius: 2px;
   margin-left: 2px;
