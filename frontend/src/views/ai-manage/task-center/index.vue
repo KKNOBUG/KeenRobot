@@ -3,13 +3,9 @@ import { computed, h, onMounted, ref } from 'vue'
 import {
   NAlert,
   NButton,
-  NForm,
-  NFormItem,
   NInput,
-  NInputNumber,
   NPopconfirm,
   NSelect,
-  NSwitch,
   NTabPane,
   NTabs,
   NTag,
@@ -17,20 +13,25 @@ import {
 
 import CommonPage from '@/components/page/CommonPage.vue'
 import QueryBarItem from '@/components/query-bar/QueryBarItem.vue'
-import CrudModal from '@/components/table/CrudModal.vue'
 import CrudTable from '@/components/table/CrudTable.vue'
 
 import { formatDateTime, renderIcon } from '@/utils'
-import { useCRUD } from '@/composables'
 import api from '@/api'
 
+import TaskEditDrawer from './components/TaskEditDrawer.vue'
+
 defineOptions({ name: 'TaskCenter' })
+
 const activeTab = ref('tasks')
 const $taskTable = ref(null)
 const $recordTable = ref(null)
 
 const presets = ref([])
 const schedulerOptions = ref([])
+
+const drawerVisible = ref(false)
+const drawerMode = ref('create')
+const currentRecord = ref(null)
 
 const taskQuery = ref({ task_name: '', task_type: null, task_enabled: null })
 const recordQuery = ref({ task_name: '', task_celery_status: null })
@@ -58,153 +59,20 @@ const statusTypeMap = {
   失败: 'error',
 }
 
-const {
-  modalVisible,
-  modalAction,
-  modalTitle,
-  modalLoading,
-  handleAdd,
-  handleEdit,
-  handleSave,
-  modalForm,
-  modalFormRef,
-} = useCRUD({
-  name: '任务',
-  initForm: buildInitForm(),
-  doCreate: (form) => api.createTask(buildPayload(form)),
-  doUpdate: (form) => api.updateTask(buildPayload(form, true)),
-  refresh: () => $taskTable.value?.handleSearch(),
-})
-
-function buildInitForm() {
-  return {
-    task_id: null,
-    task_name: '',
-    task_desc: '',
-    task_type: '',
-    task_celery_node: '',
-    task_kwargs_text: '{}',
-    task_celery_scheduler: null,
-    task_interval_expr: 300,
-    task_datetime_expr: '',
-    task_crontabs_expr: '',
-    task_enabled: false,
-    preset_key: null,
-    write_number: 100,
-    write_message: '测试文本：通过Celery异步执行函数...',
-  }
+function openCreate() {
+  drawerMode.value = 'create'
+  currentRecord.value = null
+  drawerVisible.value = true
 }
-
-function configToText(obj) {
-  if (!obj) return '{}'
-  try {
-    return JSON.stringify(obj, null, 2)
-  } catch {
-    return '{}'
-  }
-}
-
-function parseConfigText(text) {
-  const trimmed = (text || '').trim()
-  if (!trimmed) return {}
-  return JSON.parse(trimmed)
-}
-
-function buildPayload(form, isUpdate = false) {
-  const kwargs = parseConfigText(form.task_kwargs_text)
-  if (form.preset_key === 'example' || form.task_type === 'example') {
-    kwargs.write_number = form.write_number ?? 100
-    if (form.write_message) {
-      kwargs.write_message = form.write_message
-    }
-    delete kwargs.user_id
-  }
-  const payload = {
-    task_name: form.task_name,
-    task_desc: form.task_desc || null,
-    task_type: form.task_type || null,
-    task_celery_node: form.task_celery_node || null,
-    task_kwargs: kwargs,
-    task_celery_scheduler: form.task_celery_scheduler || null,
-    task_interval_expr: form.task_celery_scheduler === 'interval' ? form.task_interval_expr : null,
-    task_datetime_expr: form.task_celery_scheduler === 'datetime' ? form.task_datetime_expr : null,
-    task_crontabs_expr: form.task_celery_scheduler === 'cron' ? form.task_crontabs_expr : null,
-    task_enabled: !!form.task_enabled,
-  }
-  if (isUpdate) {
-    payload.task_id = form.task_id
-  }
-  return payload
-}
-
-function applyPreset(presetKey) {
-  const preset = presets.value.find((p) => p.preset_key === presetKey)
-  if (!preset) return
-  const kwargs = { ...(preset.task_kwargs || {}) }
-  modalForm.value = {
-    ...modalForm.value,
-    preset_key: presetKey,
-    task_name: preset.task_name,
-    task_desc: preset.task_desc || '',
-    task_type: preset.task_type,
-    task_celery_node: preset.task_celery_node,
-    task_kwargs_text: configToText(kwargs),
-    write_number: kwargs.write_number ?? 100,
-    write_message: kwargs.write_message || '测试文本：通过Celery异步执行函数...',
-  }
-}
-
-function syncKwargField(key, value) {
-  if (!modalForm.value.task_kwargs_text) return
-  try {
-    const kwargs = parseConfigText(modalForm.value.task_kwargs_text)
-    if (key in kwargs) {
-      kwargs[key] = value
-      modalForm.value.task_kwargs_text = configToText(kwargs)
-    }
-  } catch {
-    // ignore invalid json while typing
-  }
-}
-
-const isExamplePreset = computed(
-    () => modalForm.value.preset_key === 'example' || modalForm.value.task_type === 'example',
-)
-
-const formWriteNumber = computed({
-  get: () => modalForm.value.write_number,
-  set: (val) => {
-    modalForm.value.write_number = val
-    syncKwargField('write_number', val ?? 100)
-  },
-})
-
-const formWriteMessage = computed({
-  get: () => modalForm.value.write_message,
-  set: (val) => {
-    modalForm.value.write_message = val
-    syncKwargField('write_message', val || '')
-  },
-})
-
-const kwargsPlaceholder = computed(() => {
-  return '{"write_number":100,"write_message":"测试文本：通过Celery异步执行函数..."}'
-})
 
 function openEdit(row) {
-  handleEdit({
-    ...row,
-    task_id: row.task_id ?? row.id,
-    task_kwargs_text: configToText(row.task_kwargs),
-    task_celery_scheduler: row.task_celery_scheduler || null,
-    write_number: row.task_kwargs?.write_number ?? 100,
-    write_message: row.task_kwargs?.write_message || '',
-    preset_key: null,
-  })
+  drawerMode.value = 'edit'
+  currentRecord.value = row
+  drawerVisible.value = true
 }
 
-function openCreateFromPreset() {
-  handleAdd()
+function handleSaved() {
+  $taskTable.value?.handleSearch()
 }
 
 async function loadMeta() {
@@ -245,7 +113,7 @@ async function handleRunTask(row) {
     const fd = new FormData()
     fd.append('task_id', String(taskId))
     await api.runTask(fd)
-    $message.success('任务已下发执行')
+    window.$message?.success('任务已下发执行')
     $taskTable.value?.handleSearch()
     if (activeTab.value === 'records') {
       $recordTable.value?.handleSearch()
@@ -261,7 +129,7 @@ async function handleStartTask(row) {
     const fd = new FormData()
     fd.append('task_id', String(taskId))
     await api.startTask(fd)
-    $message.success('任务调度已启动')
+    window.$message?.success('任务调度已启动')
     $taskTable.value?.handleSearch()
   } catch {
     // interceptor handles message
@@ -274,7 +142,7 @@ async function handleStopTask(row) {
     const fd = new FormData()
     fd.append('task_id', String(taskId))
     await api.stopTask(fd)
-    $message.success('任务调度已停止')
+    window.$message?.success('任务调度已停止')
     $taskTable.value?.handleSearch()
   } catch {
     // interceptor handles message
@@ -285,20 +153,10 @@ async function handleDeleteTask(row) {
   const taskId = row.task_id ?? row.id
   try {
     await api.deleteTask({ task_id: taskId })
-    $message.success('删除成功')
+    window.$message?.success('删除成功')
     $taskTable.value?.handleSearch()
   } catch {
     // interceptor handles message
-  }
-}
-
-function validateKwargs(_rule, value) {
-  if (!value?.trim()) return true
-  try {
-    JSON.parse(value)
-    return true
-  } catch {
-    return new Error('参数须为合法 JSON')
   }
 }
 
@@ -313,13 +171,6 @@ onMounted(async () => {
   await loadMeta()
   $taskTable.value?.handleSearch()
 })
-
-const presetOptions = computed(() =>
-    presets.value.map((p) => ({
-      label: `${p.task_name}（${p.task_type}）`,
-      value: p.preset_key,
-    })),
-)
 
 const enabledOptions = [
   { label: '全部', value: null },
@@ -348,7 +199,6 @@ const taskColumns = computed(() => [
       return row.task_type || '-'
     },
   },
-
   {
     title: '任务调度模式',
     key: 'task_celery_scheduler',
@@ -409,7 +259,6 @@ const taskColumns = computed(() => [
     align: 'center',
     fixed: 'right',
     render(row) {
-      const taskId = row.task_id ?? row.id
       return [
         h(
             NButton,
@@ -542,7 +391,7 @@ const recordColumns = computed(() => [
             :columns="taskColumns"
             :get-data="fetchTaskList"
             row-key="task_id"
-            @query-bar-create="openCreateFromPreset"
+            @query-bar-create="openCreate"
         >
           <template #queryBar>
             <QueryBarItem label="任务名称：">
@@ -598,109 +447,14 @@ const recordColumns = computed(() => [
       </NTabPane>
     </NTabs>
 
-    <CrudModal
-        v-model:visible="modalVisible"
-        :title="modalTitle"
-        :loading="modalLoading"
-        width="720px"
-        @save="handleSave"
-    >
-      <NForm
-          ref="modalFormRef"
-          label-placement="left"
-          label-align="left"
-          :label-width="100"
-          :model="modalForm"
-          :disabled="modalAction === 'view'"
-      >
-        <NFormItem v-if="modalAction === 'add'" label="任务模板" path="preset_key">
-          <NSelect
-              v-model:value="modalForm.preset_key"
-              :options="presetOptions"
-              clearable
-              placeholder="选择模板快速填充"
-              @update:value="applyPreset"
-          />
-        </NFormItem>
-        <NFormItem
-            label="任务名称"
-            path="task_name"
-            :rule="{ required: true, message: '请输入任务名称', trigger: ['input', 'blur'] }"
-        >
-          <NInput v-model:value="modalForm.task_name" placeholder="任务显示名称" />
-        </NFormItem>
-        <NFormItem label="任务描述" path="task_desc">
-          <NInput v-model:value="modalForm.task_desc" type="textarea" :rows="2" placeholder="可选" />
-        </NFormItem>
-        <NFormItem label="任务分类" path="task_type">
-          <NInput v-model:value="modalForm.task_type" placeholder="如 example、rag" />
-        </NFormItem>
-        <NFormItem
-            label="任务调度节点"
-            path="task_celery_node"
-            :rule="{ required: true, message: '请填写任务调度节点', trigger: ['input', 'blur'] }"
-        >
-          <NInput v-model:value="modalForm.task_celery_node" placeholder="backend.celery_scheduler.tasks..." />
-        </NFormItem>
-        <NFormItem
-            v-if="isExamplePreset"
-            label="写入行数"
-            path="write_number"
-        >
-          <NInputNumber
-              v-model:value="formWriteNumber"
-              :min="1"
-              :max="100"
-              :step="10"
-              style="width: 100%"
-          />
-        </NFormItem>
-        <NFormItem
-            v-if="isExamplePreset"
-            label="写入内容"
-            path="write_message"
-        >
-          <NInput
-              v-model:value="formWriteMessage"
-              type="textarea"
-              :rows="2"
-              placeholder="测试文本：通过Celery异步执行函数..."
-          />
-        </NFormItem>
-        <NFormItem
-            label="执行参数"
-            path="task_kwargs_text"
-            :rule="{ validator: validateKwargs, trigger: ['input', 'blur'] }"
-        >
-          <NInput
-              v-model:value="modalForm.task_kwargs_text"
-              type="textarea"
-              :rows="6"
-              :placeholder="kwargsPlaceholder"
-          />
-        </NFormItem>
-        <NFormItem label="任务调度模式" path="task_celery_scheduler">
-          <NSelect
-              v-model:value="modalForm.task_celery_scheduler"
-              :options="schedulerOptions"
-              clearable
-              placeholder="不选则仅支持手动执行"
-          />
-        </NFormItem>
-        <NFormItem v-if="modalForm.task_celery_scheduler === 'interval'" label="间隔(秒)" path="task_interval_expr">
-          <NInputNumber v-model:value="modalForm.task_interval_expr" :min="10" :step="10" style="width: 100%" />
-        </NFormItem>
-        <NFormItem v-if="modalForm.task_celery_scheduler === 'cron'" label="Cron表达式" path="task_crontabs_expr">
-          <NInput v-model:value="modalForm.task_crontabs_expr" placeholder="如 0 */2 * * *" />
-        </NFormItem>
-        <NFormItem v-if="modalForm.task_celery_scheduler === 'datetime'" label="执行时间" path="task_datetime_expr">
-          <NInput v-model:value="modalForm.task_datetime_expr" placeholder="YYYY-MM-DD HH:MM:SS" />
-        </NFormItem>
-        <NFormItem label="启用调度" path="task_enabled">
-          <NSwitch v-model:value="modalForm.task_enabled" />
-        </NFormItem>
-      </NForm>
-    </CrudModal>
+    <TaskEditDrawer
+        v-model:show="drawerVisible"
+        :mode="drawerMode"
+        :record="currentRecord"
+        :presets="presets"
+        :scheduler-options="schedulerOptions"
+        @saved="handleSaved"
+    />
   </CommonPage>
 </template>
 
