@@ -25,6 +25,9 @@ backend/.env
 backend/core/chroma_db/chroma.sqlite3
 backend/output/logs/*
 backend/output/upload/*
+backend/workspace/*
+backend/!workspace/.claude
+backend/!workspace/.claude/**
 
 frontend/.idea/
 frontend/node_modules/
