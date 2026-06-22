@@ -17,11 +17,12 @@
 *.local
 
 venv
-__pycache__
 
 backend/.idea/
 backend/.venv/
 backend/.env
+backend/**/*.pyc/
+backend/**/__pycache__/
 backend/core/chroma_db/chroma.sqlite3
 backend/output/logs/*
 backend/output/upload/*
