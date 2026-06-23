@@ -165,6 +165,8 @@ class InterceptHandler(logging.Handler):
         "concurrent_log_handler",
         "portalocker",
         "loguru",
+        "watchfiles",
+        "watchfiles.main",
     })
 
     # Celery / broker 框架 DEBUG 不转发到 Loguru（如 TaskPool、Redis MAINT_NOTIFICATIONS）

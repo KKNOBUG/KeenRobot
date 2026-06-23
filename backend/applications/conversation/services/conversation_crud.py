@@ -10,6 +10,7 @@ from typing import AsyncIterator, List, Optional, Dict, Any
 
 from tortoise.query_utils import Prefetch
 
+from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
 from backend.applications.base.rag.chain import rag_stream
 from backend.applications.base.rag.mcp_agent import mcp_agent_stream
 from backend.applications.base.services.scaffold import ScaffoldCrud
@@ -31,7 +32,6 @@ from backend.applications.conversation.schemas.conversation_schema import (
     normalize_mcp_ids,
     normalize_skill_ids,
 )
-from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
 from backend.applications.knowledge_base.models.knowledge_base_model import KnowledgeBase
 from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from backend.applications.model_config.models.model_config_model import ModelConfig
@@ -53,15 +53,15 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
         ).order_by("created_time")
 
     async def add_message(
-        self,
-        conversation_id: str,
-        role: ChatMessageRole,
-        content: str,
-        *,
-        prompt_tokens: Optional[int] = None,
-        completion_tokens: Optional[int] = None,
-        reasoning_tokens: Optional[int] = None,
-        process_trace: Optional[List[dict]] = None,
+            self,
+            conversation_id: str,
+            role: ChatMessageRole,
+            content: str,
+            *,
+            prompt_tokens: Optional[int] = None,
+            completion_tokens: Optional[int] = None,
+            reasoning_tokens: Optional[int] = None,
+            process_trace: Optional[List[dict]] = None,
     ) -> Message:
         """添加消息"""
         data = MessageCreate(
@@ -95,7 +95,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         ).order_by("-updated_time")
 
     async def get_by_id(
-        self, conversation_id: str, user_id: int
+            self, conversation_id: str, user_id: int
     ) -> Optional[Conversation]:
         """根据 ID 和用户 ID 获取对话（排除已禁用）"""
         return await self.model.get_or_none(
@@ -103,7 +103,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         )
 
     async def get_with_messages(
-        self, conversation_id: str, user_id: int
+            self, conversation_id: str, user_id: int
     ) -> Optional[Conversation]:
         """获取对话及其消息列表（排除已禁用）"""
         return (
@@ -134,14 +134,14 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             await self.model.filter(id__in=conv_ids).update(state=1)
 
     async def update_meta(
-        self,
-        conversation: Conversation,
-        *,
-        knowledge_base_ids: Optional[List[str]] = None,
-        skill_ids: Optional[List[str]] = None,
-        mcp_ids: Optional[List[str]] = None,
-        model_config_id: Optional[str] = None,
-        title: Optional[str] = None,
+            self,
+            conversation: Conversation,
+            *,
+            knowledge_base_ids: Optional[List[str]] = None,
+            skill_ids: Optional[List[str]] = None,
+            mcp_ids: Optional[List[str]] = None,
+            model_config_id: Optional[str] = None,
+            title: Optional[str] = None,
     ) -> None:
         """更新对话元数据"""
         if knowledge_base_ids is not None:
@@ -179,7 +179,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         return await self.list_by_user(user.id)
 
     async def get_conversation(
-        self, conversation_id: str, user: User
+            self, conversation_id: str, user: User
     ) -> ConversationDetail:
         """获取对话详情"""
         conv = await self.get_with_messages(conversation_id, user.id)
@@ -201,7 +201,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         await self.clear_by_user(user.id)
 
     async def _validate_kb_access(
-        self, knowledge_base_ids: List[str], user: User
+            self, knowledge_base_ids: List[str], user: User
     ) -> None:
         """校验知识库访问权限"""
         kb_crud = KnowledgeBaseCrud()
@@ -212,7 +212,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             kb_crud.check_access(kb, user)
 
     async def _validate_skill_access(
-        self, skill_ids: List[str], user: User
+            self, skill_ids: List[str], user: User
     ) -> None:
         """校验技能访问权限"""
         skill_crud = SkillCrud()
@@ -223,7 +223,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             skill_crud.check_access(skill, user)
 
     async def _validate_mcp_access(
-        self, mcp_ids: List[str], user: User
+            self, mcp_ids: List[str], user: User
     ) -> None:
         """校验 MCP 服务访问权限"""
         mcp_crud = McpServerCrud()
@@ -234,8 +234,8 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             mcp_crud.check_access(mcp, user)
 
     async def prepare_for_chat(
-        self, req: ChatRequest, user: User
-    ) -> tuple[Conversation, Optional[ModelConfig], List[dict], List[str]]:
+            self, req: ChatRequest, user: User
+    ) -> tuple[Conversation, Optional[ModelConfig], List[Dict[str, Any]], list[str], list[str], list[str]]:
         """准备聊天上下文"""
         if req.conversation_id:
             conv = await self.get_by_id(req.conversation_id, user.id)
@@ -289,54 +289,54 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         return conv, model_config, chat_history, knowledge_base_ids, mcp_ids, skill_ids
 
     async def stream_response(
-        self,
-        question: str,
-        knowledge_base_ids: List[str],
-        chat_history: List[dict],
-        model_config: Optional[ModelConfig],
-        mcp_ids: Optional[List[str]] = None,
-        user: Optional[User] = None,
-        enable_thinking: bool = False,
+            self,
+            question: str,
+            knowledge_base_ids: List[str],
+            chat_history: List[dict],
+            model_config: Optional[ModelConfig],
+            mcp_ids: Optional[List[str]] = None,
+            user: Optional[User] = None,
+            enable_thinking: bool = False,
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
         llm_params = resolve_chat_llm_params(model_config)
         effective_thinking = (
-            enable_thinking
-            and model_config is not None
-            and model_config.model_thinking
+                enable_thinking
+                and model_config is not None
+                and model_config.model_thinking
         )
 
         if mcp_ids and user:
             async for chunk in mcp_agent_stream(
-                question=question,
-                knowledge_base_ids=knowledge_base_ids,
-                chat_history=chat_history,
-                mcp_ids=mcp_ids,
-                user=user,
-                enable_thinking=effective_thinking,
-                **llm_params,
+                    question=question,
+                    knowledge_base_ids=knowledge_base_ids,
+                    chat_history=chat_history,
+                    mcp_ids=mcp_ids,
+                    user=user,
+                    enable_thinking=effective_thinking,
+                    **llm_params,
             ):
                 yield chunk
             return
 
         async for chunk in rag_stream(
-            question=question,
-            knowledge_base_ids=knowledge_base_ids,
-            chat_history=chat_history,
-            enable_thinking=effective_thinking,
-            **llm_params,
+                question=question,
+                knowledge_base_ids=knowledge_base_ids,
+                chat_history=chat_history,
+                enable_thinking=effective_thinking,
+                **llm_params,
         ):
             yield chunk
 
     async def save_assistant_message(
-        self,
-        conversation_id: str,
-        content: str,
-        *,
-        prompt_tokens: Optional[int] = None,
-        completion_tokens: Optional[int] = None,
-        reasoning_tokens: Optional[int] = None,
-        process_trace: Optional[List[dict]] = None,
+            self,
+            conversation_id: str,
+            content: str,
+            *,
+            prompt_tokens: Optional[int] = None,
+            completion_tokens: Optional[int] = None,
+            reasoning_tokens: Optional[int] = None,
+            process_trace: Optional[List[dict]] = None,
     ) -> None:
         """保存助手回复消息"""
         await self.message.add_message(
@@ -350,12 +350,12 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         )
 
     async def list_conversation_stats_by_user(
-        self,
-        user_id: int,
-        page: int = 1,
-        page_size: int = 10,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
+            self,
+            user_id: int,
+            page: int = 1,
+            page_size: int = 10,
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None,
     ) -> tuple[int, List[ConversationStatOut]]:
         """按用户 ID 分页查询各对话的统计详情（轮次、Token 消耗等）"""
         user = await User.get_or_none(id=user_id)
