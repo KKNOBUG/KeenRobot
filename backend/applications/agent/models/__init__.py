@@ -1,4 +1,4 @@
 # -*- coding: utf-8 -*-
-from .agent_model import McpServer, Skill
+from .agent_model import McpServer, Skill, SkillRun
 
-__all__ = ["Skill", "McpServer"]
+__all__ = ["Skill", "McpServer", "SkillRun"]

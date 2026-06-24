@@ -54,6 +54,9 @@ class AsyncEventLoopContextIOPool:
         return cls.singleton
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        if getattr(self, "_initialized", False):
+            return
+
         try:
             aio.get_running_loop()
             raise SystemError("此线程中已存在一个正在运行的循环！")
@@ -78,6 +81,7 @@ class AsyncEventLoopContextIOPool:
 
         self.loop.call_soon_threadsafe(_set_loop_in_pool_thread)
         _done.wait(timeout=2.0)
+        self._initialized = True
 
     def run(self, task_function: Union[AnyCallable, AnyCoroutine], *args: Any, **kwargs: Any) -> Any:
         if inspect.iscoroutinefunction(task_function):

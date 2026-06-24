@@ -53,7 +53,9 @@ async def chat_stream(
                     chat_history,
                     model_config,
                     mcp_ids=mcp_ids,
+                    skill_ids=skill_ids,
                     user=current_user,
+                    conversation_id=conversation_id,
                     enable_thinking=req.enable_thinking,
             ):
                 if chunk.get("type") == "reasoning":
@@ -74,10 +76,18 @@ async def chat_stream(
                     step = chunk.get("step") or {}
                     replaced = False
                     for idx, existing in enumerate(process_trace):
-                        if (
+                        if step.get("type") == "mcp" and (
                             existing.get("type") == "mcp"
                             and existing.get("tool") == step.get("tool")
                             and existing.get("server") == step.get("server")
+                        ):
+                            process_trace[idx] = step
+                            replaced = True
+                            break
+                        if step.get("type") == "skill" and (
+                            existing.get("type") == "skill"
+                            and existing.get("name") == step.get("name")
+                            and existing.get("skill_id") == step.get("skill_id")
                         ):
                             process_trace[idx] = step
                             replaced = True

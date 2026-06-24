@@ -83,9 +83,50 @@ export default {
     const qs = params.toString()
     return request.get(qs ? `/skills/?${qs}` : '/skills/').then(payload)
   },
+  syncSkills: () => request.post('/skills/sync').then(payload),
+  uploadSkillZip: (file, { skillKey, overwrite } = {}) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (skillKey) form.append('skill_key', skillKey)
+    if (overwrite) form.append('overwrite', 'true')
+    return request.post('/skills/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(payload)
+  },
+  fetchSkill: (id) => request.get(`/skills/${id}`).then(payload),
+  previewSkill: (id) => request.get(`/skills/${id}/preview`).then(payload),
   createSkill: (data) => request.post('/skills/', data).then(payload),
   updateSkill: (id, data) => request.put(`/skills/${id}`, data).then(payload),
   deleteSkill: (id) => request.delete(`/skills/${id}`).then(payload),
+
+  createSkillRun: (data) => request.post('/skill-runs/', data).then(payload),
+  searchSkillRuns: (params = {}) =>
+    request.get('/skill-runs/search', { params }).then((res) => ({
+      data: res?.data ?? [],
+      total: res?.total ?? 0,
+    })),
+  fetchSkillRun: (id) => request.get(`/skill-runs/${id}`).then(payload),
+  saveSkillRunInputs: (id, fields) =>
+    request.post(`/skill-runs/${id}/inputs`, { fields }).then(payload),
+  uploadSkillRunFile: (id, key, file) => {
+    const form = new FormData()
+    form.append('key', key)
+    form.append('file', file)
+    return request.post(`/skill-runs/${id}/files`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(payload)
+  },
+  validateSkillRun: (id) => request.post(`/skill-runs/${id}/validate`).then(payload),
+  startSkillRun: (id, question) =>
+    request.post(`/skill-runs/${id}/start`, question ? { question } : {}).then(payload),
+  cancelSkillRun: (id) => request.post(`/skill-runs/${id}/cancel`).then(payload),
+  retrySkillRun: (id) => request.post(`/skill-runs/${id}/retry`).then(payload),
+  deleteSkillRun: (id) => request.delete(`/skill-runs/${id}`).then(payload),
+  cleanupSkillRuns: (data = {}) =>
+    request.post('/skill-runs/cleanup', data).then(payload),
+  fetchSkillRunOutputs: (id) => request.get(`/skill-runs/${id}/outputs`).then(payload),
+  downloadSkillRunOutput: (id, filePath) =>
+    `${API_BASE}/skill-runs/${id}/outputs/${encodeURIComponent(filePath)}`,
 
   fetchMcpServers: (search = '', manage = false) => {
     const params = new URLSearchParams()
@@ -184,6 +225,78 @@ export function chatStream(
       skill_ids: skillIds,
       mcp_ids: mcpIds,
     }),
+    signal: controller.signal,
+  })
+      .then(async (response) => {
+        const contentType = response.headers.get('content-type') || ''
+        if (contentType.includes('application/json')) {
+          const body = await response.json().catch(() => ({}))
+          if (isUnauthorizedCode(body?.code)) {
+            await handleUnauthorized()
+            throw new Error(body?.message || '登录已过期')
+          }
+          throw new Error(body?.message || parseErrorDetail(body.detail) || '请求失败')
+        }
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}))
+          if (isUnauthorizedCode(error?.code)) {
+            await handleUnauthorized()
+          }
+          throw new Error(parseErrorDetail(error.detail) || error.message || '请求失败')
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let eventType = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop()
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              eventType = line.slice(6).trim()
+            } else if (line.startsWith('data:')) {
+              const dataStr = line.slice(5).trim()
+              if (!dataStr) continue
+              try {
+                const data = JSON.parse(dataStr)
+                if (eventType === 'token' && onToken) onToken(data.content)
+                else if (eventType === 'reasoning' && onReasoning) onReasoning(data.content)
+                else if (eventType === 'meta' && onMeta) onMeta(data)
+                else if (eventType === 'process' && onProcess) onProcess(data)
+                else if (eventType === 'done' && onDone) onDone(data)
+                else if (eventType === 'error' && onError) onError(new Error(data.message))
+              } catch {
+                // ignore parse errors
+              }
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError' && onError) onError(err)
+      })
+
+  return { abort: () => controller.abort() }
+}
+
+export function skillRunStream(
+    runId,
+    { onToken, onReasoning, onMeta, onProcess, onDone, onError },
+) {
+  const controller = new AbortController()
+  const token = getToken()
+
+  fetch(`${API_BASE}/skill-runs/${runId}/stream`, {
+    method: 'GET',
+    headers: token ? { token } : {},
     signal: controller.signal,
   })
       .then(async (response) => {

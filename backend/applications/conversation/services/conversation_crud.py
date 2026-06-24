@@ -13,6 +13,7 @@ from tortoise.query_utils import Prefetch
 from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
 from backend.applications.base.rag.chain import rag_stream
 from backend.applications.base.rag.mcp_agent import mcp_agent_stream
+from backend.applications.base.rag.skill_agent import skill_agent_stream
 from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.conversation.models.conversation_model import Conversation, Message
 from backend.applications.conversation.schemas.conversation_schema import (
@@ -38,7 +39,7 @@ from backend.applications.model_config.models.model_config_model import ModelCon
 from backend.applications.model_config.services.llm_connection import resolve_chat_llm_params
 from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
 from backend.applications.user.models.user_model import User
-from backend.core.exceptions import NotFoundException
+from backend.core.exceptions import NotFoundException, ParameterException
 from backend.enums.chat_session_enum import ChatMessageRole
 
 
@@ -62,6 +63,7 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
             completion_tokens: Optional[int] = None,
             reasoning_tokens: Optional[int] = None,
             process_trace: Optional[List[dict]] = None,
+            skill_run_ref: Optional[dict] = None,
     ) -> Message:
         """添加消息"""
         data = MessageCreate(
@@ -72,6 +74,7 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
             completion_tokens=completion_tokens,
             reasoning_tokens=reasoning_tokens,
             process_trace=process_trace,
+            skill_run_ref=skill_run_ref,
         )
         return await self.create(data.create_dict())
 
@@ -259,13 +262,30 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             skill_ids = req.skill_ids
         else:
             skill_ids = self.get_skill_ids(conv)
-        if skill_ids:
-            await self._validate_skill_access(skill_ids, user)
 
         if req.mcp_ids is not None:
             mcp_ids = req.mcp_ids
         else:
             mcp_ids = self.get_mcp_ids(conv)
+
+        if skill_ids and mcp_ids:
+            raise ParameterException(message="Skill 与 MCP 不能同时启用")
+
+        if skill_ids:
+            await self._validate_skill_access(skill_ids, user)
+            if len(skill_ids) > 1:
+                raise ParameterException(message="聊天仅支持选择一个 Skill")
+            skill = await SkillCrud().get_skill(skill_ids[0], user)
+            mode = (skill.interaction_mode or "chat").lower()
+            if mode != "chat":
+                raise ParameterException(
+                    message=f"技能「{skill.name}」需通过 Skill 向导执行，不能直接在聊天中发起"
+                )
+            if not skill.skill_key:
+                raise ParameterException(
+                    message=f"技能「{skill.name}」未关联磁盘 Skill，请先在管理页同步"
+                )
+
         if mcp_ids:
             await self._validate_mcp_access(mcp_ids, user)
 
@@ -295,7 +315,9 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             chat_history: List[dict],
             model_config: Optional[ModelConfig],
             mcp_ids: Optional[List[str]] = None,
+            skill_ids: Optional[List[str]] = None,
             user: Optional[User] = None,
+            conversation_id: Optional[str] = None,
             enable_thinking: bool = False,
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
@@ -305,6 +327,20 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 and model_config is not None
                 and model_config.model_thinking
         )
+
+        if skill_ids and user and conversation_id:
+            async for chunk in skill_agent_stream(
+                    question=question,
+                    knowledge_base_ids=knowledge_base_ids,
+                    chat_history=chat_history,
+                    skill_ids=skill_ids,
+                    user=user,
+                    conversation_id=conversation_id,
+                    enable_thinking=effective_thinking,
+                    **llm_params,
+            ):
+                yield chunk
+            return
 
         if mcp_ids and user:
             async for chunk in mcp_agent_stream(
@@ -337,6 +373,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             completion_tokens: Optional[int] = None,
             reasoning_tokens: Optional[int] = None,
             process_trace: Optional[List[dict]] = None,
+            skill_run_ref: Optional[dict] = None,
     ) -> None:
         """保存助手回复消息"""
         await self.message.add_message(
@@ -347,6 +384,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             completion_tokens=completion_tokens,
             reasoning_tokens=reasoning_tokens,
             process_trace=process_trace,
+            skill_run_ref=skill_run_ref,
         )
 
     async def list_conversation_stats_by_user(

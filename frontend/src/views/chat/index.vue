@@ -9,6 +9,7 @@ import ChatFeaturePicker from '../../components/chat/ChatFeaturePicker.vue'
 import ChatDeepThinkingToggle from '../../components/chat/ChatDeepThinkingToggle.vue'
 import ChatModelSelector from '../../components/chat/ChatModelSelector.vue'
 import ChatTurnNodes from '../../components/chat/ChatTurnNodes.vue'
+import SkillWizardModal from '@/components/skill/SkillWizardModal.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
 import api, { chatStream } from '@/api'
@@ -56,12 +57,28 @@ const kbPickerItems = computed(() =>
 )
 
 const skillPickerItems = computed(() =>
-    skillItems.value.map((skill) => ({
-      id: skill.id,
-      label: skill.name,
-      tag: skill.description || undefined,
-    })),
+    skillItems.value
+        .filter((skill) => (skill.interaction_mode || 'chat') === 'chat')
+        .map((skill) => ({
+          id: skill.id,
+          label: skill.name,
+          tag: skill.skill_key || undefined,
+        })),
 )
+
+const wizardSkillPickerItems = computed(() =>
+    skillItems.value
+        .filter((skill) => ['wizard', 'async_job'].includes(skill.interaction_mode || ''))
+        .map((skill) => ({
+          id: skill.id,
+          label: skill.name,
+          tag: skill.interaction_mode === 'async_job' ? '异步' : '向导',
+        })),
+)
+
+const selectedWizardSkillTrigger = ref([])
+const skillWizardVisible = ref(false)
+const skillWizardSkill = ref(null)
 
 const mcpPickerItems = computed(() =>
     mcpItems.value.map((mcp) => ({
@@ -86,6 +103,69 @@ const selectedConfig = computed(() =>
 const showDeepThinking = computed(() => selectedConfig.value?.model_thinking === true)
 
 const showModelSelector = computed(() => modelConfigs.value.length > 0)
+
+watch(selectedSkills, (skills) => {
+  if (skills.length && selectedMcps.value.length) {
+    selectedMcps.value = []
+  }
+})
+
+watch(selectedMcps, (mcps) => {
+  if (mcps.length && selectedSkills.value.length) {
+    selectedSkills.value = []
+  }
+})
+
+watch(selectedWizardSkillTrigger, async (ids) => {
+  if (!ids.length) return
+  const skill = skillItems.value.find((item) => item.id === ids[0])
+  selectedWizardSkillTrigger.value = []
+  if (skill) {
+    await openSkillWizard(skill)
+  }
+})
+
+async function openSkillWizard(skill) {
+  let fullSkill = skill
+  if (!fullSkill.input_schema?.wizard_steps?.length) {
+    try {
+      fullSkill = await api.fetchSkill(skill.id)
+    } catch (err) {
+      window.$message?.error(err?.message || '加载 Skill 配置失败')
+      return
+    }
+  }
+  if (!fullSkill.input_schema?.wizard_steps?.length) {
+    window.$message?.warning('该 Skill 尚未配置向导步骤（input_schema.wizard_steps）')
+    return
+  }
+  skillWizardSkill.value = fullSkill
+  skillWizardVisible.value = true
+}
+
+async function onSkillWizardCompleted(payload) {
+  skillWizardVisible.value = false
+  if (conversationId.value) {
+    await loadConversation(conversationId.value)
+    nextTick(() => scrollToBottom())
+    return
+  }
+  messages.value.push({
+    role: 'assistant',
+    content: payload.summary || `Skill「${payload.skillName}」已执行完成。`,
+    skill_run_ref: {
+      run_id: payload.runId,
+      skill_name: payload.skillName,
+      links: [
+        {
+          label: '查看执行记录',
+          path: `/ai-manage/skill-runs?run=${payload.runId}`,
+        },
+      ],
+    },
+  })
+  nextTick(() => scrollToBottom())
+}
 
 // 从URL获取对话ID
 const conversationId = ref(normalizeConversationId(route.query.conversation))
@@ -318,6 +398,7 @@ async function loadConversation(id) {
       completion_tokens: m.completion_tokens,
       reasoning_tokens: m.reasoning_tokens,
       process_trace: m.process_trace || [],
+      skill_run_ref: m.skill_run_ref || null,
     }))
     if (detail.knowledge_base_ids != null) {
       selectedKBs.value = detail.knowledge_base_ids
@@ -721,6 +802,7 @@ function handleKeydown(e) {
                         :role="msg.role"
                         :content="msg.content"
                         :process-trace="msg.process_trace || []"
+                        :skill-run-ref="msg.skill_run_ref || null"
                         :is-streaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
                         :prompt-tokens="msg.prompt_tokens"
                         :completion-tokens="msg.completion_tokens"
@@ -769,12 +851,24 @@ function handleKeydown(e) {
                       />
                       <ChatFeaturePicker
                           v-model="selectedSkills"
+                          single
                           icon="hugeicons:magic-wand-01"
-                          title="选择 Skills"
+                          title="选择 Skill"
                           search-placeholder="搜索 Skills..."
-                          empty-text="暂无可用 Skills"
+                          empty-text="暂无可用 chat 模式 Skill"
                           no-match-text="未找到匹配的 Skills"
                           :items="skillPickerItems"
+                          allow-empty
+                      />
+                      <ChatFeaturePicker
+                          v-model="selectedWizardSkillTrigger"
+                          single
+                          icon="hugeicons:workflow-square-01"
+                          title="Skill 任务"
+                          search-placeholder="搜索向导 / 异步 Skill..."
+                          empty-text="暂无 wizard / async Skill"
+                          no-match-text="未找到匹配的 Skill 任务"
+                          :items="wizardSkillPickerItems"
                           allow-empty
                       />
                       <ChatFeaturePicker
@@ -818,6 +912,15 @@ function handleKeydown(e) {
       </CommonPage>
     </NLayoutContent>
   </NLayout>
+
+  <SkillWizardModal
+      v-model:show="skillWizardVisible"
+      :skill="skillWizardSkill"
+      :conversation-id="conversationId"
+      :model-config-id="selectedModelConfig"
+      :knowledge-base-ids="selectedKBs"
+      @completed="onSkillWizardCompleted"
+  />
 </template>
 
 <style scoped>

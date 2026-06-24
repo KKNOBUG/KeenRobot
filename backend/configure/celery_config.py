@@ -89,6 +89,14 @@ class CeleryConfig(BaseSettings):
                     # 默认扫描所有类型的任务，可以通过配置传递特定 task_type
                     # "kwargs": {"task_type": "example"},  # 只扫描 example 类型
                 },
+                "cleanup-expired-skill-runs": {
+                    "task": (
+                        "backend.celery_scheduler.tasks.skill_run_task"
+                        ".cleanup_expired_skill_runs"
+                    ),
+                    "schedule": 86400.0,
+                    "options": {"queue": "default"},
+                },
             },
             "worker_log_format": (
                 "[%(asctime)s][%(levelname)s] -> [%(name)s][%(filename)s]"

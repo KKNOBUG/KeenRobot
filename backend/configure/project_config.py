@@ -58,6 +58,7 @@ class ProjectConfig(BaseSettings):
         "*/docling_offline/*",
         "*/.venv/*",
         "*/__pycache__/*",
+        "*/migrations/*",
     ]
 
     # 安全认证配置（必须在.env文件或环境变量中配置）
@@ -95,6 +96,17 @@ class ProjectConfig(BaseSettings):
     STATIC_IMG_DIR: str = os.path.abspath(os.path.join(STATIC_DIR, "image"))
     MIGRATION_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "migrations"))
     CHROMA_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "core", "chroma_db"))
+    WORKSPACE_DIR: str = os.path.abspath(os.path.join(_BACKEND_PROJECT_ROOT, "workspace"))
+    SKILLS_DIR: str = os.path.abspath(os.path.join(WORKSPACE_DIR, ".claude", "skills"))
+    SKILL_RUNS_DIR: str = os.path.abspath(os.path.join(WORKSPACE_DIR, "runs"))
+    SKILL_RUN_RETENTION_DAYS: int = Field(
+        default=30,
+        description="终态 Skill Run 工作区保留天数（cleanup 默认）",
+    )
+    SKILL_ZIP_MAX_BYTES: int = Field(
+        default=50 * 1024 * 1024,
+        description="Skill zip 包最大体积（字节）",
+    )
 
 
     # RAG / LLM / Embedding
@@ -225,7 +237,8 @@ class ProjectConfig(BaseSettings):
     ]
 
     # 数据库配置（仅支持 MySQL）
-    DATABASE_AUTO_MIGRATION: bool = False
+    DATABASE_AUTO_MIGRATION: bool = True
+    # DATABASE_AUTO_MIGRATION: bool = False
     DATABASE_CONNECTIONS: Dict[str, Any] = {}
     DATABASE_URL: str = Field(default="", description="数据库地址")
     DATABASE_HOST: str = Field(default="", description="数据库主机")

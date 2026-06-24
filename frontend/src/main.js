@@ -1,6 +1,7 @@
 import '@/styles/reset.css'
 import 'virtual:uno.css'
 import '@/styles/global.scss'
+import 'katex/dist/katex.min.css'
 
 import { createApp } from 'vue'
 import { setupRouter } from '@/router'

@@ -5,7 +5,7 @@
 """
 import traceback
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 
 from backend.applications.agent.dependencies import get_mcp_server_crud, get_skill_crud
 from backend.applications.agent.schemas.agent_schema import (
@@ -14,12 +14,15 @@ from backend.applications.agent.schemas.agent_schema import (
     McpServerUpdate,
     SkillCreate,
     SkillOut,
+    SkillPreviewOut,
+    SkillSyncResult,
     SkillUpdate,
+    SkillUploadResult,
 )
 from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
 from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
-from backend.core.exceptions import NotFoundException
+from backend.core.exceptions import NotFoundException, ParameterException
 from backend.core.responses import FailureResponse, NotFoundResponse, SuccessResponse
 from backend.services import DependAuth
 
@@ -43,6 +46,56 @@ async def list_skills(
     except Exception as e:
         LOGGER.error(f"查询技能列表失败: {e}\n{traceback.format_exc()}")
         return FailureResponse(message=f"查询失败: {e}")
+
+
+@skills.post("/sync", summary="Agent-同步磁盘 Skill")
+async def sync_skills(
+        current_user: User = DependAuth,
+        skill_crud: SkillCrud = Depends(get_skill_crud),
+):
+    try:
+        created, updated, removed, items = await skill_crud.sync_skills_for_user(
+            current_user
+        )
+        data = SkillSyncResult(
+            created=created,
+            updated=updated,
+            removed=removed,
+            skills=[SkillOut.model_validate(item) for item in items],
+        )
+        return SuccessResponse(data=data.model_dump(), total=len(items))
+    except Exception as e:
+        LOGGER.error(f"同步技能失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"同步失败: {e}")
+
+
+@skills.post("/upload", summary="Agent-上传 zip 安装 Skill")
+async def upload_skill_zip(
+        file: UploadFile = File(...),
+        skill_key: str = Form(default=None),
+        overwrite: bool = Form(default=False),
+        current_user: User = DependAuth,
+        skill_crud: SkillCrud = Depends(get_skill_crud),
+):
+    try:
+        if not file.filename or not file.filename.lower().endswith(".zip"):
+            return FailureResponse(message="请上传 .zip 格式的 Skill 包")
+        result = await skill_crud.upload_skill_zip(
+            current_user,
+            file,
+            skill_key=skill_key or None,
+            overwrite=overwrite,
+        )
+        out = SkillUploadResult.model_validate(result)
+        return SuccessResponse(
+            data=out.model_dump(),
+            message=f"Skill「{out.name}」已安装到磁盘",
+        )
+    except ValueError as e:
+        return FailureResponse(message=str(e))
+    except Exception as e:
+        LOGGER.error(f"上传 Skill zip 失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"上传失败: {e}")
 
 
 @skills.post("/", summary="Agent-新增技能")
@@ -87,9 +140,29 @@ async def update_skill(
         return SuccessResponse(data=SkillOut.model_validate(instance).model_dump())
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
+    except ParameterException as e:
+        return FailureResponse(message=e.message)
     except Exception as e:
         LOGGER.error(f"更新技能失败: {e}\n{traceback.format_exc()}")
         return FailureResponse(message=f"更新失败: {e}")
+
+
+@skills.get("/{skill_id}/preview", summary="Agent-预览磁盘 Skill")
+async def preview_skill(
+        skill_id: str,
+        current_user: User = DependAuth,
+        skill_crud: SkillCrud = Depends(get_skill_crud),
+):
+    try:
+        preview = await skill_crud.get_skill_preview(skill_id, current_user)
+        return SuccessResponse(data=SkillPreviewOut.model_validate(preview).model_dump())
+    except NotFoundException as e:
+        return NotFoundResponse(message=e.message)
+    except ParameterException as e:
+        return FailureResponse(message=e.message)
+    except Exception as e:
+        LOGGER.error(f"预览技能失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"预览失败: {e}")
 
 
 @skills.delete("/{skill_id}", summary="Agent-按id删除技能")

@@ -10,6 +10,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  skillRunRef: {
+    type: Object,
+    default: null,
+  },
   isStreaming: Boolean,
   promptTokens: Number,
   completionTokens: Number,
@@ -101,9 +105,17 @@ async function copyContent() {
       </div>
       <div v-else-if="role !== 'assistant'" class="text-content bubble-content">{{ content }}</div>
       <div
-          v-if="role === 'assistant' && (canCopy() || hasTokenUsage(promptTokens, completionTokens, reasoningTokens))"
+          v-if="role === 'assistant' && (canCopy() || hasTokenUsage(promptTokens, completionTokens, reasoningTokens) || skillRunRef?.links?.length)"
           class="message-actions"
       >
+        <router-link
+            v-for="(link, linkIdx) in skillRunRef?.links || []"
+            :key="linkIdx"
+            :to="link.path"
+            class="action-badge action-badge--skill-run"
+        >
+          {{ link.label || '查看执行记录' }}
+        </router-link>
         <button
             v-if="canCopy()"
             type="button"
@@ -222,6 +234,16 @@ async function copyContent() {
   tab-size: 4;
 }
 
+.action-badge--skill-run {
+  background: rgba(244, 81, 30, 0.12);
+  color: var(--primary-color, #f4511e);
+  text-decoration: none;
+}
+
+.action-badge--skill-run:hover {
+  background: rgba(244, 81, 30, 0.2);
+}
+
 .message-actions {
   display: flex;
   flex-wrap: wrap;
@@ -327,6 +349,10 @@ async function copyContent() {
 :global(html.dark) .action-badge--copy:hover {
   background: rgba(255, 255, 255, 0.14);
   color: #e2e8f0;
+}
+
+:global(html.dark) .action-badge--skill-run {
+  background: rgba(244, 81, 30, 0.18);
 }
 
 :global(html.dark) .token-badge--prompt {

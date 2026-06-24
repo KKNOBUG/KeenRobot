@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from tortoise.expressions import Q
 
 from backend.applications.base.models.menu_model import Menu
+from backend.applications.base.models.role_model import Role
 from backend.applications.base.models.router_model import Router
 from backend.applications.base.schemas.menu_schema import MenuCreate
 from backend.applications.base.schemas.role_schema import RoleCreate
@@ -111,6 +112,17 @@ async def init_database_menu():
             icon="mdi:clock-outline",
             is_hidden=False,
             component="/ai-manage/task-center",
+            keepalive=True,
+        ),
+        Menu(
+            menu_type=MenuType.MENU,
+            name="执行记录",
+            path="skill-runs",
+            order=8,
+            parent_id=ai_parent_menu.id,
+            icon="mdi:square-wave",
+            is_hidden=False,
+            component="/ai-manage/skill-runs",
             keepalive=True,
         ),
     ]

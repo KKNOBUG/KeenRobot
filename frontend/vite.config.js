@@ -26,6 +26,15 @@ export default defineConfig(({ command, mode }) => {
     },
     define: viteDefine,
     plugins: createVitePlugins(viteEnv, isBuild),
+    css: {
+      preprocessorOptions: {
+        scss: {
+          api: 'legacy',
+          // macOS 13 勿装 sass-embedded；使用 dart-sass 传统 API 并静默弃用提示
+          silenceDeprecations: ['legacy-js-api'],
+        },
+      },
+    },
     server: {
       host: '0.0.0.0',
       port: VITE_PORT,

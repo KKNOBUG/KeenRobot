@@ -124,6 +124,10 @@ class MessageBase(BaseModel):
         default=None,
         description="过程追踪(推理链/工具调用等)",
     )
+    skill_run_ref: Optional[dict] = Field(
+        default=None,
+        description="Skill Run 引用(执行记录链接等)",
+    )
 
 
 class MessageCreate(MessageBase):
@@ -209,6 +213,10 @@ class MessageOut(BaseModel):
     process_trace: Optional[List[dict]] = Field(
         default=None,
         description="过程追踪(推理链/工具调用等)",
+    )
+    skill_run_ref: Optional[dict] = Field(
+        default=None,
+        description="Skill Run 引用(执行记录链接等)",
     )
     created_time: datetime = Field(..., description="创建时间")
 

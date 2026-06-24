@@ -36,6 +36,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  single: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -65,6 +69,11 @@ function isSelected(id) {
 }
 
 function toggleItem(id) {
+  if (props.single) {
+    const next = isSelected(id) ? [] : [id]
+    emit('update:modelValue', next)
+    return
+  }
   const next = [...props.modelValue]
   const idx = next.indexOf(id)
   if (idx >= 0) {
