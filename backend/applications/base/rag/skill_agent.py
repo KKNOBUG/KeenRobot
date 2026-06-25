@@ -29,7 +29,7 @@ from backend.applications.agent.services.skill_run_events import SkillRunEventHu
 from backend.applications.agent.services.skill_validation import resolve_embedded_mcp_ids
 from backend.applications.agent.services.workspace_service import WorkspaceService
 from backend.applications.base.rag.chain import _resolve_system_prompt, _retrieve_context
-from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages
+from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages, merge_token_usage
 from backend.applications.base.rag.mcp_agent import _load_mcp_servers
 from backend.applications.conversation.schemas.process_step_schema import McpStep, SkillStep
 from backend.applications.user.models.user_model import User
@@ -208,13 +208,6 @@ async def _load_chat_skill(skill_id: str, user: User) -> Skill:
     return skill
 
 
-def _merge_usage(accumulator: Dict[str, int], part: Optional[Dict[str, Any]]) -> None:
-    if not part:
-        return
-    for key in ("prompt_tokens", "completion_tokens", "reasoning_tokens"):
-        accumulator[key] = (accumulator.get(key) or 0) + (part.get(key) or 0)
-
-
 def _load_skill_instruction(skill_md_path: Path) -> str:
     _, skill_body = parse_skill_md(skill_md_path)
     return skill_body.strip() or skill_md_path.read_text(encoding="utf-8")
@@ -312,7 +305,7 @@ async def _skill_agent_loop(
                 enable_thinking=enable_thinking,
         ):
             if chunk.get("type") == "usage":
-                _merge_usage(usage_acc, chunk)
+                merge_token_usage(usage_acc, chunk)
                 continue
             yield chunk
         yield {"type": "process_trace", "process_trace": process_trace}
@@ -333,7 +326,7 @@ async def _skill_agent_loop(
             top_p=top_p,
             enable_thinking=enable_thinking,
         )
-        _merge_usage(usage_acc, completion.get("usage"))
+        merge_token_usage(usage_acc, completion.get("usage"))
 
         tool_calls = completion.get("tool_calls") or []
         if tool_calls:
@@ -388,7 +381,7 @@ async def _skill_agent_loop(
                     enable_thinking=enable_thinking,
             ):
                 if chunk.get("type") == "usage":
-                    _merge_usage(usage_acc, chunk)
+                    merge_token_usage(usage_acc, chunk)
                     continue
                 yield chunk
 

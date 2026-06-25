@@ -32,7 +32,7 @@ async def list_model_configs(
         model_config_crud: ModelConfigCrud = Depends(get_model_config_crud),
 ):
     try:
-        items = await model_config_crud.list_configs(current_user)
+        items = await model_config_crud.list_by_user(current_user.id)
         data = [
             ModelConfigOut.from_model(item).model_dump()
             for item in items

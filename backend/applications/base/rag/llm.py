@@ -253,3 +253,14 @@ def format_messages(
     messages.append({"role": "user", "content": user_question})
 
     return messages
+
+
+def merge_token_usage(
+        accumulator: Dict[str, int],
+        part: Dict[str, Any] | None,
+) -> None:
+    """累加 prompt/completion/reasoning token 计数。"""
+    if not part:
+        return
+    for key in ("prompt_tokens", "completion_tokens", "reasoning_tokens"):
+        accumulator[key] = (accumulator.get(key) or 0) + (part.get(key) or 0)

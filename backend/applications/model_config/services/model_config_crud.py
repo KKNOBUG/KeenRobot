@@ -92,10 +92,6 @@ class ModelConfigCrud(ScaffoldCrud[ModelConfig, ModelConfigCreate, ModelConfigUp
             .first()
         )
 
-    async def list_configs(self, current_user: User) -> List[ModelConfig]:
-        """获取当前用户自己的模型配置列表"""
-        return await self.list_by_user(current_user.id)
-
     async def create_config(
         self, current_user: User, data: ModelConfigCreate
     ) -> ModelConfig:

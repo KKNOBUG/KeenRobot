@@ -38,6 +38,16 @@ def resolve_llm_connection(model_config: Optional[ModelConfig] = None) -> LLMCon
     )
 
 
+def resolve_effective_enable_thinking(
+        model_config: Optional[ModelConfig],
+        requested: bool,
+) -> bool:
+    """深度思考：用户请求且模型支持时才生效。"""
+    if not model_config or not model_config.model_thinking:
+        return False
+    return bool(requested)
+
+
 def resolve_chat_llm_params(model_config: Optional[ModelConfig] = None) -> Dict[str, Any]:
     """合并 ModelConfig 生成参数与 env 兜底连接信息"""
     conn = resolve_llm_connection(model_config)

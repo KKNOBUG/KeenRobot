@@ -13,6 +13,7 @@ from sse_starlette.sse import EventSourceResponse
 from backend.applications.agent.dependencies import get_skill_run_crud
 from backend.applications.conversation.dependencies import get_conversation_crud
 from backend.applications.conversation.services.conversation_crud import ConversationCrud
+from backend.applications.conversation.services.sse_helpers import merge_process_step
 from backend.applications.agent.schemas.skill_run_schema import (
     SkillRunCleanupQuery,
     SkillRunCleanupResult,
@@ -45,8 +46,7 @@ async def create_skill_run(
 ):
     try:
         run = await run_crud.create_run(current_user, data)
-        skill = await run_crud._get_skill(run)
-        out = SkillRunOut.model_validate(run_crud.run_to_out(run, skill))
+        out = await run_crud.build_run_out(run)
         return SuccessResponse(data=out.model_dump())
     except (NotFoundException, ParameterException) as e:
         return FailureResponse(message=e.message)
@@ -70,8 +70,7 @@ async def get_active_skill_draft(
         )
         if not run:
             return SuccessResponse(data=None)
-        skill = await run_crud._get_skill(run)
-        out = SkillRunOut.model_validate(run_crud.run_to_out(run, skill))
+        out = await run_crud.build_run_out(run)
         return SuccessResponse(data=out.model_dump())
     except Exception as e:
         LOGGER.error(f"查询 draft Run 失败: {e}\n{traceback.format_exc()}")
@@ -139,8 +138,7 @@ async def get_skill_run(
 ):
     try:
         run = await run_crud.get_run(run_id, current_user)
-        skill = await run_crud._get_skill(run)
-        out = SkillRunOut.model_validate(run_crud.run_to_out(run, skill))
+        out = await run_crud.build_run_out(run)
         return SuccessResponse(data=out.model_dump())
     except NotFoundException as e:
         return NotFoundResponse(message=e.message)
@@ -158,8 +156,7 @@ async def save_skill_run_inputs(
 ):
     try:
         run = await run_crud.save_inputs(run_id, current_user, data.fields)
-        skill = await run_crud._get_skill(run)
-        out = SkillRunOut.model_validate(run_crud.run_to_out(run, skill))
+        out = await run_crud.build_run_out(run)
         return SuccessResponse(data=out.model_dump())
     except (NotFoundException, ParameterException) as e:
         return FailureResponse(message=e.message)
@@ -278,18 +275,7 @@ async def stream_skill_run(
                     }
                 elif item.get("type") == "process":
                     step = item.get("step") or {}
-                    replaced = False
-                    for idx, existing in enumerate(process_trace):
-                        if (
-                            existing.get("type") == "skill"
-                            and existing.get("name") == step.get("name")
-                            and existing.get("skill_id") == step.get("skill_id")
-                        ):
-                            process_trace[idx] = step
-                            replaced = True
-                            break
-                    if not replaced:
-                        process_trace.append(step)
+                    merge_process_step(process_trace, step)
                     yield {
                         "event": "process",
                         "data": json.dumps({
@@ -326,8 +312,7 @@ async def cancel_skill_run(
 ):
     try:
         run = await run_crud.cancel_run(run_id, current_user)
-        skill = await run_crud._get_skill(run)
-        out = SkillRunOut.model_validate(run_crud.run_to_out(run, skill))
+        out = await run_crud.build_run_out(run)
         return SuccessResponse(data=out.model_dump(), message="已取消")
     except (NotFoundException, ParameterException) as e:
         return FailureResponse(message=e.message)
@@ -344,14 +329,13 @@ async def retry_skill_run(
 ):
     try:
         new_run, valid = await run_crud.retry_run(run_id, current_user)
-        skill = await run_crud._get_skill(new_run)
         out = SkillRunRetryResult(
             new_run_id=new_run.id,
             source_run_id=run_id,
             status=new_run.status,
             valid=valid,
         )
-        run_out = SkillRunOut.model_validate(run_crud.run_to_out(new_run, skill))
+        run_out = await run_crud.build_run_out(new_run)
         return SuccessResponse(
             data={**out.model_dump(), "run": run_out.model_dump()},
             message="已创建重试 Run" + ("，输入已通过校验" if valid else "，请补全输入后启动"),

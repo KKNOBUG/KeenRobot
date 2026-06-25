@@ -83,6 +83,7 @@ const skillIntakeLocked = ref(false)
 const syncingWizardSkillSelection = ref(false)
 const syncingConversationBindings = ref(false)
 let persistBindingsTimer = null
+let persistBindingsConvId = null
 
 const mcpPickerDisabled = computed(
     () => skillIntakeLocked.value || selectedWizardSkillTrigger.value.length > 0,
@@ -118,6 +119,10 @@ const skillCatalog = computed(() =>
 
 const composerDisabled = computed(
     () => isLoading.value || isConversationLoading.value || skillIntakeLocked.value,
+)
+
+const modelSelectorDisabled = computed(
+    () => isLoading.value || isConversationLoading.value,
 )
 
 const composerPlaceholder = computed(() =>
@@ -218,11 +223,17 @@ function applyConversationBindings(detail) {
 
 function buildBindingPayload() {
   const wizardSkillIds = selectedWizardSkillTrigger.value
+  let skillIds = wizardSkillIds.length ? [...wizardSkillIds] : [...selectedSkills.value]
+  let mcpIds = [...selectedMcps.value]
+  // Skill 与 MCP 互斥；若本地状态短暂不一致，与 selectedMcps watcher 一致：保留 MCP
+  if (skillIds.length && mcpIds.length) {
+    skillIds = []
+  }
   return {
     knowledge_base_ids: [...selectedKBs.value],
     model_config_id: selectedModelConfig.value || null,
-    skill_ids: wizardSkillIds.length ? [...wizardSkillIds] : [...selectedSkills.value],
-    mcp_ids: [...selectedMcps.value],
+    skill_ids: skillIds,
+    mcp_ids: mcpIds,
     enable_thinking: showDeepThinking.value ? enableDeepThinking.value : false,
   }
 }
@@ -231,7 +242,9 @@ function schedulePersistConversationBindings() {
   if (syncingConversationBindings.value) return
   if (!currentConvId) return
   clearTimeout(persistBindingsTimer)
+  persistBindingsConvId = currentConvId
   persistBindingsTimer = setTimeout(() => {
+    if (persistBindingsConvId !== currentConvId) return
     persistConversationBindings()
   }, 300)
 }
@@ -285,7 +298,13 @@ function handleWizardSkillPickerUpdate(ids) {
     return
   }
   selectedWizardSkillTrigger.value = ids
-  if (!ids.length) return
+  if (ids.length && selectedSkills.value.length) {
+    selectedSkills.value = []
+  }
+  if (!ids.length) {
+    schedulePersistConversationBindings()
+    return
+  }
   const skillId = ids[0]
   if (findActiveCollectingIntake(skillId)) return
 
@@ -299,12 +318,20 @@ watch(selectedSkills, (skills) => {
   if (skills.length && selectedMcps.value.length) {
     selectedMcps.value = []
   }
+  if (skills.length && selectedWizardSkillTrigger.value.length) {
+    clearWizardSkillSelection()
+  }
   schedulePersistConversationBindings()
 })
 
 watch(selectedMcps, (mcps) => {
-  if (mcps.length && selectedSkills.value.length) {
-    selectedSkills.value = []
+  if (mcps.length) {
+    if (selectedSkills.value.length) {
+      selectedSkills.value = []
+    }
+    if (selectedWizardSkillTrigger.value.length) {
+      clearWizardSkillSelection()
+    }
   }
   schedulePersistConversationBindings()
 })
@@ -626,6 +653,7 @@ function handleIntakeLockChange(locked) {
 function handleIntakeCancelled() {
   clearWizardSkillSelection()
   syncIntakeLockFromMessages()
+  schedulePersistConversationBindings()
 }
 
 // 从URL获取对话ID
@@ -822,6 +850,10 @@ watch(messages, () => {
 
 async function switchToConversation(newId) {
   const targetId = normalizeConversationId(newId)
+
+  clearTimeout(persistBindingsTimer)
+  persistBindingsTimer = null
+  persistBindingsConvId = null
 
   if (streamController) {
     streamController.abort()
@@ -1063,6 +1095,9 @@ async function sendMessage() {
   scrollToBottom()
 
   const assistantIdx = messages.value.length - 1
+  const skillIdsForChat = selectedWizardSkillTrigger.value.length
+      ? null
+      : (selectedSkills.value.length ? selectedSkills.value : [])
 
   streamController = chatStream(
       question,
@@ -1070,7 +1105,7 @@ async function sendMessage() {
       selectedKBs.value,
       selectedModelConfig.value || null,
       showDeepThinking.value ? enableDeepThinking.value : false,
-      selectedSkills.value,
+      skillIdsForChat,
       selectedMcps.value,
       {
         onMeta(data) {
@@ -1380,7 +1415,7 @@ function handleKeydown(e) {
                           v-if="showModelSelector"
                           v-model="selectedModelConfig"
                           :items="modelPickerItems"
-                          :disabled="composerDisabled"
+                          :disabled="modelSelectorDisabled"
                       />
                       <button
                           class="send-btn"

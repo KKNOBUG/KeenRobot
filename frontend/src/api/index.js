@@ -221,12 +221,24 @@ export function chatStream(
     knowledgeBaseIds = [],
     modelConfigId = null,
     enableThinking = false,
-    skillIds = [],
+    skillIds = null,
     mcpIds = [],
     { onToken, onReasoning, onMeta, onProcess, onDone, onError }
 ) {
   const controller = new AbortController()
   const token = getToken()
+
+  const payload = {
+    question,
+    conversation_id: conversationId,
+    knowledge_base_ids: knowledgeBaseIds,
+    model_config_id: modelConfigId,
+    enable_thinking: enableThinking,
+    mcp_ids: mcpIds,
+  }
+  if (skillIds !== null) {
+    payload.skill_ids = skillIds
+  }
 
   fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
@@ -234,15 +246,7 @@ export function chatStream(
       'Content-Type': 'application/json',
       token,
     },
-    body: JSON.stringify({
-      question,
-      conversation_id: conversationId,
-      knowledge_base_ids: knowledgeBaseIds,
-      model_config_id: modelConfigId,
-      enable_thinking: enableThinking,
-      skill_ids: skillIds,
-      mcp_ids: mcpIds,
-    }),
+    body: JSON.stringify(payload),
     signal: controller.signal,
   })
       .then(async (response) => {

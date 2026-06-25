@@ -23,7 +23,6 @@ from backend.applications.conversation.schemas.conversation_schema import (
     ConversationBrief,
     ConversationCreate,
     ConversationBindingsUpdate,
-    ConversationDetail,
     ConversationStatOut,
     ConversationUpdate,
     KnowledgeBaseBrief,
@@ -34,14 +33,23 @@ from backend.applications.conversation.schemas.conversation_schema import (
     SkillIntakeUpdate,
     TokenUsage,
     UserBrief,
-    normalize_knowledge_base_ids,
-    normalize_mcp_ids,
-    normalize_skill_ids,
+)
+from backend.applications.conversation.services.binding_utils import (
+    ResolvedConversationBindings,
+    kb_ids_from_conversation,
+    mcp_ids_from_conversation,
+    skill_ids_from_conversation,
+)
+from backend.applications.conversation.services.skill_intake_helpers import (
+    freeze_intake_as_submitted,
 )
 from backend.applications.knowledge_base.models.knowledge_base_model import KnowledgeBase
 from backend.applications.knowledge_base.services.knowledge_base_crud import KnowledgeBaseCrud
 from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.model_config.services.llm_connection import resolve_chat_llm_params
+from backend.applications.model_config.services.llm_connection import (
+    resolve_chat_llm_params,
+    resolve_effective_enable_thinking,
+)
 from backend.applications.model_config.services.model_config_crud import ModelConfigCrud
 from backend.applications.user.models.user_model import User
 from backend.core.exceptions import NotFoundException, ParameterException
@@ -177,13 +185,13 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             id=conversation_id, user_id=user_id, state__not=1
         )
 
-    async def get_with_messages(
-            self, conversation_id: str, user_id: int
-    ) -> Optional[Conversation]:
-        """获取对话及其消息列表（排除已禁用）"""
-        return (
+    async def get_conversation(
+            self, conversation_id: str, user: User
+    ) -> Conversation:
+        """获取对话及其消息列表；不存在则抛出 NotFoundException。"""
+        conv = (
             await self.model.filter(
-                id=conversation_id, user_id=user_id, state__not=1
+                id=conversation_id, user_id=user.id, state__not=1
             )
             .prefetch_related(
                 Prefetch(
@@ -193,6 +201,9 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             )
             .first()
         )
+        if not conv:
+            raise NotFoundException(message="对话不存在")
+        return conv
 
     async def create_for_user(self, user_id: int) -> Conversation:
         """为用户创建新对话"""
@@ -239,37 +250,6 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         for key, value in payload.items():
             setattr(conversation, key, value)
 
-    @staticmethod
-    def get_knowledge_base_ids(conversation: Conversation) -> List[str]:
-        """从对话记录读取知识库 ID 列表"""
-        ids = normalize_knowledge_base_ids(conversation.knowledge_base_ids)
-        return ids if ids is not None else []
-
-    @staticmethod
-    def get_skill_ids(conversation: Conversation) -> List[str]:
-        """从对话记录读取技能 ID 列表"""
-        ids = normalize_skill_ids(conversation.skill_ids)
-        return ids if ids is not None else []
-
-    @staticmethod
-    def get_mcp_ids(conversation: Conversation) -> List[str]:
-        """从对话记录读取 MCP 服务 ID 列表"""
-        ids = normalize_mcp_ids(conversation.mcp_ids)
-        return ids if ids is not None else []
-
-    async def list_conversations(self, user: User) -> List[Conversation]:
-        """获取当前用户的对话列表"""
-        return await self.list_by_user(user.id)
-
-    async def get_conversation(
-            self, conversation_id: str, user: User
-    ) -> ConversationDetail:
-        """获取对话详情"""
-        conv = await self.get_with_messages(conversation_id, user.id)
-        if not conv:
-            raise NotFoundException(message="对话不存在")
-        return conv
-
     async def delete_conversation(self, conversation_id: str, user: User) -> None:
         """软删除对话及其消息"""
         conv = await self.get_by_id(conversation_id, user.id)
@@ -278,10 +258,6 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         await self.message.soft_delete_by_conversations([conv.id])
         conv.state = 1
         await conv.save()
-
-    async def clear_all(self, user: User) -> None:
-        """软删除当前用户的所有对话"""
-        await self.clear_by_user(user.id)
 
     async def _validate_kb_access(
             self, knowledge_base_ids: List[str], user: User
@@ -305,6 +281,21 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 raise NotFoundException(message=f"技能 {skill_id} 不存在")
             skill_crud.check_access(skill, user)
 
+    async def _partition_skill_ids(
+            self, skill_ids: List[str], user: User
+    ) -> tuple[List[str], List[str]]:
+        """按 interaction_mode 拆分为聊天 Skill 与向导 Skill。"""
+        chat_ids: List[str] = []
+        wizard_ids: List[str] = []
+        for skill_id in skill_ids:
+            skill = await SkillCrud().get_skill(skill_id, user)
+            mode = (skill.interaction_mode or "chat").lower()
+            if mode in ("wizard", "async_job"):
+                wizard_ids.append(skill_id)
+            else:
+                chat_ids.append(skill_id)
+        return chat_ids, wizard_ids
+
     async def _validate_mcp_access(
             self, mcp_ids: List[str], user: User
     ) -> None:
@@ -316,14 +307,104 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 raise NotFoundException(message=f"MCP 服务 {mcp_id} 不存在")
             mcp_crud.check_access(mcp, user)
 
-    @staticmethod
-    def resolve_stored_enable_thinking(
-            model_config: Optional[ModelConfig],
-            requested: bool,
-    ) -> bool:
-        if not model_config or not model_config.model_thinking:
-            return False
-        return bool(requested)
+    async def _resolve_and_validate_bindings(
+            self,
+            user: User,
+            conv: Conversation,
+            *,
+            knowledge_base_ids: Optional[List[str]] = None,
+            skill_ids: Optional[List[str]] = None,
+            mcp_ids: Optional[List[str]] = None,
+            model_config_id: Optional[str] = None,
+            enable_thinking: Optional[bool] = None,
+            chat_skill_ids: Optional[List[str]] = None,
+    ) -> ResolvedConversationBindings:
+        """解析并校验 KB / Skill / MCP / 模型 / 深度思考绑定。"""
+        resolved_kb = (
+            knowledge_base_ids
+            if knowledge_base_ids is not None
+            else kb_ids_from_conversation(conv)
+        )
+        resolved_skill_ids = (
+            skill_ids if skill_ids is not None else skill_ids_from_conversation(conv)
+        )
+        resolved_mcp_ids = (
+            mcp_ids if mcp_ids is not None else mcp_ids_from_conversation(conv)
+        )
+        stream_skill_ids = (
+            chat_skill_ids if chat_skill_ids is not None else resolved_skill_ids
+        )
+
+        if stream_skill_ids and resolved_mcp_ids:
+            raise ParameterException(
+                message="Skill 与 MCP 不能同时启用（请求中 skill_ids 与 mcp_ids 均非空）"
+            )
+
+        if resolved_kb:
+            await self._validate_kb_access(resolved_kb, user)
+
+        if resolved_skill_ids:
+            await self._validate_skill_access(resolved_skill_ids, user)
+
+        if chat_skill_ids is not None:
+            if chat_skill_ids:
+                if len(chat_skill_ids) > 1:
+                    raise ParameterException(message="聊天仅支持选择一个 Skill")
+                skill = await SkillCrud().get_skill(chat_skill_ids[0], user)
+                mode = (skill.interaction_mode or "chat").lower()
+                if mode != "chat":
+                    raise ParameterException(
+                        message=f"技能「{skill.name}」需通过 Skill 向导执行，不能直接在聊天中发起"
+                    )
+                if not skill.skill_key:
+                    raise ParameterException(
+                        message=f"技能「{skill.name}」未关联磁盘 Skill，请先在管理页同步"
+                    )
+        else:
+            chat_only: List[str] = []
+            for skill_id in resolved_skill_ids:
+                skill = await SkillCrud().get_skill(skill_id, user)
+                mode = (skill.interaction_mode or "chat").lower()
+                if mode != "chat":
+                    continue
+                if not skill.skill_key:
+                    raise ParameterException(
+                        message=f"技能「{skill.name}」未关联磁盘 Skill，请先在管理页同步"
+                    )
+                chat_only.append(skill_id)
+            if len(chat_only) > 1:
+                raise ParameterException(message="聊天仅支持选择一个 Skill")
+
+        if resolved_mcp_ids:
+            await self._validate_mcp_access(resolved_mcp_ids, user)
+
+        if model_config_id is not None:
+            model_config = await ModelConfigCrud().resolve_for_chat(
+                user, model_config_id
+            )
+            resolved_model_id = model_config.id if model_config else None
+        else:
+            model_config = await ModelConfigCrud().resolve_for_chat(
+                user, conv.model_config_id
+            )
+            resolved_model_id = conv.model_config_id
+
+        if enable_thinking is not None:
+            stored_thinking = resolve_effective_enable_thinking(
+                model_config, enable_thinking
+            )
+        else:
+            stored_thinking = bool(conv.enable_thinking)
+
+        return ResolvedConversationBindings(
+            knowledge_base_ids=resolved_kb,
+            skill_ids=resolved_skill_ids,
+            mcp_ids=resolved_mcp_ids,
+            model_config=model_config,
+            model_config_id=resolved_model_id,
+            enable_thinking=stored_thinking,
+            chat_skill_ids=chat_skill_ids or [],
+        )
 
     async def sync_conversation_bindings(
             self,
@@ -336,73 +417,54 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         if not conv:
             raise NotFoundException(message="对话不存在")
 
-        if data.knowledge_base_ids is not None:
-            knowledge_base_ids = data.knowledge_base_ids
-        else:
-            knowledge_base_ids = self.get_knowledge_base_ids(conv)
-
-        if data.skill_ids is not None:
-            skill_ids = data.skill_ids
-        else:
-            skill_ids = self.get_skill_ids(conv)
-
-        if data.mcp_ids is not None:
-            mcp_ids = data.mcp_ids
-        else:
-            mcp_ids = self.get_mcp_ids(conv)
-
-        if skill_ids and mcp_ids:
-            raise ParameterException(message="Skill 与 MCP 不能同时启用")
-
-        if knowledge_base_ids:
-            await self._validate_kb_access(knowledge_base_ids, user)
-
-        if skill_ids:
-            await self._validate_skill_access(skill_ids, user)
-            chat_skill_ids = []
-            for skill_id in skill_ids:
-                skill = await SkillCrud().get_skill(skill_id, user)
-                mode = (skill.interaction_mode or "chat").lower()
-                if mode != "chat":
-                    continue
-                if not skill.skill_key:
-                    raise ParameterException(
-                        message=f"技能「{skill.name}」未关联磁盘 Skill，请先在管理页同步"
-                    )
-                chat_skill_ids.append(skill_id)
-            if len(chat_skill_ids) > 1:
-                raise ParameterException(message="聊天仅支持选择一个 Skill")
-
-        if mcp_ids:
-            await self._validate_mcp_access(mcp_ids, user)
-
-        if data.model_config_id is not None:
-            model_config = await ModelConfigCrud().resolve_for_chat(
-                user, data.model_config_id
-            )
-            resolved_model_id = model_config.id if model_config else None
-        else:
-            model_config = await ModelConfigCrud().resolve_for_chat(
-                user, conv.model_config_id
-            )
-            resolved_model_id = conv.model_config_id
-
-        if data.enable_thinking is not None:
-            enable_thinking = self.resolve_stored_enable_thinking(
-                model_config, data.enable_thinking
-            )
-        else:
-            enable_thinking = bool(conv.enable_thinking)
+        bindings = await self._resolve_and_validate_bindings(
+            user,
+            conv,
+            knowledge_base_ids=data.knowledge_base_ids,
+            skill_ids=data.skill_ids,
+            mcp_ids=data.mcp_ids,
+            model_config_id=data.model_config_id,
+            enable_thinking=data.enable_thinking,
+        )
 
         await self.update_meta(
             conv,
-            knowledge_base_ids=knowledge_base_ids,
-            skill_ids=skill_ids,
-            mcp_ids=mcp_ids,
-            model_config_id=resolved_model_id,
-            enable_thinking=enable_thinking,
+            knowledge_base_ids=bindings.knowledge_base_ids,
+            skill_ids=bindings.skill_ids,
+            mcp_ids=bindings.mcp_ids,
+            model_config_id=bindings.model_config_id,
+            enable_thinking=bindings.enable_thinking,
+        )
+        await self._sync_active_skill_run_bindings(
+            user,
+            conv.id,
+            model_config_id=bindings.model_config_id,
+            knowledge_base_ids=bindings.knowledge_base_ids,
         )
         return conv
+
+    async def _sync_active_skill_run_bindings(
+            self,
+            user: User,
+            conversation_id: str,
+            *,
+            model_config_id: Optional[str] = None,
+            knowledge_base_ids: Optional[List[str]] = None,
+    ) -> None:
+        """收集阶段同步草稿 Run 的模型 / 知识库，与对话绑定保持一致。"""
+        run_crud = SkillRunCrud()
+        run = await run_crud.get_active_draft(user, conversation_id)
+        if not run:
+            return
+        changed = False
+        if model_config_id is not None and run.model_config_id != model_config_id:
+            run.model_config_id = model_config_id
+            changed = True
+        if knowledge_base_ids is not None and (run.knowledge_base_ids or []) != knowledge_base_ids:
+            run.knowledge_base_ids = knowledge_base_ids
+            changed = True
+        if changed:
+            await run.save()
 
     async def prepare_for_chat(
             self, req: ChatRequest, user: User
@@ -415,59 +477,38 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         else:
             conv = await self.create_for_user(user.id)
 
-        model_config = await ModelConfigCrud().resolve_for_chat(
-            user, req.model_config_id
+        conv_skill_ids = skill_ids_from_conversation(conv)
+        _, conv_wizard_ids = (
+            await self._partition_skill_ids(conv_skill_ids, user)
+            if conv_skill_ids else ([], [])
         )
-
-        if req.knowledge_base_ids is not None:
-            knowledge_base_ids = req.knowledge_base_ids
-        else:
-            knowledge_base_ids = self.get_knowledge_base_ids(conv)
-        if knowledge_base_ids:
-            await self._validate_kb_access(knowledge_base_ids, user)
-
         if req.skill_ids is not None:
-            skill_ids = req.skill_ids
+            chat_skill_ids = req.skill_ids
         else:
-            skill_ids = self.get_skill_ids(conv)
+            chat_skill_ids, _ = (
+                await self._partition_skill_ids(conv_skill_ids, user)
+                if conv_skill_ids else ([], [])
+            )
+        stored_skill_ids = list(dict.fromkeys(conv_wizard_ids + chat_skill_ids))
 
-        if req.mcp_ids is not None:
-            mcp_ids = req.mcp_ids
-        else:
-            mcp_ids = self.get_mcp_ids(conv)
-
-        if skill_ids and mcp_ids:
-            raise ParameterException(message="Skill 与 MCP 不能同时启用")
-
-        if skill_ids:
-            await self._validate_skill_access(skill_ids, user)
-            if len(skill_ids) > 1:
-                raise ParameterException(message="聊天仅支持选择一个 Skill")
-            skill = await SkillCrud().get_skill(skill_ids[0], user)
-            mode = (skill.interaction_mode or "chat").lower()
-            if mode != "chat":
-                raise ParameterException(
-                    message=f"技能「{skill.name}」需通过 Skill 向导执行，不能直接在聊天中发起"
-                )
-            if not skill.skill_key:
-                raise ParameterException(
-                    message=f"技能「{skill.name}」未关联磁盘 Skill，请先在管理页同步"
-                )
-
-        if mcp_ids:
-            await self._validate_mcp_access(mcp_ids, user)
-
-        stored_thinking = self.resolve_stored_enable_thinking(
-            model_config, req.enable_thinking
+        bindings = await self._resolve_and_validate_bindings(
+            user,
+            conv,
+            knowledge_base_ids=req.knowledge_base_ids,
+            skill_ids=stored_skill_ids,
+            mcp_ids=req.mcp_ids,
+            model_config_id=req.model_config_id,
+            enable_thinking=req.enable_thinking,
+            chat_skill_ids=chat_skill_ids,
         )
 
         await self.update_meta(
             conv,
-            knowledge_base_ids=knowledge_base_ids,
-            skill_ids=skill_ids,
-            mcp_ids=mcp_ids,
-            model_config_id=model_config.id if model_config else None,
-            enable_thinking=stored_thinking,
+            knowledge_base_ids=bindings.knowledge_base_ids,
+            skill_ids=bindings.skill_ids,
+            mcp_ids=bindings.mcp_ids,
+            model_config_id=bindings.model_config_id,
+            enable_thinking=bindings.enable_thinking,
         )
 
         history_msgs = await self.message.list_by_conversation(conv.id)
@@ -479,7 +520,14 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
         await self.message.add_message(conv.id, ChatMessageRole.USER, req.question)
 
-        return conv, model_config, chat_history, knowledge_base_ids, mcp_ids, skill_ids
+        return (
+            conv,
+            bindings.model_config,
+            chat_history,
+            bindings.knowledge_base_ids,
+            bindings.mcp_ids,
+            bindings.chat_skill_ids,
+        )
 
     async def stream_response(
             self,
@@ -495,10 +543,8 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
         llm_params = resolve_chat_llm_params(model_config)
-        effective_thinking = (
-                enable_thinking
-                and model_config is not None
-                and model_config.model_thinking
+        effective_thinking = resolve_effective_enable_thinking(
+            model_config, enable_thinking
         )
 
         if skill_ids and user and conversation_id:
@@ -582,12 +628,12 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         if knowledge_base_ids is not None:
             kb_ids = knowledge_base_ids
         else:
-            kb_ids = self.get_knowledge_base_ids(conv)
+            kb_ids = kb_ids_from_conversation(conv)
         if kb_ids:
             await self._validate_kb_access(kb_ids, user)
 
         resolved_model_id = model_config.id if model_config else None
-        stored_thinking = self.resolve_stored_enable_thinking(
+        stored_thinking = resolve_effective_enable_thinking(
             model_config, enable_thinking
         )
 
@@ -655,18 +701,6 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             title=title,
         )
 
-    async def update_skill_intake_message(
-            self,
-            user: User,
-            conversation_id: str,
-            message_id: int,
-            data: SkillIntakeUpdate,
-    ) -> Message:
-        conv = await self.get_by_id(conversation_id, user.id)
-        if not conv:
-            raise NotFoundException(message="对话不存在")
-        return await self.message.update_skill_intake(message_id, conversation_id, data)
-
     async def begin_skill_run_reply(
             self,
             user: User,
@@ -698,15 +732,13 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         skill = await SkillCrud().get_skill(run.skill_id, user)
         intake_msg = await self.message.find_intake_message(run.conversation_id, run_id)
         if intake_msg:
-            intake = dict(intake_msg.skill_intake or {})
-            steps = (skill.input_schema or {}).get("wizard_steps") or []
-            intake["phase"] = "submitted"
-            if steps:
-                intake["step_index"] = len(steps) - 1
-            intake.pop("run_summary", None)
-            intake.pop("process_trace", None)
-            intake_msg.skill_intake = intake
-            await intake_msg.save()
+            frozen = freeze_intake_as_submitted(
+                intake_msg.skill_intake,
+                skill.input_schema,
+            )
+            if frozen != intake_msg.skill_intake:
+                intake_msg.skill_intake = frozen
+                await intake_msg.save()
 
         existing = await self.message.find_execution_message(run.conversation_id, run_id)
         if existing:
@@ -725,29 +757,6 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             skill_run_ref=skill_run_ref,
         )
         return exec_msg.id
-
-    async def save_assistant_message(
-            self,
-            conversation_id: str,
-            content: str,
-            *,
-            prompt_tokens: Optional[int] = None,
-            completion_tokens: Optional[int] = None,
-            reasoning_tokens: Optional[int] = None,
-            process_trace: Optional[List[dict]] = None,
-            skill_run_ref: Optional[dict] = None,
-    ) -> None:
-        """保存助手回复消息"""
-        await self.message.add_message(
-            conversation_id,
-            ChatMessageRole.ASSISTANT,
-            content,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            reasoning_tokens=reasoning_tokens,
-            process_trace=process_trace,
-            skill_run_ref=skill_run_ref,
-        )
 
     async def list_conversation_stats_by_user(
             self,
@@ -783,7 +792,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
 
         all_kb_ids: set[str] = set()
         for conv in conversations:
-            all_kb_ids.update(self.get_knowledge_base_ids(conv))
+            all_kb_ids.update(kb_ids_from_conversation(conv))
 
         kb_map: dict[str, KnowledgeBase] = {}
         if all_kb_ids:
@@ -802,7 +811,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             reasoning_sum = sum(m.reasoning_tokens or 0 for m in assistant_msgs)
 
             kb_briefs: List[KnowledgeBaseBrief] = []
-            for kb_id in self.get_knowledge_base_ids(conv):
+            for kb_id in kb_ids_from_conversation(conv):
                 kb = kb_map.get(kb_id)
                 if kb:
                     kb_briefs.append(

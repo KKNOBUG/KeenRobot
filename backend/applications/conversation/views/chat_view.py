@@ -8,6 +8,8 @@ from backend.applications.conversation.dependencies import get_conversation_crud
 from backend.applications.conversation.schemas.conversation_schema import ChatRequest
 from backend.applications.conversation.schemas.process_step_schema import ReasoningStep
 from backend.applications.conversation.services.conversation_crud import ConversationCrud
+from backend.applications.conversation.services.sse_helpers import merge_process_step
+from backend.enums.chat_session_enum import ChatMessageRole
 from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
 from backend.core.exceptions import NotFoundException
@@ -74,26 +76,7 @@ async def chat_stream(
                     }
                 elif chunk.get("type") == "process":
                     step = chunk.get("step") or {}
-                    replaced = False
-                    for idx, existing in enumerate(process_trace):
-                        if step.get("type") == "mcp" and (
-                            existing.get("type") == "mcp"
-                            and existing.get("tool") == step.get("tool")
-                            and existing.get("server") == step.get("server")
-                        ):
-                            process_trace[idx] = step
-                            replaced = True
-                            break
-                        if step.get("type") == "skill" and (
-                            existing.get("type") == "skill"
-                            and existing.get("name") == step.get("name")
-                            and existing.get("skill_id") == step.get("skill_id")
-                        ):
-                            process_trace[idx] = step
-                            replaced = True
-                            break
-                    if not replaced:
-                        process_trace.append(step)
+                    merge_process_step(process_trace, step)
                     yield {
                         "event": "process",
                         "data": json.dumps({
@@ -126,8 +109,9 @@ async def chat_stream(
 
         # 2.4 保存完整回复到数据库
         try:
-            await conversation_crud.save_assistant_message(
+            await conversation_crud.message.add_message(
                 conversation_id,
+                ChatMessageRole.ASSISTANT,
                 full_response,
                 prompt_tokens=usage_data.get("prompt_tokens") if usage_data else None,
                 completion_tokens=usage_data.get("completion_tokens") if usage_data else None,

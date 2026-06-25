@@ -12,10 +12,18 @@ from backend.applications.agent.models.agent_model import Skill, SkillRun
 from backend.applications.agent.services.skill_run_events import SkillRunEventHub
 from backend.applications.agent.services.workspace_service import WorkspaceService
 from backend.applications.base.rag.skill_agent import skill_run_agent_stream
+from backend.applications.conversation.models.conversation_model import Conversation
+from backend.applications.conversation.services.binding_utils import kb_ids_from_conversation
+from backend.applications.conversation.services.skill_intake_helpers import (
+    freeze_intake_as_submitted,
+)
 from backend.applications.model_config.models.model_config_model import ModelConfig
-from backend.applications.model_config.services.llm_connection import resolve_chat_llm_params
-from backend.applications.user.models.user_model import User
+from backend.applications.model_config.services.llm_connection import (
+    resolve_chat_llm_params,
+    resolve_effective_enable_thinking,
+)
 from backend.configure import LOGGER
+from backend.enums.chat_session_enum import ChatMessageRole
 
 DEFAULT_RUN_QUESTION = (
     "请严格按照 Skill 指令执行当前任务。"
@@ -49,7 +57,6 @@ async def persist_skill_run_conversation_message(
     """Run 结束且绑定了 conversation_id 时，写入助手消息（含 skill_run_ref）。"""
     if not run.conversation_id:
         return
-    from backend.enums.chat_session_enum import ChatMessageRole
     from backend.applications.conversation.services.conversation_crud import (
         ConversationCrud,
     )
@@ -71,15 +78,12 @@ async def persist_skill_run_conversation_message(
     if not exec_msg:
         intake_msg = await crud.message.find_intake_message(run.conversation_id, run.id)
         if intake_msg:
-            intake = dict(intake_msg.skill_intake or {})
-            if intake.get("phase") not in ("submitted", "cancelled"):
-                steps = (skill.input_schema or {}).get("wizard_steps") or []
-                intake["phase"] = "submitted"
-                if steps:
-                    intake["step_index"] = len(steps) - 1
-                intake.pop("run_summary", None)
-                intake.pop("process_trace", None)
-                intake_msg.skill_intake = intake
+            frozen = freeze_intake_as_submitted(
+                intake_msg.skill_intake,
+                skill.input_schema,
+            )
+            if frozen != intake_msg.skill_intake:
+                intake_msg.skill_intake = frozen
                 await intake_msg.save()
         exec_msg = await crud.message.add_message(
             run.conversation_id,
@@ -110,6 +114,18 @@ async def _resolve_model_config(model_config_id: Optional[str]) -> Optional[Mode
     return await ModelConfig.get_or_none(id=model_config_id, state__not=1)
 
 
+async def _resolve_run_enable_thinking(
+        run: SkillRun,
+        model_config: Optional[ModelConfig],
+) -> bool:
+    requested = False
+    if run.conversation_id:
+        conv = await Conversation.get_or_none(id=run.conversation_id, state__not=1)
+        if conv:
+            requested = bool(conv.enable_thinking)
+    return resolve_effective_enable_thinking(model_config, requested)
+
+
 async def execute_skill_run(
         run_id: str,
         user_id: int,
@@ -128,6 +144,20 @@ async def execute_skill_run(
         await _fail_run(run, "关联 Skill 不存在", publish_events)
         return
 
+    if run.conversation_id:
+        conv = await Conversation.get_or_none(id=run.conversation_id, state__not=1)
+        if conv:
+            kb_ids = kb_ids_from_conversation(conv)
+            sync_fields = False
+            if conv.model_config_id and run.model_config_id != conv.model_config_id:
+                run.model_config_id = conv.model_config_id
+                sync_fields = True
+            if (run.knowledge_base_ids or []) != kb_ids:
+                run.knowledge_base_ids = kb_ids
+                sync_fields = True
+            if sync_fields:
+                await run.save()
+
     workspace = WorkspaceService(run)
     full_response = ""
     process_trace = []
@@ -144,10 +174,7 @@ async def execute_skill_run(
 
         model_config = await _resolve_model_config(run.model_config_id)
         llm_params = resolve_chat_llm_params(model_config)
-        effective_thinking = (
-                model_config is not None
-                and model_config.model_thinking
-        )
+        effective_thinking = await _resolve_run_enable_thinking(run, model_config)
 
         async for chunk in skill_run_agent_stream(
                 run=run,

@@ -50,7 +50,7 @@ async def list_conversations(
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
-        items = await conversation_crud.list_conversations(current_user)
+        items = await conversation_crud.list_by_user(current_user.id)
         data = [
             ConversationOut.model_validate(item).model_dump()
             for item in items
@@ -68,9 +68,7 @@ async def get_conversation(
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
-        conv = await conversation_crud.get_with_messages(conversation_id, current_user.id)
-        if not conv:
-            return NotFoundResponse(message="对话不存在")
+        conv = await conversation_crud.get_conversation(conversation_id, current_user)
         data = ConversationDetail.model_validate(conv).model_dump()
         return SuccessResponse(data=data)
     except NotFoundException as e:
@@ -141,11 +139,11 @@ async def update_skill_intake_message(
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
-        message = await conversation_crud.update_skill_intake_message(
-            current_user,
-            conversation_id,
-            message_id,
-            data,
+        conv = await conversation_crud.get_by_id(conversation_id, current_user.id)
+        if not conv:
+            return NotFoundResponse(message="对话不存在")
+        message = await conversation_crud.message.update_skill_intake(
+            message_id, conversation_id, data
         )
         out = MessageOut.model_validate(message)
         return SuccessResponse(data=out.model_dump())
@@ -178,7 +176,7 @@ async def clear_all_conversations(
         conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
-        await conversation_crud.clear_all(current_user)
+        await conversation_crud.clear_by_user(current_user.id)
         return SuccessResponse(message="已清空所有对话")
     except Exception as e:
         LOGGER.error(f"清空对话失败: {e}\n{traceback.format_exc()}")

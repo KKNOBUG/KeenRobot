@@ -16,7 +16,7 @@ from backend.applications.agent.services.mcp_tools import (
     call_remote_tool,
 )
 from backend.applications.base.rag.chain import _resolve_system_prompt, _retrieve_context
-from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages
+from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages, merge_token_usage
 from backend.applications.conversation.schemas.process_step_schema import McpStep
 from backend.applications.user.models.user_model import User
 
@@ -30,13 +30,6 @@ MCP_AGENT_SYSTEM_PROMPT = """你是一个可以调用外部 MCP 工具的智能�
 3. 若无需工具即可回答，直接回复，不要强行调用工具。
 4. 结合参考资料（若有）与工具结果给出准确、简洁的中文回答。
 """
-
-
-def _merge_usage(accumulator: Dict[str, int], part: Optional[Dict[str, Any]]) -> None:
-    if not part:
-        return
-    for key in ("prompt_tokens", "completion_tokens", "reasoning_tokens"):
-        accumulator[key] = (accumulator.get(key) or 0) + (part.get(key) or 0)
 
 
 async def _load_mcp_servers(mcp_ids: List[str], user: User) -> List[McpServer]:
@@ -114,7 +107,7 @@ async def mcp_agent_stream(
             top_p=top_p,
             enable_thinking=enable_thinking,
         )
-        _merge_usage(usage_acc, completion.get("usage"))
+        merge_token_usage(usage_acc, completion.get("usage"))
 
         tool_calls = completion.get("tool_calls") or []
         if tool_calls:
@@ -186,7 +179,7 @@ async def mcp_agent_stream(
                     enable_thinking=enable_thinking,
             ):
                 if chunk.get("type") == "usage":
-                    _merge_usage(usage_acc, chunk)
+                    merge_token_usage(usage_acc, chunk)
                     continue
                 yield chunk
 

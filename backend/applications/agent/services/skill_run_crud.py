@@ -12,7 +12,7 @@ from typing import List, Optional, Tuple
 from fastapi import UploadFile
 
 from backend.applications.agent.models.agent_model import Skill, SkillRun
-from backend.applications.agent.schemas.skill_run_schema import SkillRunCreate
+from backend.applications.agent.schemas.skill_run_schema import SkillRunCreate, SkillRunOut
 from backend.applications.agent.services.agent_crud import SkillCrud
 from backend.applications.agent.services.skill_run_validator import (
     list_output_files,
@@ -165,6 +165,10 @@ class SkillRunCrud(ScaffoldCrud):
 
     async def _get_skill(self, run: SkillRun) -> Skill:
         return await Skill.get(id=run.skill_id)
+
+    async def build_run_out(self, run: SkillRun) -> SkillRunOut:
+        skill = await self._get_skill(run)
+        return SkillRunOut.model_validate(self.run_to_out(run, skill))
 
     async def save_inputs(
             self, run_id: str, user: User, fields: dict

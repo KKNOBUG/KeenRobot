@@ -88,7 +88,7 @@ function toggleItem(id) {
     return
   }
   const next = [...props.modelValue]
-  const idx = next.indexOf(id)
+  const idx = next.findIndex((value) => String(value) === String(id))
   if (idx >= 0) {
     next.splice(idx, 1)
   } else {
