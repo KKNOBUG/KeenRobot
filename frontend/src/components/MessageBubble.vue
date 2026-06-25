@@ -1,11 +1,18 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import ChatProcessTrace from './chat/ChatProcessTrace.vue'
+import SkillIntakePanel from './skill/SkillIntakePanel.vue'
 import { renderMarkdown } from '@/utils/markdown'
 
 const props = defineProps({
   role: String,
   content: String,
+  messageId: { type: Number, default: null },
+  conversationId: { type: String, default: null },
+  skillIntake: { type: Object, default: null },
+  skillCatalog: { type: Object, default: null },
+  modelConfigId: { type: String, default: null },
+  knowledgeBaseIds: { type: Array, default: () => [] },
   processTrace: {
     type: Array,
     default: () => [],
@@ -20,7 +27,42 @@ const props = defineProps({
   reasoningTokens: Number,
 })
 
+const emit = defineEmits(['intake-update', 'intake-lock-change', 'intake-started', 'intake-cancelled'])
+
 const renderedHtml = ref('')
+
+const intakePhase = computed(() => props.skillIntake?.phase || '')
+const showIntakePanel = computed(() => Boolean(props.skillIntake) && props.role === 'assistant')
+const showBubbleProcessTrace = computed(() => {
+  if (!props.processTrace.length) return false
+  if (showIntakePanel.value) {
+    if (['running', 'async', 'done', 'failed'].includes(intakePhase.value)) return true
+    if (['collecting', 'confirming'].includes(intakePhase.value)) return false
+    return false
+  }
+  return true
+})
+
+const intakeReadonly = computed(() =>
+  ['submitted', 'cancelled', 'stale'].includes(intakePhase.value),
+)
+
+const displayIntake = computed(() => {
+  if (!props.skillIntake) return null
+  const legacyPhases = ['running', 'async', 'done', 'failed']
+  if (!legacyPhases.includes(props.skillIntake.phase)) return props.skillIntake
+  const steps = props.skillCatalog?.[props.skillIntake.skill_id]?.input_schema?.wizard_steps
+  return {
+    ...props.skillIntake,
+    phase: 'submitted',
+    step_index: steps?.length ? steps.length - 1 : props.skillIntake.step_index,
+  }
+})
+
+const linkedSkill = computed(() => {
+  if (!props.skillIntake?.skill_id || !props.skillCatalog) return null
+  return props.skillCatalog[props.skillIntake.skill_id] || null
+})
 
 watch(
     () => [props.content, props.isStreaming, props.role],
@@ -47,11 +89,33 @@ function hasTokenUsage(promptTokens, completionTokens, reasoningTokens) {
 }
 
 function canCopy() {
-  return Boolean(props.content?.trim()) && !props.isStreaming
+  return Boolean(props.content?.trim()) && !props.isStreaming && !showIntakePanel.value
 }
 
 function showAssistantContent() {
+  if (showIntakePanel.value) {
+    if (['running', 'async', 'done', 'failed'].includes(intakePhase.value)) {
+      return Boolean(props.content?.trim())
+    }
+    return false
+  }
   return props.content || !props.processTrace.length
+}
+
+function onIntakeUpdate(next) {
+  emit('intake-update', next)
+}
+
+function onIntakeLockChange(locked) {
+  emit('intake-lock-change', locked)
+}
+
+function onIntakeStarted(payload) {
+  emit('intake-started', payload)
+}
+
+function onIntakeCancelled() {
+  emit('intake-cancelled')
 }
 
 async function copyContent() {
@@ -89,13 +153,14 @@ async function copyContent() {
     </div>
     <div class="bubble">
       <ChatProcessTrace
-          v-if="role === 'assistant' && processTrace.length > 0"
+          v-if="role === 'assistant' && showBubbleProcessTrace"
           :steps="processTrace"
           :streaming="isStreaming"
       />
       <div
           v-if="role === 'assistant' && showAssistantContent()"
           class="markdown-body bubble-content"
+          :class="{ 'bubble-content--intake-intro': showIntakePanel }"
       >
         <div
             v-if="isStreaming"
@@ -103,6 +168,21 @@ async function copyContent() {
         >{{ content }}<span v-if="content" class="cursor-blink" /></div>
         <div v-else v-html="renderedHtml" />
       </div>
+      <SkillIntakePanel
+          v-if="showIntakePanel"
+          :intake="displayIntake"
+          :message-id="messageId"
+          :conversation-id="conversationId"
+          :skill="linkedSkill"
+          :model-config-id="modelConfigId"
+          :knowledge-base-ids="knowledgeBaseIds"
+          :readonly="intakeReadonly"
+          class="skill-intake-embed"
+          @update:intake="onIntakeUpdate"
+          @lock-change="onIntakeLockChange"
+          @started="onIntakeStarted"
+          @cancelled="onIntakeCancelled"
+      />
       <div v-else-if="role !== 'assistant'" class="text-content bubble-content">{{ content }}</div>
       <div
           v-if="role === 'assistant' && (canCopy() || hasTokenUsage(promptTokens, completionTokens, reasoningTokens) || skillRunRef?.links?.length)"
@@ -226,6 +306,14 @@ async function copyContent() {
 
 .message.assistant .bubble-content {
   background: rgba(244, 81, 30, 0.1);
+}
+
+.bubble-content--intake-intro {
+  margin-bottom: 10px;
+}
+
+.skill-intake-embed {
+  width: 100%;
 }
 
 .assistant-plain-text {

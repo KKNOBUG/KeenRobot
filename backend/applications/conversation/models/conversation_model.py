@@ -37,6 +37,10 @@ class Conversation(ScaffoldModel, StateModel, TimestampMixin):
         on_delete=fields.SET_NULL,
         description="所属模型配置",
     )
+    enable_thinking = fields.BooleanField(
+        default=False,
+        description="是否开启深度思考模式",
+    )
     messages: fields.ReverseRelation["Message"]
 
     class Meta:
@@ -59,6 +63,7 @@ class Message(ScaffoldModel, StateModel, TimestampMixin):
     reasoning_tokens = fields.IntField(null=True, description="推理Token数(Thinking/Reasoning)")
     process_trace = fields.JSONField(null=True, description="过程追踪(推理链/工具调用等)")
     skill_run_ref = fields.JSONField(null=True, description="Skill Run 引用(执行记录链接等)")
+    skill_intake = fields.JSONField(null=True, description="Skill 对话内收集面板状态")
 
     class Meta:
         table = "keenrobot_messages"

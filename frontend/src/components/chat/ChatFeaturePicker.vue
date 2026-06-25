@@ -40,6 +40,14 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  closeOnSelect: {
+    type: Boolean,
+    default: false,
+  },
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -57,7 +65,9 @@ const filteredItems = computed(() => {
 
 const isActive = computed(() => props.modelValue.length > 0)
 
-const isUnavailable = computed(() => props.items.length === 0 && !props.allowEmpty)
+const isUnavailable = computed(
+    () => props.disabled || (props.items.length === 0 && !props.allowEmpty),
+)
 
 const triggerTitle = computed(() => {
   if (props.items.length === 0) return props.emptyText
@@ -65,13 +75,16 @@ const triggerTitle = computed(() => {
 })
 
 function isSelected(id) {
-  return props.modelValue.includes(id)
+  return props.modelValue.some((value) => String(value) === String(id))
 }
 
 function toggleItem(id) {
   if (props.single) {
     const next = isSelected(id) ? [] : [id]
     emit('update:modelValue', next)
+    if (props.closeOnSelect && next.length) {
+      showPopover.value = false
+    }
     return
   }
   const next = [...props.modelValue]

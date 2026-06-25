@@ -44,25 +44,43 @@ class WorkspaceService:
     def meta_path(self) -> Path:
         return self.root / "meta.json"
 
-    def init_workspace(self, *, skill_version: str) -> None:
-        """创建 run 目录结构并复制 Skill 快照。"""
+    def init_draft_workspace(self, *, skill_version: str = "") -> None:
+        """创建 draft Run 工作区（不含 Skill 快照，start 时再复制）。"""
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.session_dir.mkdir(parents=True, exist_ok=True)
-        copy_skill_snapshot(self.run.skill_key, self.snapshot_dir)
         self.write_meta(
             {
                 "run_id": self.run.id,
                 "skill_id": self.run.skill_id,
                 "skill_key": self.run.skill_key,
-                "skill_version": skill_version,
+                "skill_version": skill_version or self.run.skill_version,
                 "conversation_id": self.run.conversation_id,
                 "model_config_id": self.run.model_config_id,
                 "interaction_mode": self.run.interaction_mode,
                 "status": self.run.status,
                 "user_id": self.run.user_id,
+                "snapshot_at_start": True,
             }
         )
+
+    def init_workspace(self, *, skill_version: str) -> None:
+        """创建 run 目录结构并复制 Skill 快照（重试等需立即快照的场景）。"""
+        self.init_draft_workspace(skill_version=skill_version)
+        copy_skill_snapshot(self.run.skill_key, self.snapshot_dir)
+
+    def ensure_skill_snapshot(self, skill_key: str) -> str:
+        """start 时复制 Skill 快照，返回快照版本号。"""
+        if self.snapshot_dir.is_dir():
+            meta = self.read_meta()
+            if meta.get("snapshot_ready"):
+                return meta.get("skill_version") or ""
+        version = copy_skill_snapshot(skill_key, self.snapshot_dir)
+        meta = self.read_meta()
+        meta["skill_version"] = version
+        meta["snapshot_ready"] = True
+        self.write_meta(meta)
+        return version
 
     def write_meta(self, data: Dict[str, Any]) -> None:
         self.meta_path.write_text(

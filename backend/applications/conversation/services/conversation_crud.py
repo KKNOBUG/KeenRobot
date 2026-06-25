@@ -10,7 +10,9 @@ from typing import AsyncIterator, List, Optional, Dict, Any
 
 from tortoise.query_utils import Prefetch
 
+from backend.applications.agent.schemas.skill_run_schema import SkillRunCreate
 from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
+from backend.applications.agent.services.skill_run_crud import SkillRunCrud
 from backend.applications.base.rag.chain import rag_stream
 from backend.applications.base.rag.mcp_agent import mcp_agent_stream
 from backend.applications.base.rag.skill_agent import skill_agent_stream
@@ -20,6 +22,7 @@ from backend.applications.conversation.schemas.conversation_schema import (
     ChatRequest,
     ConversationBrief,
     ConversationCreate,
+    ConversationBindingsUpdate,
     ConversationDetail,
     ConversationStatOut,
     ConversationUpdate,
@@ -27,6 +30,8 @@ from backend.applications.conversation.schemas.conversation_schema import (
     MessageCreate,
     MessageUpdate,
     ModelConfigBrief,
+    SkillIntakeStartResult,
+    SkillIntakeUpdate,
     TokenUsage,
     UserBrief,
     normalize_knowledge_base_ids,
@@ -64,6 +69,7 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
             reasoning_tokens: Optional[int] = None,
             process_trace: Optional[List[dict]] = None,
             skill_run_ref: Optional[dict] = None,
+            skill_intake: Optional[dict] = None,
     ) -> Message:
         """添加消息"""
         data = MessageCreate(
@@ -75,8 +81,74 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
             reasoning_tokens=reasoning_tokens,
             process_trace=process_trace,
             skill_run_ref=skill_run_ref,
+            skill_intake=skill_intake,
         )
         return await self.create(data.create_dict())
+
+    async def find_intake_message(
+            self, conversation_id: str, run_id: str
+    ) -> Optional[Message]:
+        messages = await self.model.filter(
+            conversation_id=conversation_id,
+            state__not=1,
+        ).order_by("-created_time")
+        for message in messages:
+            intake = message.skill_intake or {}
+            if intake.get("run_id") == run_id:
+                return message
+        return None
+
+    async def find_execution_message(
+            self, conversation_id: str, run_id: str
+    ) -> Optional[Message]:
+        messages = await self.model.filter(
+            conversation_id=conversation_id,
+            state__not=1,
+        ).order_by("-created_time")
+        for message in messages:
+            ref = message.skill_run_ref or {}
+            if ref.get("run_id") == run_id:
+                return message
+        return None
+
+    async def update_skill_intake(
+            self,
+            message_id: int,
+            conversation_id: str,
+            data: SkillIntakeUpdate,
+    ) -> Message:
+        message = await self.model.get_or_none(
+            id=message_id,
+            conversation_id=conversation_id,
+            state__not=1,
+        )
+        if not message:
+            raise NotFoundException(message="消息不存在")
+
+        intake = dict(message.skill_intake or {})
+        payload = data.model_dump(exclude_unset=True)
+        intake_fields = (
+            "phase",
+            "step_index",
+            "form_values",
+            "file_labels",
+            "missing_fields",
+            "run_summary",
+            "process_trace",
+        )
+        for key in intake_fields:
+            if key in payload and payload[key] is not None:
+                intake[key] = payload[key]
+        message.skill_intake = intake
+
+        if payload.get("content") is not None:
+            message.content = payload["content"]
+        if payload.get("process_trace") is not None:
+            message.process_trace = payload["process_trace"]
+        if payload.get("skill_run_ref") is not None:
+            message.skill_run_ref = payload["skill_run_ref"]
+        await message.save()
+        return message
 
     async def soft_delete_by_conversations(self, conversation_ids: List[str]) -> None:
         """批量软删除对话下的消息"""
@@ -144,20 +216,28 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             skill_ids: Optional[List[str]] = None,
             mcp_ids: Optional[List[str]] = None,
             model_config_id: Optional[str] = None,
+            enable_thinking: Optional[bool] = None,
             title: Optional[str] = None,
     ) -> None:
         """更新对话元数据"""
+        payload: Dict[str, Any] = {}
         if knowledge_base_ids is not None:
-            conversation.knowledge_base_ids = knowledge_base_ids
+            payload["knowledge_base_ids"] = knowledge_base_ids
         if skill_ids is not None:
-            conversation.skill_ids = skill_ids
+            payload["skill_ids"] = skill_ids
         if mcp_ids is not None:
-            conversation.mcp_ids = mcp_ids
+            payload["mcp_ids"] = mcp_ids
         if model_config_id is not None:
-            conversation.model_config_id = model_config_id
+            payload["model_config_id"] = model_config_id
+        if enable_thinking is not None:
+            payload["enable_thinking"] = enable_thinking
         if title is not None:
-            conversation.title = title
-        await conversation.save()
+            payload["title"] = title
+        if not payload:
+            return
+        await self.model.filter(id=conversation.id).update(**payload)
+        for key, value in payload.items():
+            setattr(conversation, key, value)
 
     @staticmethod
     def get_knowledge_base_ids(conversation: Conversation) -> List[str]:
@@ -236,6 +316,94 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 raise NotFoundException(message=f"MCP 服务 {mcp_id} 不存在")
             mcp_crud.check_access(mcp, user)
 
+    @staticmethod
+    def resolve_stored_enable_thinking(
+            model_config: Optional[ModelConfig],
+            requested: bool,
+    ) -> bool:
+        if not model_config or not model_config.model_thinking:
+            return False
+        return bool(requested)
+
+    async def sync_conversation_bindings(
+            self,
+            user: User,
+            conversation_id: str,
+            data: ConversationBindingsUpdate,
+    ) -> Conversation:
+        """同步会话绑定（知识库 / 模型 / Skill / MCP），不写消息。"""
+        conv = await self.get_by_id(conversation_id, user.id)
+        if not conv:
+            raise NotFoundException(message="对话不存在")
+
+        if data.knowledge_base_ids is not None:
+            knowledge_base_ids = data.knowledge_base_ids
+        else:
+            knowledge_base_ids = self.get_knowledge_base_ids(conv)
+
+        if data.skill_ids is not None:
+            skill_ids = data.skill_ids
+        else:
+            skill_ids = self.get_skill_ids(conv)
+
+        if data.mcp_ids is not None:
+            mcp_ids = data.mcp_ids
+        else:
+            mcp_ids = self.get_mcp_ids(conv)
+
+        if skill_ids and mcp_ids:
+            raise ParameterException(message="Skill 与 MCP 不能同时启用")
+
+        if knowledge_base_ids:
+            await self._validate_kb_access(knowledge_base_ids, user)
+
+        if skill_ids:
+            await self._validate_skill_access(skill_ids, user)
+            chat_skill_ids = []
+            for skill_id in skill_ids:
+                skill = await SkillCrud().get_skill(skill_id, user)
+                mode = (skill.interaction_mode or "chat").lower()
+                if mode != "chat":
+                    continue
+                if not skill.skill_key:
+                    raise ParameterException(
+                        message=f"技能「{skill.name}」未关联磁盘 Skill，请先在管理页同步"
+                    )
+                chat_skill_ids.append(skill_id)
+            if len(chat_skill_ids) > 1:
+                raise ParameterException(message="聊天仅支持选择一个 Skill")
+
+        if mcp_ids:
+            await self._validate_mcp_access(mcp_ids, user)
+
+        if data.model_config_id is not None:
+            model_config = await ModelConfigCrud().resolve_for_chat(
+                user, data.model_config_id
+            )
+            resolved_model_id = model_config.id if model_config else None
+        else:
+            model_config = await ModelConfigCrud().resolve_for_chat(
+                user, conv.model_config_id
+            )
+            resolved_model_id = conv.model_config_id
+
+        if data.enable_thinking is not None:
+            enable_thinking = self.resolve_stored_enable_thinking(
+                model_config, data.enable_thinking
+            )
+        else:
+            enable_thinking = bool(conv.enable_thinking)
+
+        await self.update_meta(
+            conv,
+            knowledge_base_ids=knowledge_base_ids,
+            skill_ids=skill_ids,
+            mcp_ids=mcp_ids,
+            model_config_id=resolved_model_id,
+            enable_thinking=enable_thinking,
+        )
+        return conv
+
     async def prepare_for_chat(
             self, req: ChatRequest, user: User
     ) -> tuple[Conversation, Optional[ModelConfig], List[Dict[str, Any]], list[str], list[str], list[str]]:
@@ -289,12 +457,17 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
         if mcp_ids:
             await self._validate_mcp_access(mcp_ids, user)
 
+        stored_thinking = self.resolve_stored_enable_thinking(
+            model_config, req.enable_thinking
+        )
+
         await self.update_meta(
             conv,
             knowledge_base_ids=knowledge_base_ids,
             skill_ids=skill_ids,
             mcp_ids=mcp_ids,
             model_config_id=model_config.id if model_config else None,
+            enable_thinking=stored_thinking,
         )
 
         history_msgs = await self.message.list_by_conversation(conv.id)
@@ -363,6 +536,195 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 **llm_params,
         ):
             yield chunk
+
+    @staticmethod
+    def _build_skill_intake_payload(skill, run, *, phase: str = "collecting", step_index: int = 0) -> dict:
+        return {
+            "run_id": run.id,
+            "skill_id": skill.id,
+            "skill_name": skill.name,
+            "skill_key": skill.skill_key,
+            "interaction_mode": (skill.interaction_mode or "wizard").lower(),
+            "phase": phase,
+            "step_index": step_index,
+            "form_values": dict(run.input_data or {}),
+            "file_labels": {},
+            "missing_fields": [],
+            "run_summary": "",
+            "process_trace": [],
+        }
+
+    async def start_skill_intake(
+            self,
+            user: User,
+            conversation_id: str,
+            skill_id: str,
+            *,
+            model_config_id: Optional[str] = None,
+            knowledge_base_ids: Optional[List[str]] = None,
+            enable_thinking: bool = False,
+            force_new: bool = False,
+    ) -> SkillIntakeStartResult:
+        conv = await self.get_by_id(conversation_id, user.id)
+        if not conv:
+            raise NotFoundException(message="对话不存在")
+
+        run_crud = SkillRunCrud()
+        skill_crud = SkillCrud()
+        skill = await skill_crud.get_skill(skill_id, user)
+        mode = (skill.interaction_mode or "chat").lower()
+        if mode not in SkillRunCrud.RUN_MODES:
+            raise ParameterException(message=f"技能「{skill.name}」不支持对话内收集")
+
+        model_config = await ModelConfigCrud().resolve_for_chat(
+            user, model_config_id
+        )
+        if knowledge_base_ids is not None:
+            kb_ids = knowledge_base_ids
+        else:
+            kb_ids = self.get_knowledge_base_ids(conv)
+        if kb_ids:
+            await self._validate_kb_access(kb_ids, user)
+
+        resolved_model_id = model_config.id if model_config else None
+        stored_thinking = self.resolve_stored_enable_thinking(
+            model_config, enable_thinking
+        )
+
+        active = await run_crud.get_active_draft(user, conversation_id)
+        if active and not force_new:
+            if active.skill_id == skill_id:
+                message = await self.message.find_intake_message(conversation_id, active.id)
+                if message:
+                    intake = message.skill_intake or self._build_skill_intake_payload(skill, active)
+                    await self.update_meta(
+                        conv,
+                        knowledge_base_ids=kb_ids,
+                        skill_ids=[skill_id],
+                        mcp_ids=[],
+                        model_config_id=resolved_model_id,
+                        enable_thinking=stored_thinking,
+                    )
+                    return SkillIntakeStartResult(
+                        conversation_id=conversation_id,
+                        message_id=message.id,
+                        run_id=active.id,
+                        skill_intake=intake,
+                        resumed=True,
+                        title=conv.title,
+                    )
+            raise ParameterException(
+                message="当前对话已有进行中的 Skill 收集，请先取消或完成后再选择其他 Skill"
+            )
+
+        if active and force_new:
+            await run_crud.cancel_run(active.id, user)
+
+        run = await run_crud.create_run(
+            user,
+            SkillRunCreate(
+                skill_id=skill_id,
+                conversation_id=conversation_id,
+                model_config_id=resolved_model_id,
+                knowledge_base_ids=kb_ids or None,
+            ),
+        )
+        intake = self._build_skill_intake_payload(skill, run)
+        message = await self.message.add_message(
+            conversation_id,
+            ChatMessageRole.ASSISTANT,
+            " ",
+            skill_intake=intake,
+        )
+        title = f"Skill 收集 · {skill.name}"
+        await self.update_meta(
+            conv,
+            knowledge_base_ids=kb_ids,
+            skill_ids=[skill_id],
+            mcp_ids=[],
+            model_config_id=resolved_model_id,
+            enable_thinking=stored_thinking,
+            title=title,
+        )
+        return SkillIntakeStartResult(
+            conversation_id=conversation_id,
+            message_id=message.id,
+            run_id=run.id,
+            skill_intake=intake,
+            resumed=False,
+            title=title,
+        )
+
+    async def update_skill_intake_message(
+            self,
+            user: User,
+            conversation_id: str,
+            message_id: int,
+            data: SkillIntakeUpdate,
+    ) -> Message:
+        conv = await self.get_by_id(conversation_id, user.id)
+        if not conv:
+            raise NotFoundException(message="对话不存在")
+        return await self.message.update_skill_intake(message_id, conversation_id, data)
+
+    async def begin_skill_run_reply(
+            self,
+            user: User,
+            run_id: str,
+            *,
+            is_async: bool = False,
+    ) -> Optional[int]:
+        """冻结向导消息并创建独立的模型执行回复消息。"""
+        from backend.applications.agent.models.agent_model import SkillRun
+        from backend.applications.agent.services.skill_run_executor import (
+            build_skill_run_ref,
+        )
+
+        run = await SkillRun.get_or_none(id=run_id, user_id=user.id, state__not=1)
+        if not run or not run.conversation_id:
+            return None
+
+        conv = await self.get_by_id(run.conversation_id, user.id)
+        if conv:
+            kb_ids = list(run.knowledge_base_ids or [])
+            await self.update_meta(
+                conv,
+                knowledge_base_ids=kb_ids,
+                skill_ids=[run.skill_id],
+                mcp_ids=[],
+                model_config_id=run.model_config_id,
+            )
+
+        skill = await SkillCrud().get_skill(run.skill_id, user)
+        intake_msg = await self.message.find_intake_message(run.conversation_id, run_id)
+        if intake_msg:
+            intake = dict(intake_msg.skill_intake or {})
+            steps = (skill.input_schema or {}).get("wizard_steps") or []
+            intake["phase"] = "submitted"
+            if steps:
+                intake["step_index"] = len(steps) - 1
+            intake.pop("run_summary", None)
+            intake.pop("process_trace", None)
+            intake_msg.skill_intake = intake
+            await intake_msg.save()
+
+        existing = await self.message.find_execution_message(run.conversation_id, run_id)
+        if existing:
+            return existing.id
+
+        skill_run_ref = build_skill_run_ref(run, skill)
+        intro = (
+            "异步任务已提交，正在后台执行…"
+            if is_async
+            else "任务执行中…"
+        )
+        exec_msg = await self.message.add_message(
+            run.conversation_id,
+            ChatMessageRole.ASSISTANT,
+            intro,
+            skill_run_ref=skill_run_ref,
+        )
+        return exec_msg.id
 
     async def save_assistant_message(
             self,

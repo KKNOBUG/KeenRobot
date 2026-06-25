@@ -22,6 +22,7 @@ function goSkillRuns() {
 
 const loading = ref(false)
 const syncing = ref(false)
+const cleaningDrafts = ref(false)
 const uploading = ref(false)
 const zipOverwrite = ref(false)
 const keyword = ref('')
@@ -71,6 +72,40 @@ async function handleSync() {
     window.$message?.error(err?.message || '同步失败')
   } finally {
     syncing.value = false
+  }
+}
+
+async function handleCleanupStaleDrafts() {
+  cleaningDrafts.value = true
+  try {
+    const preview = await api.cleanupStaleSkillDrafts({ dry_run: true })
+    const count = preview?.scanned ?? 0
+    const days = preview?.stale_days ?? 1
+    if (!count) {
+      window.$message?.info(`没有超过 ${days} 天仍未开始的收集记录`)
+      return
+    }
+    await window.$dialog?.confirm({
+      title: '清理无效记录',
+      type: 'warning',
+      content: `将清理 ${count} 条超过 ${days} 天未进入执行态的 Skill 收集记录（含工作区文件）。对话内的收集面板需用户重新选择 Skill 后恢复。是否继续？`,
+      positiveText: '清理',
+      negativeText: '取消',
+      async onPositiveClick() {
+        try {
+          const res = await api.cleanupStaleSkillDrafts({ dry_run: false })
+          window.$message?.success(
+            res?.message || `已清理 ${res?.deleted ?? 0} 条无效记录`,
+          )
+        } catch (err) {
+          window.$message?.error(err?.message || '清理失败')
+        }
+      },
+    })
+  } catch (err) {
+    window.$message?.error(err?.message || '预览失败')
+  } finally {
+    cleaningDrafts.value = false
   }
 }
 
@@ -164,6 +199,9 @@ onMounted(async () => {
               <component :is="renderIcon('material-symbols:sync', { size: 18 })" />
             </template>
             同步磁盘 Skill
+          </NButton>
+          <NButton :loading="cleaningDrafts" @click="handleCleanupStaleDrafts">
+            清理无效记录
           </NButton>
         </NSpace>
       </div>

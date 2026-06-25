@@ -11,6 +11,8 @@ from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 from backend.applications.agent.dependencies import get_skill_run_crud
+from backend.applications.conversation.dependencies import get_conversation_crud
+from backend.applications.conversation.services.conversation_crud import ConversationCrud
 from backend.applications.agent.schemas.skill_run_schema import (
     SkillRunCleanupQuery,
     SkillRunCleanupResult,
@@ -51,6 +53,29 @@ async def create_skill_run(
     except Exception as e:
         LOGGER.error(f"创建 Skill Run 失败: {e}\n{traceback.format_exc()}")
         return FailureResponse(message=f"创建失败: {e}")
+
+
+@skill_runs.get("/active-draft", summary="SkillRun-查询对话内收集中 draft")
+async def get_active_skill_draft(
+        conversation_id: str = Query(..., description="对话 ID"),
+        skill_id: str = Query(default=None, description="可选 Skill ID"),
+        current_user: User = DependAuth,
+        run_crud: SkillRunCrud = Depends(get_skill_run_crud),
+):
+    try:
+        run = await run_crud.get_active_draft(
+            current_user,
+            conversation_id,
+            skill_id=skill_id,
+        )
+        if not run:
+            return SuccessResponse(data=None)
+        skill = await run_crud._get_skill(run)
+        out = SkillRunOut.model_validate(run_crud.run_to_out(run, skill))
+        return SuccessResponse(data=out.model_dump())
+    except Exception as e:
+        LOGGER.error(f"查询 draft Run 失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"查询失败: {e}")
 
 
 @skill_runs.get("/search", summary="SkillRun-执行记录列表")
@@ -185,17 +210,24 @@ async def start_skill_run(
         data: SkillRunStart | None = None,
         current_user: User = DependAuth,
         run_crud: SkillRunCrud = Depends(get_skill_run_crud),
+        conversation_crud: ConversationCrud = Depends(get_conversation_crud),
 ):
     try:
         payload = data or SkillRunStart()
         run, mode, is_async = await run_crud.start_run(
             run_id, current_user, payload.question
         )
+        execution_message_id = await conversation_crud.begin_skill_run_reply(
+            current_user,
+            run.id,
+            is_async=is_async,
+        )
         result = SkillRunStartResult(
             run_id=run.id,
             status=run.status,
             mode=mode,
             async_execution=is_async,
+            execution_message_id=execution_message_id,
         )
         message = "已提交异步任务" if is_async else "Run 已启动，请连接 stream 获取进度"
         return SuccessResponse(data=result.model_dump(), message=message)

@@ -9,10 +9,9 @@ import ChatFeaturePicker from '../../components/chat/ChatFeaturePicker.vue'
 import ChatDeepThinkingToggle from '../../components/chat/ChatDeepThinkingToggle.vue'
 import ChatModelSelector from '../../components/chat/ChatModelSelector.vue'
 import ChatTurnNodes from '../../components/chat/ChatTurnNodes.vue'
-import SkillWizardModal from '@/components/skill/SkillWizardModal.vue'
 import CommonPage from '@/components/page/CommonPage.vue'
 import TheIcon from '@/components/icon/TheIcon.vue'
-import api, { chatStream } from '@/api'
+import api, { chatStream, skillRunStream } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,6 +29,8 @@ const scrollFabToBottom = ref(true)
 const activeTurnIndex = ref(0)
 let currentConvId = null
 let streamController = null
+let skillRunStreamController = null
+const skillRunPollTimers = new Map()
 let loadConversationSeq = 0
 
 function normalizeConversationId(id) {
@@ -77,8 +78,15 @@ const wizardSkillPickerItems = computed(() =>
 )
 
 const selectedWizardSkillTrigger = ref([])
-const skillWizardVisible = ref(false)
-const skillWizardSkill = ref(null)
+const lastConversationSkillIds = ref([])
+const skillIntakeLocked = ref(false)
+const syncingWizardSkillSelection = ref(false)
+const syncingConversationBindings = ref(false)
+let persistBindingsTimer = null
+
+const mcpPickerDisabled = computed(
+    () => skillIntakeLocked.value || selectedWizardSkillTrigger.value.length > 0,
+)
 
 const mcpPickerItems = computed(() =>
     mcpItems.value.map((mcp) => ({
@@ -104,67 +112,520 @@ const showDeepThinking = computed(() => selectedConfig.value?.model_thinking ===
 
 const showModelSelector = computed(() => modelConfigs.value.length > 0)
 
+const skillCatalog = computed(() =>
+    Object.fromEntries((skillItems.value || []).map((item) => [item.id, item])),
+)
+
+const composerDisabled = computed(
+    () => isLoading.value || isConversationLoading.value || skillIntakeLocked.value,
+)
+
+const composerPlaceholder = computed(() =>
+    skillIntakeLocked.value
+        ? '请先完成上方 Skill 信息收集，完成后可继续对话'
+        : '请输入您的问题... Enter发送消息 / Shift+Enter换行',
+)
+
+function findWizardIntakeForPicker(skillId = null) {
+  for (let i = messages.value.length - 1; i >= 0; i -= 1) {
+    const intake = messages.value[i].skill_intake
+    if (!intake?.skill_id) continue
+    if (skillId != null && String(intake.skill_id) !== String(skillId)) continue
+    const phase = intake.phase || 'collecting'
+    if (['collecting', 'confirming', 'submitted'].includes(phase)) {
+      return messages.value[i]
+    }
+  }
+  return null
+}
+
+function resolveWizardSkillIdFromSkillIds(skillIds = []) {
+  let fallbackId = null
+  for (const id of skillIds) {
+    const meta = skillItems.value.find((s) => String(s.id) === String(id))
+    if (!meta) {
+      if (!fallbackId) fallbackId = id
+      continue
+    }
+    const mode = (meta.interaction_mode || 'chat').toLowerCase()
+    if (['wizard', 'async_job'].includes(mode)) {
+      return meta.id
+    }
+  }
+  return fallbackId
+}
+
+function findActiveCollectingIntake(skillId = null) {
+  return messages.value.find((msg) => {
+    const intake = msg.skill_intake
+    if (!intake?.skill_id) return false
+    if (skillId != null && String(intake.skill_id) !== String(skillId)) return false
+    const phase = intake.phase || 'collecting'
+    return ['collecting', 'confirming'].includes(phase)
+  })
+}
+
+function resolveWizardSkillPickerId(skillId) {
+  if (skillId == null) return null
+  const match = skillItems.value.find((s) => String(s.id) === String(skillId))
+  return match ? match.id : skillId
+}
+
+function setWizardSkillSelection(skillId) {
+  const next = skillId != null ? [resolveWizardSkillPickerId(skillId)] : []
+  const current = selectedWizardSkillTrigger.value
+  if (
+    current.length === next.length
+    && (current.length === 0 || String(current[0]) === String(next[0]))
+  ) {
+    return
+  }
+  syncingWizardSkillSelection.value = true
+  selectedWizardSkillTrigger.value = next
+  nextTick(() => {
+    syncingWizardSkillSelection.value = false
+  })
+}
+
+function applyConversationBindings(detail) {
+  if (detail.knowledge_base_ids != null) {
+    selectedKBs.value = detail.knowledge_base_ids
+  }
+  if (detail.model_config_id) {
+    selectedModelConfig.value = detail.model_config_id
+  }
+  if (detail.mcp_ids != null) {
+    selectedMcps.value = detail.mcp_ids
+  }
+  enableDeepThinking.value = Boolean(detail.enable_thinking)
+  const skillIds = detail.skill_ids || []
+  lastConversationSkillIds.value = skillIds
+  const chatSkillIds = []
+  skillIds.forEach((id) => {
+    const meta = skillItems.value.find((s) => String(s.id) === String(id))
+    if (!meta) return
+    const mode = (meta.interaction_mode || 'chat').toLowerCase()
+    if (mode === 'chat') {
+      chatSkillIds.push(meta.id)
+    }
+  })
+  selectedSkills.value = chatSkillIds
+  const wizardSkillId = resolveWizardSkillIdFromSkillIds(skillIds)
+  if (wizardSkillId) {
+    setWizardSkillSelection(wizardSkillId)
+  }
+}
+
+function buildBindingPayload() {
+  const wizardSkillIds = selectedWizardSkillTrigger.value
+  return {
+    knowledge_base_ids: [...selectedKBs.value],
+    model_config_id: selectedModelConfig.value || null,
+    skill_ids: wizardSkillIds.length ? [...wizardSkillIds] : [...selectedSkills.value],
+    mcp_ids: [...selectedMcps.value],
+    enable_thinking: showDeepThinking.value ? enableDeepThinking.value : false,
+  }
+}
+
+function schedulePersistConversationBindings() {
+  if (syncingConversationBindings.value) return
+  if (!currentConvId) return
+  clearTimeout(persistBindingsTimer)
+  persistBindingsTimer = setTimeout(() => {
+    persistConversationBindings()
+  }, 300)
+}
+
+async function persistConversationBindings() {
+  if (syncingConversationBindings.value) return
+  if (!currentConvId) return
+
+  try {
+    const detail = await api.updateConversationBindings(currentConvId, buildBindingPayload())
+    lastConversationSkillIds.value = detail.skill_ids || []
+  } catch (err) {
+    console.error('[Chat] 保存会话绑定失败:', err)
+  }
+}
+
+function syncIntakeLockFromMessages() {
+  skillIntakeLocked.value = messages.value.some(
+      (msg) => msg.skill_intake && ['collecting', 'confirming'].includes(msg.skill_intake.phase || 'collecting'),
+  )
+  syncWizardSkillSelectionFromMessages()
+}
+
+function syncWizardSkillSelectionFromMessages() {
+  const active = findWizardIntakeForPicker()
+  if (active) {
+    setWizardSkillSelection(active.skill_intake.skill_id)
+    return
+  }
+  const cancelled = messages.value.some((msg) => {
+    const phase = msg.skill_intake?.phase
+    return phase === 'cancelled' || phase === 'stale'
+  })
+  if (cancelled) {
+    setWizardSkillSelection(null)
+    return
+  }
+  const wizardSkillId = resolveWizardSkillIdFromSkillIds(lastConversationSkillIds.value)
+  if (wizardSkillId) {
+    setWizardSkillSelection(wizardSkillId)
+  }
+}
+
+function clearWizardSkillSelection() {
+  setWizardSkillSelection(null)
+}
+
+function handleWizardSkillPickerUpdate(ids) {
+  if (syncingWizardSkillSelection.value) {
+    selectedWizardSkillTrigger.value = ids
+    return
+  }
+  selectedWizardSkillTrigger.value = ids
+  if (!ids.length) return
+  const skillId = ids[0]
+  if (findActiveCollectingIntake(skillId)) return
+
+  const skill = skillItems.value.find((item) => String(item.id) === String(skillId))
+  if (skill) {
+    openSkillIntake(skill)
+  }
+}
+
 watch(selectedSkills, (skills) => {
   if (skills.length && selectedMcps.value.length) {
     selectedMcps.value = []
   }
+  schedulePersistConversationBindings()
 })
 
 watch(selectedMcps, (mcps) => {
   if (mcps.length && selectedSkills.value.length) {
     selectedSkills.value = []
   }
+  schedulePersistConversationBindings()
 })
 
-watch(selectedWizardSkillTrigger, async (ids) => {
-  if (!ids.length) return
-  const skill = skillItems.value.find((item) => item.id === ids[0])
-  selectedWizardSkillTrigger.value = []
-  if (skill) {
-    await openSkillWizard(skill)
+watch(selectedKBs, () => {
+  schedulePersistConversationBindings()
+})
+
+watch(enableDeepThinking, () => {
+  schedulePersistConversationBindings()
+})
+
+async function ensureConversationForIntake() {
+  // 仅当当前会话已加载且 ID 一致时复用；避免「新建对话」后仍绑定旧 conversationId
+  if (
+    conversationId.value
+    && currentConvId
+    && conversationId.value === currentConvId
+  ) {
+    return conversationId.value
   }
-})
+  const conv = await api.createConversation()
+  const convId = conv.id
+  currentConvId = convId
+  conversationId.value = convId
+  prependConversation(convId, conv.title || '新对话')
+  await router.replace({ path: '/ai-manage/chat', query: { conversation: convId } })
+  return convId
+}
 
-async function openSkillWizard(skill) {
+async function startSkillIntakeRequest(convId, skill, forceNew = false) {
+  return api.startSkillIntake(convId, {
+    skill_id: skill.id,
+    model_config_id: selectedModelConfig.value || null,
+    knowledge_base_ids: selectedKBs.value.length ? selectedKBs.value : null,
+    enable_thinking: showDeepThinking.value ? enableDeepThinking.value : false,
+    force_new: forceNew,
+  })
+}
+
+async function openSkillIntake(skill) {
   let fullSkill = skill
   if (!fullSkill.input_schema?.wizard_steps?.length) {
     try {
       fullSkill = await api.fetchSkill(skill.id)
     } catch (err) {
+      clearWizardSkillSelection()
       window.$message?.error(err?.message || '加载 Skill 配置失败')
       return
     }
   }
   if (!fullSkill.input_schema?.wizard_steps?.length) {
     window.$message?.warning('该 Skill 尚未配置向导步骤（input_schema.wizard_steps）')
+    clearWizardSkillSelection()
     return
   }
-  skillWizardSkill.value = fullSkill
-  skillWizardVisible.value = true
+
+  try {
+    const convId = await ensureConversationForIntake()
+    selectedMcps.value = []
+
+    if (findActiveCollectingIntake(skill.id)) {
+      setWizardSkillSelection(skill.id)
+      nextTick(() => scrollToBottom())
+      return
+    }
+
+    const otherDraft = await api.fetchActiveSkillDraft(convId)
+    const draftSkillId = otherDraft?.skill_id
+    if (otherDraft?.id && draftSkillId != null && String(draftSkillId) !== String(skill.id)) {
+      window.$message?.warning('当前对话已有进行中的 Skill 收集，请先取消后再选择其他 Skill')
+      clearWizardSkillSelection()
+      return
+    }
+
+    const sameDraft = otherDraft?.id && String(draftSkillId) === String(skill.id)
+    let intakeResult = null
+    if (sameDraft) {
+      await new Promise((resolve) => {
+        window.$dialog?.warning({
+          title: '未完成收集',
+          content: `Skill「${skill.name}」有未完成的收集，是否继续？`,
+          positiveText: '继续未完成',
+          negativeText: '取消并新建',
+          onPositiveClick: async () => {
+            intakeResult = await startSkillIntakeRequest(convId, fullSkill, false)
+            resolve()
+          },
+          onNegativeClick: async () => {
+            intakeResult = await startSkillIntakeRequest(convId, fullSkill, true)
+            resolve()
+          },
+        })
+      })
+    } else {
+      intakeResult = await startSkillIntakeRequest(convId, fullSkill, false)
+    }
+
+    if (intakeResult?.title) {
+      updateConversationTitle(convId, intakeResult.title)
+    }
+
+    await loadConversation(convId)
+    syncIntakeLockFromMessages()
+    setWizardSkillSelection(fullSkill.id)
+    nextTick(() => scrollToBottom())
+  } catch (err) {
+    clearWizardSkillSelection()
+    window.$message?.error(err?.message || '无法开始 Skill 收集')
+  }
 }
 
-async function onSkillWizardCompleted(payload) {
-  skillWizardVisible.value = false
-  if (conversationId.value) {
-    await loadConversation(conversationId.value)
-    nextTick(() => scrollToBottom())
-    return
+function mapMessageFromServer(m) {
+  return {
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    prompt_tokens: m.prompt_tokens,
+    completion_tokens: m.completion_tokens,
+    reasoning_tokens: m.reasoning_tokens,
+    process_trace: m.process_trace || [],
+    skill_run_ref: m.skill_run_ref || null,
+    skill_intake: m.skill_intake || null,
   }
-  messages.value.push({
-    role: 'assistant',
-    content: payload.summary || `Skill「${payload.skillName}」已执行完成。`,
-    skill_run_ref: {
-      run_id: payload.runId,
-      skill_name: payload.skillName,
-      links: [
-        {
-          label: '查看执行记录',
-          path: `/ai-manage/skill-runs?run=${payload.runId}`,
-        },
-      ],
+}
+
+function applyUsageToMessage(msg, usage) {
+  if (!msg || !usage) return
+  if (usage.prompt_tokens != null) msg.prompt_tokens = usage.prompt_tokens
+  if (usage.completion_tokens != null) msg.completion_tokens = usage.completion_tokens
+  if (usage.reasoning_tokens != null) msg.reasoning_tokens = usage.reasoning_tokens
+}
+
+async function syncMessageFromServer(messageId) {
+  if (!conversationId.value || messageId == null) return
+  const localIdx = messages.value.findIndex((m) => m.id === messageId)
+  if (localIdx < 0) return
+  try {
+    const detail = await api.fetchConversation(conversationId.value)
+    const serverMsg = (detail.messages || []).find((m) => m.id === messageId)
+    if (!serverMsg) return
+    Object.assign(messages.value[localIdx], mapMessageFromServer(serverMsg))
+  } catch (err) {
+    console.error('[Chat] 同步消息失败:', err)
+  }
+}
+
+async function syncLatestAssistantMessageFromServer(convId, fallbackIdx) {
+  try {
+    const detail = await api.fetchConversation(convId)
+    const assistants = (detail.messages || []).filter((m) => m.role === 'assistant')
+    const latest = assistants[assistants.length - 1]
+    if (!latest) return
+    let idx = messages.value.findIndex((m) => m.id === latest.id)
+    if (idx < 0) idx = fallbackIdx
+    if (idx < 0 || !messages.value[idx]) return
+    Object.assign(messages.value[idx], mapMessageFromServer(latest))
+  } catch (err) {
+    console.error('[Chat] 同步助手消息失败:', err)
+  }
+}
+
+async function ensureExecutionMessage(payload) {
+  let execIndex = payload.executionMessageId
+      ? messages.value.findIndex((m) => m.id === payload.executionMessageId)
+      : findExecutionMessageIndex(payload.runId)
+  if (execIndex >= 0) return execIndex
+
+  if (payload.executionMessageId) {
+    messages.value.push({
+      id: payload.executionMessageId,
+      role: 'assistant',
+      content: payload.isAsync ? '异步任务已提交，正在后台执行…' : '任务执行中…',
+      process_trace: [],
+      skill_run_ref: { run_id: payload.runId },
+      skill_intake: null,
+    })
+    return messages.value.length - 1
+  }
+
+  if (!conversationId.value) return -1
+  try {
+    const detail = await api.fetchConversation(conversationId.value)
+    const exec = (detail.messages || []).find(
+        (m) => m.skill_run_ref?.run_id === payload.runId && !m.skill_intake,
+    )
+    if (exec) {
+      messages.value.push(mapMessageFromServer(exec))
+      return messages.value.length - 1
+    }
+  } catch (err) {
+    console.error('[Chat] 加载执行消息失败:', err)
+  }
+  return -1
+}
+
+function handleIntakeUpdate(messageIndex, intake) {
+  if (!messages.value[messageIndex]) return
+  messages.value[messageIndex].skill_intake = intake
+  syncIntakeLockFromMessages()
+}
+
+function findExecutionMessageIndex(runId) {
+  return messages.value.findIndex(
+      (msg) => msg.skill_run_ref?.run_id === runId && !msg.skill_intake,
+  )
+}
+
+function updateSkillProcessTrace(trace, step) {
+  if (!step) return trace || []
+  const next = [...(trace || [])]
+  const idx = next.findIndex((item) => item.type === 'skill' && item.name === step.name)
+  if (idx >= 0) next[idx] = step
+  else next.push(step)
+  return next
+}
+
+function attachSkillRunStream(runId, messageIndex) {
+  if (skillRunStreamController) {
+    skillRunStreamController.abort()
+    skillRunStreamController = null
+  }
+  if (messageIndex < 0 || !messages.value[messageIndex]) return
+
+  skillRunStreamController = skillRunStream(runId, {
+    onProcess(data) {
+      const msg = messages.value[messageIndex]
+      if (!msg) return
+      msg.process_trace = data?.process_trace
+          ? data.process_trace
+          : updateSkillProcessTrace(msg.process_trace, data?.step)
+    },
+    onToken(token) {
+      const msg = messages.value[messageIndex]
+      if (!msg) return
+      if (msg.content === '任务执行中…') msg.content = ''
+      msg.content = (msg.content || '') + token
+    },
+    onDone(data) {
+      const msg = messages.value[messageIndex]
+      if (!msg) return
+      if (data.content) msg.content = data.content
+      if (data.process_trace) msg.process_trace = data.process_trace
+      applyUsageToMessage(msg, data.usage)
+      msg.skill_run_ref = {
+        ...(msg.skill_run_ref || {}),
+        run_id: runId,
+        links: [{ label: '查看执行记录', path: `/ai-manage/skill-runs?run=${runId}` }],
+      }
+      skillRunStreamController = null
+      if (msg.id) {
+        syncMessageFromServer(msg.id)
+      }
+      nextTick(() => scrollToBottom())
+    },
+    onError(err) {
+      window.$message?.error(err?.message || 'Skill 执行失败')
+      skillRunStreamController = null
     },
   })
+}
+
+function startSkillRunPolling(runId, messageIndex) {
+  if (skillRunPollTimers.has(runId)) {
+    clearInterval(skillRunPollTimers.get(runId))
+  }
+  const timer = setInterval(async () => {
+    try {
+      const run = await api.fetchSkillRun(runId)
+      const msg = messages.value[messageIndex]
+      if (!msg) return
+      if (run.status === 'completed') {
+        clearInterval(timer)
+        skillRunPollTimers.delete(runId)
+        msg.content = run.error_message || `Skill「${run.skill_name || '任务'}」已执行完成。`
+        msg.skill_run_ref = {
+          ...(msg.skill_run_ref || {}),
+          run_id: runId,
+          skill_name: run.skill_name,
+          links: [{ label: '查看执行记录', path: `/ai-manage/skill-runs?run=${runId}` }],
+        }
+        if (msg.id) {
+          await syncMessageFromServer(msg.id)
+        }
+        nextTick(() => scrollToBottom())
+      } else if (run.status === 'failed' || run.status === 'cancelled') {
+        clearInterval(timer)
+        skillRunPollTimers.delete(runId)
+        window.$message?.error(run.error_message || `任务${run.status}`)
+      }
+    } catch {
+      // ignore transient errors
+    }
+  }, 2500)
+  skillRunPollTimers.set(runId, timer)
+}
+
+async function handleIntakeStarted(intakeMessageIndex, payload) {
+  syncIntakeLockFromMessages()
+  const execIndex = await ensureExecutionMessage(payload)
+  if (execIndex < 0) return
+
+  if (payload.isAsync) {
+    startSkillRunPolling(payload.runId, execIndex)
+  } else {
+    attachSkillRunStream(payload.runId, execIndex)
+  }
   nextTick(() => scrollToBottom())
+}
+
+function handleIntakeLockChange(locked) {
+  if (locked) {
+    skillIntakeLocked.value = true
+    return
+  }
+  syncIntakeLockFromMessages()
+}
+
+function handleIntakeCancelled() {
+  clearWizardSkillSelection()
+  syncIntakeLockFromMessages()
 }
 
 // 从URL获取对话ID
@@ -250,10 +711,21 @@ function prependConversation(id, title) {
   const existingIdx = conversations.value.findIndex((c) => c.id === id)
   if (existingIdx >= 0) {
     const [conv] = conversations.value.splice(existingIdx, 1)
+    if (title) conv.title = title
     conversations.value.unshift(conv)
     return
   }
   conversations.value.unshift({ id, title: title || '新对话' })
+}
+
+function updateConversationTitle(id, title) {
+  if (!id || !title) return
+  const conv = conversations.value.find((c) => c.id === id)
+  if (conv) {
+    conv.title = title
+    return
+  }
+  prependConversation(id, title)
 }
 
 function bumpConversationToTop(id) {
@@ -324,12 +796,21 @@ onUnmounted(() => {
   if (messagesContainer.value) {
     messagesContainer.value.removeEventListener('scroll', onMessagesScroll)
   }
+  if (skillRunStreamController) {
+    skillRunStreamController.abort()
+    skillRunStreamController = null
+  }
+  skillRunPollTimers.forEach((timer) => clearInterval(timer))
+  skillRunPollTimers.clear()
+  clearTimeout(persistBindingsTimer)
 })
 
 watch(selectedModelConfig, () => {
+  if (syncingConversationBindings.value) return
   if (!showDeepThinking.value) {
     enableDeepThinking.value = false
   }
+  schedulePersistConversationBindings()
 })
 
 watch(messages, () => {
@@ -346,6 +827,12 @@ async function switchToConversation(newId) {
     streamController.abort()
     streamController = null
   }
+  if (skillRunStreamController) {
+    skillRunStreamController.abort()
+    skillRunStreamController = null
+  }
+  skillRunPollTimers.forEach((timer) => clearInterval(timer))
+  skillRunPollTimers.clear()
   isLoading.value = false
   conversationId.value = targetId
 
@@ -354,9 +841,13 @@ async function switchToConversation(newId) {
   } else {
     currentConvId = null
     messages.value = []
+    lastConversationSkillIds.value = []
+    skillIntakeLocked.value = false
+    clearWizardSkillSelection()
     selectedKBs.value = []
     selectedSkills.value = []
     selectedMcps.value = []
+    enableDeepThinking.value = false
     activeTurnIndex.value = 0
     // 恢复默认模型配置
     if (modelConfigs.value.length > 0) {
@@ -391,27 +882,14 @@ async function loadConversation(id) {
     if (seq !== loadConversationSeq) return
 
     currentConvId = targetId
-    messages.value = detail.messages.map(m => ({
-      role: m.role,
-      content: m.content,
-      prompt_tokens: m.prompt_tokens,
-      completion_tokens: m.completion_tokens,
-      reasoning_tokens: m.reasoning_tokens,
-      process_trace: m.process_trace || [],
-      skill_run_ref: m.skill_run_ref || null,
-    }))
-    if (detail.knowledge_base_ids != null) {
-      selectedKBs.value = detail.knowledge_base_ids
+    if (detail.title) {
+      updateConversationTitle(targetId, detail.title)
     }
-    if (detail.skill_ids != null) {
-      selectedSkills.value = detail.skill_ids
-    }
-    if (detail.mcp_ids != null) {
-      selectedMcps.value = detail.mcp_ids
-    }
-    if (detail.model_config_id) {
-      selectedModelConfig.value = detail.model_config_id
-    }
+    messages.value = detail.messages.map(mapMessageFromServer)
+    syncingConversationBindings.value = true
+    applyConversationBindings(detail)
+    syncIntakeLockFromMessages()
+    syncingConversationBindings.value = false
   } catch (err) {
     if (seq !== loadConversationSeq) return
     console.error('[Chat] 加载对话失败:', err)
@@ -436,10 +914,9 @@ async function selectConversation(id) {
 }
 
 async function startNewChat() {
+  await switchToConversation(null)
   if (normalizeConversationId(route.query.conversation)) {
     await router.replace({ path: '/ai-manage/chat' })
-  } else {
-    await switchToConversation(null)
   }
 }
 
@@ -646,14 +1123,13 @@ async function sendMessage() {
             finishRunningStep(messages.value[assistantIdx].process_trace, 'reasoning')
           }
           if (data?.usage) {
-            messages.value[assistantIdx].prompt_tokens = data.usage.prompt_tokens
-            messages.value[assistantIdx].completion_tokens = data.usage.completion_tokens
-            messages.value[assistantIdx].reasoning_tokens = data.usage.reasoning_tokens
+            applyUsageToMessage(messages.value[assistantIdx], data.usage)
           }
           isLoading.value = false
           streamController = null
           if (currentConvId) {
             bumpConversationToTop(currentConvId)
+            syncLatestAssistantMessageFromServer(currentConvId, assistantIdx)
           }
         },
         onError() {
@@ -801,12 +1277,22 @@ function handleKeydown(e) {
                     <MessageBubble
                         :role="msg.role"
                         :content="msg.content"
+                        :message-id="msg.id"
+                        :conversation-id="conversationId"
+                        :skill-intake="msg.skill_intake || null"
+                        :skill-catalog="skillCatalog"
+                        :model-config-id="selectedModelConfig"
+                        :knowledge-base-ids="selectedKBs"
                         :process-trace="msg.process_trace || []"
                         :skill-run-ref="msg.skill_run_ref || null"
-                        :is-streaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant'"
+                        :is-streaming="isLoading && idx === messages.length - 1 && msg.role === 'assistant' && !msg.skill_intake"
                         :prompt-tokens="msg.prompt_tokens"
                         :completion-tokens="msg.completion_tokens"
                         :reasoning-tokens="msg.reasoning_tokens"
+                        @intake-update="(intake) => handleIntakeUpdate(idx, intake)"
+                        @intake-lock-change="handleIntakeLockChange"
+                        @intake-started="(payload) => handleIntakeStarted(idx, payload)"
+                        @intake-cancelled="() => handleIntakeCancelled()"
                     />
                   </div>
                 </template>
@@ -833,9 +1319,9 @@ function handleKeydown(e) {
                       ref="inputRef"
                       v-model="inputText"
                       class="input-textarea"
-                      placeholder="请输入您的问题... Enter发送消息 / Shift+Enter换行"
+                      :placeholder="composerPlaceholder"
                       rows="3"
-                      :disabled="isLoading || isConversationLoading"
+                      :disabled="composerDisabled"
                       @keydown="handleKeydown"
                   />
                   <div class="input-box-actions">
@@ -861,8 +1347,9 @@ function handleKeydown(e) {
                           allow-empty
                       />
                       <ChatFeaturePicker
-                          v-model="selectedWizardSkillTrigger"
+                          :model-value="selectedWizardSkillTrigger"
                           single
+                          close-on-select
                           icon="hugeicons:workflow-square-01"
                           title="Skill 任务"
                           search-placeholder="搜索向导 / 异步 Skill..."
@@ -870,6 +1357,7 @@ function handleKeydown(e) {
                           no-match-text="未找到匹配的 Skill 任务"
                           :items="wizardSkillPickerItems"
                           allow-empty
+                          @update:model-value="handleWizardSkillPickerUpdate"
                       />
                       <ChatFeaturePicker
                           v-model="selectedMcps"
@@ -879,6 +1367,7 @@ function handleKeydown(e) {
                           empty-text="暂无可用 MCP 服务"
                           no-match-text="未找到匹配的 MCP 服务"
                           :items="mcpPickerItems"
+                          :disabled="mcpPickerDisabled"
                           allow-empty
                       />
                       <ChatDeepThinkingToggle
@@ -891,12 +1380,12 @@ function handleKeydown(e) {
                           v-if="showModelSelector"
                           v-model="selectedModelConfig"
                           :items="modelPickerItems"
-                          :disabled="isLoading || isConversationLoading"
+                          :disabled="composerDisabled"
                       />
                       <button
                           class="send-btn"
                           type="button"
-                          :disabled="!inputText.trim() || isLoading || isConversationLoading"
+                          :disabled="!inputText.trim() || composerDisabled"
                           @click="sendMessage()"
                       >
                         <TheIcon icon="material-symbols:send-rounded" :size="18" color="#fff" />
@@ -912,15 +1401,6 @@ function handleKeydown(e) {
       </CommonPage>
     </NLayoutContent>
   </NLayout>
-
-  <SkillWizardModal
-      v-model:show="skillWizardVisible"
-      :skill="skillWizardSkill"
-      :conversation-id="conversationId"
-      :model-config-id="selectedModelConfig"
-      :knowledge-base-ids="selectedKBs"
-      @completed="onSkillWizardCompleted"
-  />
 </template>
 
 <style scoped>

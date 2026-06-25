@@ -49,6 +49,7 @@ async def persist_skill_run_conversation_message(
     """Run 结束且绑定了 conversation_id 时，写入助手消息（含 skill_run_ref）。"""
     if not run.conversation_id:
         return
+    from backend.enums.chat_session_enum import ChatMessageRole
     from backend.applications.conversation.services.conversation_crud import (
         ConversationCrud,
     )
@@ -65,15 +66,42 @@ async def persist_skill_run_conversation_message(
         else:
             text = f"Skill「{skill.name}」任务已执行完成。"
 
-    await crud.save_assistant_message(
-        run.conversation_id,
-        text,
-        prompt_tokens=(usage_data or {}).get("prompt_tokens"),
-        completion_tokens=(usage_data or {}).get("completion_tokens"),
-        reasoning_tokens=(usage_data or {}).get("reasoning_tokens"),
-        process_trace=process_trace,
-        skill_run_ref=build_skill_run_ref(run, skill),
-    )
+    skill_run_ref = build_skill_run_ref(run, skill)
+    exec_msg = await crud.message.find_execution_message(run.conversation_id, run.id)
+    if not exec_msg:
+        intake_msg = await crud.message.find_intake_message(run.conversation_id, run.id)
+        if intake_msg:
+            intake = dict(intake_msg.skill_intake or {})
+            if intake.get("phase") not in ("submitted", "cancelled"):
+                steps = (skill.input_schema or {}).get("wizard_steps") or []
+                intake["phase"] = "submitted"
+                if steps:
+                    intake["step_index"] = len(steps) - 1
+                intake.pop("run_summary", None)
+                intake.pop("process_trace", None)
+                intake_msg.skill_intake = intake
+                await intake_msg.save()
+        exec_msg = await crud.message.add_message(
+            run.conversation_id,
+            ChatMessageRole.ASSISTANT,
+            text,
+            prompt_tokens=(usage_data or {}).get("prompt_tokens"),
+            completion_tokens=(usage_data or {}).get("completion_tokens"),
+            reasoning_tokens=(usage_data or {}).get("reasoning_tokens"),
+            process_trace=process_trace,
+            skill_run_ref=skill_run_ref,
+        )
+        return
+
+    exec_msg.content = text
+    exec_msg.skill_run_ref = skill_run_ref
+    if process_trace:
+        exec_msg.process_trace = process_trace
+    if usage_data:
+        exec_msg.prompt_tokens = usage_data.get("prompt_tokens")
+        exec_msg.completion_tokens = usage_data.get("completion_tokens")
+        exec_msg.reasoning_tokens = usage_data.get("reasoning_tokens")
+    await exec_msg.save()
 
 
 async def _resolve_model_config(model_config_id: Optional[str]) -> Optional[ModelConfig]:

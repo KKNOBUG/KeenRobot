@@ -8,7 +8,7 @@
 """
 import json
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Optional, List
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -88,7 +88,10 @@ class ConversationOut(BaseModel):
     )
     model_config_id: Optional[str] = Field(default=None, description="模型配置ID")
     skill_ids: Optional[List[str]] = Field(default=None, description="关联技能ID列表")
-    mcp_ids: Optional[List[str]] = Field(default=None, description="关联MCP服务ID列表")
+    mcp_ids: Optional[List[str]] = Field(
+        default=None, description="关联MCP服务ID列表"
+    )
+    enable_thinking: bool = Field(default=False, description="是否开启深度思考模式")
     created_time: datetime = Field(..., description="创建时间")
     updated_time: datetime = Field(..., description="更新时间")
 
@@ -127,6 +130,10 @@ class MessageBase(BaseModel):
     skill_run_ref: Optional[dict] = Field(
         default=None,
         description="Skill Run 引用(执行记录链接等)",
+    )
+    skill_intake: Optional[dict] = Field(
+        default=None,
+        description="Skill 对话内收集面板状态",
     )
 
 
@@ -218,6 +225,10 @@ class MessageOut(BaseModel):
         default=None,
         description="Skill Run 引用(执行记录链接等)",
     )
+    skill_intake: Optional[dict] = Field(
+        default=None,
+        description="Skill 对话内收集面板状态",
+    )
     created_time: datetime = Field(..., description="创建时间")
 
     model_config = ConfigDict(from_attributes=True)
@@ -240,3 +251,55 @@ class ChatRequest(BaseModel):
         description="关联MCP服务ID列表；传 [] 表示清空绑定，不传则沿用会话已存值",
     )
     enable_thinking: bool = Field(default=False, description="是否开启深度思考模式")
+
+
+class ConversationBindingsUpdate(BaseModel):
+    knowledge_base_ids: Optional[List[str]] = Field(
+        default=None,
+        description="关联知识库 ID 列表；传 [] 表示清空",
+    )
+    model_config_id: Optional[str] = Field(default=None, description="模型配置 ID")
+    skill_ids: Optional[List[str]] = Field(
+        default=None,
+        description="关联技能 ID 列表；传 [] 表示清空",
+    )
+    mcp_ids: Optional[List[str]] = Field(
+        default=None,
+        description="关联 MCP 服务 ID 列表；传 [] 表示清空",
+    )
+    enable_thinking: Optional[bool] = Field(
+        default=None,
+        description="是否开启深度思考模式",
+    )
+
+
+class SkillIntakeStart(BaseModel):
+    skill_id: str = Field(..., description="Skill ID")
+    model_config_id: Optional[str] = Field(default=None, description="模型配置 ID")
+    knowledge_base_ids: Optional[List[str]] = Field(default=None, description="知识库 ID 列表")
+    enable_thinking: bool = Field(default=False, description="是否开启深度思考模式")
+    force_new: bool = Field(default=False, description="取消已有 draft 并新建")
+
+
+class SkillIntakeUpdate(BaseModel):
+    phase: Optional[str] = Field(
+        default=None,
+        description="collecting/confirming/submitted/running/async/done/cancelled/stale",
+    )
+    step_index: Optional[int] = Field(default=None, ge=0, description="当前步骤索引")
+    form_values: Optional[dict[str, Any]] = Field(default=None, description="表单缓存(文本/选项/确认)")
+    file_labels: Optional[dict[str, Any]] = Field(default=None, description="已选文件展示名")
+    missing_fields: Optional[List[dict]] = Field(default=None, description="校验缺失项")
+    run_summary: Optional[str] = Field(default=None, description="执行摘要/流式内容")
+    process_trace: Optional[List[dict]] = Field(default=None, description="过程追踪")
+    content: Optional[str] = Field(default=None, description="消息正文(完成后)")
+    skill_run_ref: Optional[dict] = Field(default=None, description="完成后 Run 引用")
+
+
+class SkillIntakeStartResult(BaseModel):
+    conversation_id: str
+    message_id: int
+    run_id: str
+    skill_intake: dict
+    resumed: bool = False
+    title: Optional[str] = Field(default=None, description="对话标题")

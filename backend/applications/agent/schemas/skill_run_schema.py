@@ -74,6 +74,9 @@ class SkillRunStartResult(BaseModel):
     status: str
     mode: str = Field(description="wizard 或 async_job")
     async_execution: bool = False
+    execution_message_id: Optional[int] = Field(
+        default=None, description="独立模型执行回复消息 ID"
+    )
 
 
 class SkillRunRetryResult(BaseModel):
@@ -93,3 +96,15 @@ class SkillRunCleanupResult(BaseModel):
     deleted: int = 0
     dry_run: bool = False
     retention_days: int = 30
+
+
+class SkillStaleDraftCleanupQuery(BaseModel):
+    days: Optional[int] = Field(default=None, ge=1, le=365, description="未 start 超过天数")
+    dry_run: bool = Field(default=False, description="仅预览不删除")
+
+
+class SkillStaleDraftCleanupResult(BaseModel):
+    scanned: int = 0
+    deleted: int = 0
+    dry_run: bool = False
+    stale_days: int = 1

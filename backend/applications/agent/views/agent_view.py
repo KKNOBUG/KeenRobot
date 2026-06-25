@@ -7,7 +7,16 @@ import traceback
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 
-from backend.applications.agent.dependencies import get_mcp_server_crud, get_skill_crud
+from backend.applications.agent.dependencies import (
+    get_mcp_server_crud,
+    get_skill_crud,
+    get_skill_run_crud,
+)
+from backend.applications.agent.schemas.skill_run_schema import (
+    SkillStaleDraftCleanupQuery,
+    SkillStaleDraftCleanupResult,
+)
+from backend.applications.agent.services.skill_run_crud import SkillRunCrud
 from backend.applications.agent.schemas.agent_schema import (
     McpServerCreate,
     McpServerOut,
@@ -46,6 +55,30 @@ async def list_skills(
     except Exception as e:
         LOGGER.error(f"查询技能列表失败: {e}\n{traceback.format_exc()}")
         return FailureResponse(message=f"查询失败: {e}")
+
+
+@skills.post("/cleanup-stale-drafts", summary="Agent-清理长期未 start 的 draft Run")
+async def cleanup_stale_skill_drafts(
+        data: SkillStaleDraftCleanupQuery,
+        current_user: User = DependAuth,
+        run_crud: SkillRunCrud = Depends(get_skill_run_crud),
+):
+    try:
+        result = await run_crud.cleanup_stale_drafts(
+            current_user,
+            days=data.days,
+            dry_run=data.dry_run,
+        )
+        out = SkillStaleDraftCleanupResult.model_validate(result)
+        msg = (
+            f"预览：{out.scanned} 条可清理（超过 {out.stale_days} 天未开始）"
+            if out.dry_run
+            else f"已清理 {out.deleted} 条无效记录（扫描 {out.scanned} 条）"
+        )
+        return SuccessResponse(data=out.model_dump(), message=msg)
+    except Exception as e:
+        LOGGER.error(f"清理无效 draft Run 失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"清理失败: {e}")
 
 
 @skills.post("/sync", summary="Agent-同步磁盘 Skill")

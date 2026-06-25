@@ -31,6 +31,7 @@ from backend.core.exceptions import NotFoundException, ParameterException
 
 class SkillRunCrud(ScaffoldCrud):
     TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
+    DRAFT_STATUSES = frozenset({"pending", "validated"})
     RUN_MODES = frozenset({"wizard", "async_job"})
 
     def __init__(self):
@@ -111,8 +112,27 @@ class SkillRunCrud(ScaffoldCrud):
         )
 
         workspace = WorkspaceService(run)
-        workspace.init_workspace(skill_version=skill.skill_version or "")
+        workspace.init_draft_workspace(skill_version=skill.skill_version or "")
         return run
+
+    async def get_active_draft(
+            self,
+            user: User,
+            conversation_id: str,
+            *,
+            skill_id: Optional[str] = None,
+    ) -> Optional[SkillRun]:
+        if not conversation_id:
+            return None
+        qs = self.model.filter(
+            user_id=user.id,
+            state__not=1,
+            conversation_id=conversation_id,
+            status__in=list(self.DRAFT_STATUSES),
+        )
+        if skill_id:
+            qs = qs.filter(skill_id=skill_id)
+        return await qs.order_by("-created_time").first()
 
     async def list_runs(
             self,
@@ -123,12 +143,15 @@ class SkillRunCrud(ScaffoldCrud):
             skill_id: Optional[str] = None,
             status: Optional[str] = None,
             conversation_id: Optional[str] = None,
+            include_drafts: bool = False,
     ) -> Tuple[int, List[SkillRun]]:
         qs = self.model.filter(user_id=user.id, state__not=1)
         if skill_id:
             qs = qs.filter(skill_id=skill_id)
         if status:
             qs = qs.filter(status=status)
+        elif not include_drafts:
+            qs = qs.exclude(status__in=list(self.DRAFT_STATUSES))
         if conversation_id:
             qs = qs.filter(conversation_id=conversation_id)
         total = await qs.count()
@@ -241,11 +264,17 @@ class SkillRunCrud(ScaffoldCrud):
             labels = ", ".join(m.get("label") or m.get("key") or "?" for m in missing[:3])
             raise ParameterException(message=f"输入校验未通过：{labels}")
 
+        skill = await self._get_skill(run)
+        workspace = WorkspaceService(run)
+        snapshot_version = workspace.ensure_skill_snapshot(skill.skill_key)
+        run.skill_version = snapshot_version
+        await run.save()
+
         mode = (run.interaction_mode or "wizard").lower()
         if mode == "async_job":
             run.status = "running"
             await run.save()
-            WorkspaceService(run).update_meta_status("running")
+            workspace.update_meta_status("running")
             from backend.celery_scheduler.tasks.task_run_skill import (
                 execute_skill_run_async,
             )
@@ -266,6 +295,10 @@ class SkillRunCrud(ScaffoldCrud):
             run.status = "cancelled"
             await run.save()
             WorkspaceService(run).update_meta_status("cancelled")
+        elif run.status in self.DRAFT_STATUSES:
+            run.status = "cancelled"
+            await run.save()
+            WorkspaceService(run).remove_workspace()
         return run
 
     async def retry_run(self, run_id: str, user: User) -> tuple[SkillRun, bool]:
@@ -291,7 +324,7 @@ class SkillRunCrud(ScaffoldCrud):
         )
 
         new_ws = WorkspaceService(new_run)
-        new_ws.init_workspace(skill_version=skill.skill_version or "")
+        new_ws.init_draft_workspace(skill_version=skill.skill_version or "")
         old_ws = WorkspaceService(old_run)
         new_ws.copy_inputs_from(old_ws, skill.input_schema)
 
@@ -343,6 +376,49 @@ class SkillRunCrud(ScaffoldCrud):
             "deleted": deleted,
             "dry_run": False,
             "retention_days": retention_days,
+        }
+
+    async def cleanup_stale_drafts(
+            self,
+            user: User,
+            *,
+            days: Optional[int] = None,
+            dry_run: bool = False,
+    ) -> dict:
+        """清理超过 N 天仍未 start 的 draft Run（pending/validated）。"""
+        stale_days = days or PROJECT_CONFIG.SKILL_DRAFT_STALE_DAYS
+        cutoff = datetime.now(timezone.utc) - timedelta(days=stale_days)
+        qs = self.model.filter(
+            user_id=user.id,
+            state__not=1,
+            status__in=list(self.DRAFT_STATUSES),
+            created_time__lt=cutoff,
+        )
+        runs = await qs.all()
+        scanned = len(runs)
+        if dry_run:
+            return {
+                "scanned": scanned,
+                "deleted": 0,
+                "dry_run": True,
+                "stale_days": stale_days,
+            }
+
+        deleted = 0
+        for run in runs:
+            if SkillRunEventHub.is_running(run.id):
+                continue
+            WorkspaceService(run).remove_workspace()
+            run.status = "cancelled"
+            await run.save()
+            await self.soft_delete(run.id)
+            deleted += 1
+
+        return {
+            "scanned": scanned,
+            "deleted": deleted,
+            "dry_run": False,
+            "stale_days": stale_days,
         }
 
     def run_to_out(self, run: SkillRun, skill: Optional[Skill] = None) -> dict:

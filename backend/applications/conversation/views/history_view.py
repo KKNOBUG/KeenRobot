@@ -14,15 +14,34 @@ from backend.applications.conversation.dependencies import get_conversation_crud
 from backend.applications.conversation.schemas.conversation_schema import (
     ConversationDetail,
     ConversationOut,
+    ConversationBindingsUpdate,
+    SkillIntakeStart,
+    SkillIntakeStartResult,
+    SkillIntakeUpdate,
+    MessageOut,
 )
 from backend.applications.conversation.services.conversation_crud import ConversationCrud
 from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
-from backend.core.exceptions import NotFoundException
+from backend.core.exceptions import NotFoundException, ParameterException
 from backend.core.responses import SuccessResponse, FailureResponse, NotFoundResponse
 from backend.services import DependAuth
 
 history = APIRouter()
+
+
+@history.post("/", summary="对话历史-创建新对话")
+async def create_conversation(
+        current_user: User = DependAuth,
+        conversation_crud: ConversationCrud = Depends(get_conversation_crud),
+):
+    try:
+        conv = await conversation_crud.create_for_user(current_user.id)
+        data = ConversationOut.model_validate(conv).model_dump()
+        return SuccessResponse(data=data)
+    except Exception as e:
+        LOGGER.error(f"创建对话失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"创建失败: {e}")
 
 
 @history.get("/", summary="对话历史-查询对话列表")
@@ -59,6 +78,82 @@ async def get_conversation(
     except Exception as e:
         LOGGER.error(f"查询对话详情失败: {e}\n{traceback.format_exc()}")
         return FailureResponse(message=f"查询失败: {e}")
+
+
+@history.put("/{conversation_id}/bindings", summary="对话-同步会话绑定")
+async def sync_conversation_bindings(
+        conversation_id: str,
+        data: ConversationBindingsUpdate,
+        current_user: User = DependAuth,
+        conversation_crud: ConversationCrud = Depends(get_conversation_crud),
+):
+    try:
+        conv = await conversation_crud.sync_conversation_bindings(
+            current_user,
+            conversation_id,
+            data,
+        )
+        out = ConversationOut.model_validate(conv).model_dump()
+        return SuccessResponse(data=out, message="会话绑定已更新")
+    except (NotFoundException, ParameterException) as e:
+        return FailureResponse(message=e.message)
+    except Exception as e:
+        LOGGER.error(f"同步会话绑定失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"更新失败: {e}")
+
+
+@history.post("/{conversation_id}/skill-intake/start", summary="对话-Skill 收集开始")
+async def start_skill_intake(
+        conversation_id: str,
+        data: SkillIntakeStart,
+        current_user: User = DependAuth,
+        conversation_crud: ConversationCrud = Depends(get_conversation_crud),
+):
+    try:
+        result = await conversation_crud.start_skill_intake(
+            current_user,
+            conversation_id,
+            data.skill_id,
+            model_config_id=data.model_config_id,
+            knowledge_base_ids=data.knowledge_base_ids,
+            enable_thinking=data.enable_thinking,
+            force_new=data.force_new,
+        )
+        out = SkillIntakeStartResult.model_validate(result)
+        msg = "已恢复未完成的 Skill 收集" if out.resumed else "Skill 收集已开始"
+        return SuccessResponse(data=out.model_dump(), message=msg)
+    except (NotFoundException, ParameterException) as e:
+        return FailureResponse(message=e.message)
+    except Exception as e:
+        LOGGER.error(f"开始 Skill 收集失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"开始失败: {e}")
+
+
+@history.put(
+    "/{conversation_id}/messages/{message_id}/skill-intake",
+    summary="对话-更新 Skill 收集面板状态",
+)
+async def update_skill_intake_message(
+        conversation_id: str,
+        message_id: int,
+        data: SkillIntakeUpdate,
+        current_user: User = DependAuth,
+        conversation_crud: ConversationCrud = Depends(get_conversation_crud),
+):
+    try:
+        message = await conversation_crud.update_skill_intake_message(
+            current_user,
+            conversation_id,
+            message_id,
+            data,
+        )
+        out = MessageOut.model_validate(message)
+        return SuccessResponse(data=out.model_dump())
+    except NotFoundException as e:
+        return NotFoundResponse(message=e.message)
+    except Exception as e:
+        LOGGER.error(f"更新 Skill 收集状态失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"更新失败: {e}")
 
 
 @history.delete("/{conversation_id}", summary="对话历史-按id删除对话")

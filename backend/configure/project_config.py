@@ -103,6 +103,10 @@ class ProjectConfig(BaseSettings):
         default=30,
         description="终态 Skill Run 工作区保留天数（cleanup 默认）",
     )
+    SKILL_DRAFT_STALE_DAYS: int = Field(
+        default=1,
+        description="未 start 的 draft Run 超过该天数可由管理员清理",
+    )
     SKILL_ZIP_MAX_BYTES: int = Field(
         default=50 * 1024 * 1024,
         description="Skill zip 包最大体积（字节）",

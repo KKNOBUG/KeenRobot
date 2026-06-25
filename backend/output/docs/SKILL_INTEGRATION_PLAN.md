@@ -1,7 +1,7 @@
 # Skill 集成方案
 
-> 状态：**设计稿 / 待实施**  
-> 更新：2026-06-22（**集成配置改 DB 维护，不使用 `skill.manifest.json`**）  
+> 状态：**Phase 0–7 已实施**  
+> 更新：2026-06-22（Phase 7 对话内收集流 + draft 清理 API）  
 > 关联：`PROJECT_GUIDE.md`、`backend/workspace/.claude/skills/`、`process_step_schema.py`
 
 ---
@@ -24,7 +24,7 @@
 |----|------|----------|-----------|
 | **知识层** | 组织资料 grounding | Microsoft Copilot Knowledge + RAG | ✅ `rag_stream` + 知识库 |
 | **连接层** | 外部系统/API | OpenAI Actions；Anthropic **MCP** | ✅ `mcp_agent_stream` |
-| **流程层** | 领域 SOP、文件任务 | Anthropic **Agent Skills**；钉钉 DEAP 技能中心 | ⏳ 待实现 |
+| **流程层** | 领域 SOP、文件任务 | Anthropic **Agent Skills**；钉钉 DEAP 技能中心 | ✅ Skill Agent + Run（Phase 7 对话内收集待做） |
 
 **KeenRobot 兼容原则**：
 
@@ -292,6 +292,7 @@ backend/workspace/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/skills/sync` | 磁盘内容元数据 → DB |
+| POST | `/skills/cleanup-stale-drafts` | 清理超过 N 天未 start 的 draft Run（默认 1 天） |
 | GET | `/skills/{id}/preview` | SKILL.md + 目录树 |
 | PUT | `/skills/{id}` | 更新 `interaction_mode`、`input_schema`、`execution`、`is_enabled` |
 | POST | `/skill-runs` | 创建 run |
@@ -312,11 +313,11 @@ backend/workspace/
 
 | 页面 | 改造 |
 |------|------|
-| Skills 管理 | sync / 预览 / 启用；**编辑集成配置**（mode + Wizard 步骤表单或 JSON） |
-| 聊天 | Skill 单选；`mode≠chat` → SkillWizard |
-| SkillWizard | 读 DB `input_schema`（API 返回 Skill 详情） |
-| 执行记录 | 列表 + 详情 + 产物 |
-| 聊天气泡 | `skill_run_ref.links` |
+| Skills 管理 | sync / 预览 / 启用；**编辑集成配置**；**清理无效 draft**（`POST /skills/cleanup-stale-drafts`） |
+| 聊天 | Skill 单选；`mode≠chat` → **对话内 Skill Intake**（Phase 7，替换 SkillWizardModal） |
+| ~~SkillWizardModal~~ | Phase 7 起 **移除**，由消息流内收集面板替代 |
+| 执行记录 | 列表 + 详情 + 产物；**未 start 的 draft 默认不可见** |
+| 聊天气泡 | `skill_run_ref.links`；`skill_intake` 收集面板消息 |
 
 ---
 
@@ -324,31 +325,46 @@ backend/workspace/
 
 ### Phase 0 — Spike
 
-- [ ] `skill_agent_stream` 最小链路（SKILL 快照 + Read + DeepSeek）  
-- [ ] 在 DB 为 1 个测试 Skill 手工配 `interaction_mode` + `input_schema` 验证 Wizard 契约  
+- [x] `skill_agent_stream` 最小链路（SKILL 快照 + Read + DeepSeek）  
+- [x] 在 DB 为测试 Skill 手工配 `interaction_mode` + `input_schema` 验证 Wizard 契约  
 
 ### Phase 1 — Registry + DB + 管理页
 
-- [ ] DB 迁移；`SkillRegistry` + `POST /skills/sync`  
-- [ ] `PUT /skills/{id}` 集成配置；启用门禁校验  
-- [ ] `GET /skills/{id}/preview`  
-- [ ] Skills 管理页：sync / 预览 / **集成配置编辑** / 启用  
+- [x] DB 迁移；`SkillRegistry` + `POST /skills/sync`  
+- [x] `PUT /skills/{id}` 集成配置；启用门禁校验  
+- [x] `GET /skills/{id}/preview`  
+- [x] Skills 管理页：sync / 预览 / **集成配置编辑** / 启用  
 
 ### Phase 2 — Run + Workspace
 
-- [ ] `SkillRun`、`WorkspaceService`、validate / upload API  
+- [x] `SkillRun`、`WorkspaceService`、validate / upload API  
 
 ### Phase 3 — Skill Agent + 调度
 
-- [ ] `skill_agent_stream`；Celery / run SSE；`stream_response` 路由  
+- [x] `skill_agent_stream`；Celery / run SSE；`stream_response` 路由  
 
 ### Phase 4 — 前端闭环
 
-- [ ] SkillWizard + 执行记录 + `skill_run_ref`  
+- [x] SkillWizard + 执行记录 + `skill_run_ref`（Wizard 将在 Phase 7 由对话内 Intake 替换）  
 
 ### Phase 5 — 加固
 
-- [ ] 取消、重试、runs 清理；zip 上传 Skill；Skill 内嵌 MCP（终态）  
+- [x] 取消、重试、runs 清理；zip 上传 Skill  
+- [x] Skill 内嵌 MCP（`execution.mcp_ids`）  
+
+### Phase 6 — 测试前补齐
+
+- [x] `skill_run_ref` 持久化；执行记录 SSE；Celery Beat 终态清理  
+
+### Phase 7 — 对话内 Skill Intake（待实施）
+
+- [x] 聊天页 wizard/async：**结构化收集面板**（替换 SkillWizardModal）  
+- [x] 收集期 **主输入框禁用**；schema 驱动 text/file/choice/confirm  
+- [x] **单条可更新** assistant 消息承载面板；完成后折叠只读摘要  
+- [x] draft Run：`start` 时再 `.skill_snapshot/`；未 start 不进执行记录  
+- [x] 同一对话最多一个收集中 Run；同 Skill 再选 →「继续未完成 / 取消并新建」  
+- [x] `start` 后恢复主输入框；**wizard 进度嵌在聊天气泡内（SSE）**  
+- [x] Skills 管理页「清理无效记录」（`SKILL_DRAFT_STALE_DAYS` 默认 1 天）  
 
 ---
 
@@ -366,10 +382,87 @@ backend/workspace/
 | 长任务 | Celery；不占 chat SSE |
 | conversation_id | 从聊天发起时必填 |
 | 权限 | 与 MCP per-user 隔离 |
+| Phase 7 收集 UI | **对话框内结构化面板**；不用 LLM 代替表单；**替换** SkillWizardModal |
+| Phase 7 收集期聊天 | **禁止闲聊**；主输入框全程禁用 |
+| Phase 7 draft | 未 start **不进执行记录**；找草稿 = 回到对应对话；**无用户侧空闲超时** |
+| Phase 7 快照 | **start 时**复制 `.skill_snapshot/`；收集期仅 `input/` + schema |
+| Phase 7 同 Skill 再选 | 提示「继续未完成 / 取消并新建」 |
+| Phase 7 start 后 | **立即恢复**主输入框；wizard/async 执行进度仍可通过 SSE / 执行记录查看 |
+| draft 管理员清理 | Skills 管理页「清理无效记录」；默认 **1 天**未 start（`SKILL_DRAFT_STALE_DAYS`） |
 
 ---
 
-## 16. 代码接点
+## 17. Phase 7 — 对话内 Skill Intake（详细设计）
+
+### 17.1 目标
+
+wizard / async_job 的前置数据收集 **在聊天消息流内** 完成：schema 驱动、可校验、可恢复；**不**用 LLM 多轮问答代替表单；**替换**现有 `SkillWizardModal`。
+
+### 17.2 会话状态机
+
+```
+idle → collecting → confirming → running → idle
+         ↑ cancel ──┘              ↑ 终态 / skill_run_ref
+```
+
+| 状态 | 主输入框 | API |
+|------|----------|-----|
+| idle | 可用 | `/chat/stream` 等 |
+| collecting / confirming | **禁用** | `skill-runs` create/files/inputs/validate |
+| running（已 start） | **恢复可用** | run SSE / Celery + 执行记录 |
+
+### 17.3 收集面板：「单条可更新消息」
+
+**含义（用户侧）**：
+
+- 选中 wizard/async Skill 后，消息区出现 **一条** 系统/助手消息，内含 **Skill 收集面板**（步骤条 + 当前步表单）。
+- 用户点「下一步 / 上传 / 选选项」时，**同一条消息的内容原地更新**（步骤 1→2→3），**不会**每步新增一条聊天消息刷屏。
+- 全部填完 → 同一条消息变为 **摘要确认** 区；确认并 start 后 → 该消息 **折叠为只读摘要**（仍留在历史中，可回看填了什么）。
+- 对比「每步一条消息」：历史里会有 4～5 条重复感很强的系统消息；单条更新更整洁，面板像「钉在对话里的一块表单」。
+
+**持久化**：
+
+- 消息 payload 含 `skill_intake`（`run_id`、`skill_id`、`step_index`、`phase` 等）。
+- **Run 为事实来源**：`input_data`、已上传文件、validate 结果；刷新/重进对话 **100% 恢复**到上次步骤。
+
+### 17.4 与 Run / 工作区
+
+| 时机 | 工作区内容 |
+|------|------------|
+| 选 Skill → create draft | `input/` + `meta.json`（**不**复制 snapshot） |
+| 用户取消 | `cancelled` + 删 workspace；执行记录不可见 |
+| 用户 confirm → start | **此时** `copy_skill_snapshot`；进入执行态 |
+| Skill 收集期间磁盘更新 | **以 start 时刻** Skill 版本为准 |
+
+### 17.5 约束
+
+- 同一对话 **同时最多一个** 收集中 Run；再选其他 Skill → 提示先取消或换对话。
+- 同一对话 **再次选同一 Skill** →「继续未完成 / 取消并新建」。
+- wizard / async_job **共用**收集 UI；start 后 wizard 走 SSE，async_job 走 Celery + 执行记录。
+- 未 start 的 draft：**不进**执行记录默认列表。
+
+### 17.6 draft 清理（管理员）
+
+- 配置：`SKILL_DRAFT_STALE_DAYS`（默认 **1**）。
+- API：`POST /skills/cleanup-stale-drafts`（`dry_run` 可预览）。
+- UI：Skills 管理页「同步磁盘 Skill」右侧 **「清理无效记录」**。
+- 对象：`pending` / `validated` 且 `created_time` 超过 N 天、从未 start 的 Run。
+- **不**做用户侧自动超时；用户搁置草稿由会话保留，仅管理员主动清理。
+
+### 17.7 待实现代码接点
+
+| 路径 | 改动 |
+|------|------|
+| `frontend/src/views/chat/index.vue` | Intake 状态机；禁用 composer；移除 Modal 入口 |
+| `frontend/src/components/MessageBubble.vue` | 渲染 `skill_intake` 面板 |
+| `frontend/src/components/skill/SkillIntakePanel.vue` | 新建：schema 步骤 UI |
+| `backend/.../workspace_service.py` | `init_workspace` 拆分：draft 不 snapshot；start 时 snapshot |
+| `backend/.../conversation` | 消息类型 `skill_intake`；持久化 payload |
+| `backend/.../skill_run_crud.py` | `list_draft_by_conversation`；start 时快照 |
+
+---
+
+## 16. 代码接点（Phase 0–6）
 
 | 路径 | 改动 |
 |------|------|
@@ -384,4 +477,4 @@ backend/workspace/
 
 ---
 
-*实施顺序：Phase 0 → 1 → 2 → 3 → 4；前后端以 **DB `input_schema` + Run 模型** 为对齐基准。*
+*实施顺序：Phase 0–6 已完成；下一步 Phase 7（对话内 Intake）。对齐基准：**DB `input_schema` + Run 模型 + 消息 `skill_intake` payload**。*

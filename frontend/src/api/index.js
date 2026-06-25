@@ -4,7 +4,11 @@ import { handleUnauthorized, isUnauthorizedCode } from '@/utils/http/auth'
 const API_BASE = import.meta.env.VITE_BASE_API || '/api'
 
 function payload(res) {
-  return res?.data ?? res
+  // 后端 SuccessResponse(data=null) 时 res.data 为 null；不能用 ??，否则会误返回整包响应
+  if (res != null && typeof res === 'object' && Object.prototype.hasOwnProperty.call(res, 'data')) {
+    return res.data
+  }
+  return res
 }
 
 function parseErrorDetail(detail) {
@@ -60,7 +64,19 @@ export default {
   deleteAuditLogBatch: (data = {}) => request.post('/base/audit/delete', data),
 
   fetchConversations: () => request.get('/conversations/').then(payload),
+  createConversation: () => request.post('/conversations/').then(payload),
   fetchConversation: (id) => request.get(`/conversations/${id}`).then(payload),
+  updateConversationBindings: (conversationId, data) =>
+    request.put(`/conversations/${conversationId}/bindings`, data).then(payload),
+  startSkillIntake: (conversationId, data) =>
+    request.post(`/conversations/${conversationId}/skill-intake/start`, data).then(payload),
+  updateSkillIntakeMessage: (conversationId, messageId, data) =>
+    request.put(`/conversations/${conversationId}/messages/${messageId}/skill-intake`, data).then(payload),
+  fetchActiveSkillDraft: (conversationId, skillId = null) => {
+    const params = { conversation_id: conversationId }
+    if (skillId) params.skill_id = skillId
+    return request.get('/skill-runs/active-draft', { params }).then(payload)
+  },
   deleteConversation: (id) => request.delete(`/conversations/${id}`).then(payload),
 
   fetchKnowledgeBases: (search = '') =>
@@ -84,6 +100,8 @@ export default {
     return request.get(qs ? `/skills/?${qs}` : '/skills/').then(payload)
   },
   syncSkills: () => request.post('/skills/sync').then(payload),
+  cleanupStaleSkillDrafts: (data = {}) =>
+    request.post('/skills/cleanup-stale-drafts', data).then(payload),
   uploadSkillZip: (file, { skillKey, overwrite } = {}) => {
     const form = new FormData()
     form.append('file', file)
