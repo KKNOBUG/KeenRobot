@@ -158,6 +158,13 @@ export default {
   deleteMcpServer: (id) => request.delete(`/mcp-servers/${id}`).then(payload),
   fetchMcpServer: (id) => request.get(`/mcp-servers/${id}`).then(payload),
   refreshMcpTools: (id) => request.post(`/mcp-servers/${id}/tools/refresh`).then(payload),
+  syncMcpServer: (id) => request.post(`/mcp-servers/${id}/sync`).then(payload),
+  diagnoseMcpServer: (id) => request.post(`/mcp-servers/${id}/diagnose`).then(payload),
+  searchMcpAuditLogs: (body) =>
+    request.post('/mcp-servers/audit/search', body).then((res) => ({
+      items: payload(res) || [],
+      total: res?.total ?? 0,
+    })),
 
   fetchModelConfigs: () => request.get('/model-configs/').then(payload),
   createModelConfig: (data) => request.post('/model-configs/', data).then(payload),

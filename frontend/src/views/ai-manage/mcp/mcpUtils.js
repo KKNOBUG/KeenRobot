@@ -79,11 +79,16 @@ export function emptyForm() {
     service_url: '',
     config_text: '',
     tools: [],
+    resources: [],
+    prompts: [],
+    instructions: '',
   }
 }
 
 export function rowToForm(row = {}) {
   const config = row.config || {}
+  const stdio = config.stdio || {}
+  const stdioSource = stdio.command ? stdio : config
   return {
     id: row.id || null,
     name: row.name || '',
@@ -93,19 +98,22 @@ export function rowToForm(row = {}) {
     icon: config.icon || '',
     category: config.category || '开发工具',
     service_url: config.url || config.endpoint || config.service_url || '',
-    config_text: config.command
+    config_text: stdioSource.command
       ? JSON.stringify(
           {
-            command: config.command,
-            args: config.args || [],
-            env: config.env || undefined,
-            cwd: config.cwd || undefined,
+            command: stdioSource.command,
+            args: stdioSource.args || [],
+            env: stdioSource.env || undefined,
+            cwd: stdioSource.cwd || undefined,
           },
           null,
           2,
         )
       : '',
     tools: Array.isArray(config.tools) ? config.tools : [],
+    resources: Array.isArray(config.resources) ? config.resources : [],
+    prompts: Array.isArray(config.prompts) ? config.prompts : [],
+    instructions: config.instructions || '',
   }
 }
 
@@ -115,11 +123,14 @@ export function formToPayload(form) {
     category: form.category || undefined,
     tools: form.tools || [],
   }
+  if (form.instructions) config.instructions = form.instructions
+  if (form.resources?.length) config.resources = form.resources
+  if (form.prompts?.length) config.prompts = form.prompts
 
   if (form.transport === 'stdio') {
     const trimmed = (form.config_text || '').trim()
     if (trimmed) {
-      Object.assign(config, JSON.parse(trimmed))
+      config.stdio = JSON.parse(trimmed)
     }
   } else {
     config.url = (form.service_url || '').trim() || undefined

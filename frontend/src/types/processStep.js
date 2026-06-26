@@ -10,6 +10,7 @@ export const STEP_STATUS = {
   RUNNING: 'running',
   DONE: 'done',
   ERROR: 'error',
+  CANCELLED: 'cancelled',
 }
 
 export const STEP_TYPE_LABELS = {
@@ -49,7 +50,7 @@ export function isStepVisible(step) {
   if (step.status === STEP_STATUS.RUNNING) return true
   if (step.type === STEP_TYPES.REASONING) return !!step.content
   if (step.type === STEP_TYPES.SKILL) return !!(step.output || step.input || step.name)
-  if (step.type === STEP_TYPES.MCP) return !!(step.result || step.arguments || step.tool)
+  if (step.type === STEP_TYPES.MCP) return !!(step.result || step.arguments || step.tool || step.logs?.length)
   return !!(step.content || step.title)
 }
 

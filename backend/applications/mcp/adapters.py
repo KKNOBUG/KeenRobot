@@ -33,12 +33,9 @@ def normalize_tools(raw_tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def tools_to_cache(tools: List[Tool]) -> List[Dict[str, Any]]:
-    cached = []
-    for tool in tools or []:
-        row = normalize_tools([tool.model_dump(by_alias=True, exclude_none=True)])
-        if row:
-            cached.append(row[0])
-    return cached
+    return normalize_tools(
+        [tool.model_dump(by_alias=True, exclude_none=True) for tool in tools or []]
+    )
 
 
 def build_openai_tool_specs(
@@ -77,6 +74,61 @@ def build_openai_tool_specs(
                 }
             )
     return openai_tools, registry
+
+
+def build_mcp_metadata_block(mcp_servers: List[Any]) -> str:
+    """将 sync 缓存的 instructions / prompts / resources 元信息格式化为 system 补充段。"""
+    sections: list[str] = []
+    for server in mcp_servers:
+        config = server.config or {}
+        instructions = (config.get("instructions") or "").strip()
+        prompts = config.get("prompts") or []
+        resources = config.get("resources") or []
+        if not instructions and not prompts and not resources:
+            continue
+
+        lines = [f"### MCP 服务：{server.name}"]
+        if instructions:
+            lines.append(f"服务说明：{instructions}")
+        if prompts:
+            lines.append("可用 Prompts：")
+            for item in prompts:
+                name = item.get("name") or "未命名"
+                desc = (item.get("description") or "").strip()
+                lines.append(f"- {name}" + (f"：{desc}" if desc else ""))
+        if resources:
+            lines.append("可用 Resources：")
+            for item in resources:
+                uri = item.get("uri") or item.get("name") or "未命名"
+                desc = (item.get("description") or item.get("name") or "").strip()
+                lines.append(f"- {uri}" + (f"：{desc}" if desc else ""))
+        sections.append("\n".join(lines))
+
+    if not sections:
+        return ""
+    return (
+        "以下为已绑定 MCP 服务的 Prompts / Resources 元信息（供参考，"
+        "需要时可结合工具使用）：\n\n" + "\n\n".join(sections)
+    )
+
+
+def format_resource_contents(contents: Any) -> str:
+    """FastMCP read_resource 返回 -> 可注入 LLM 的文本。"""
+    if contents is None:
+        return ""
+    if isinstance(contents, str):
+        return contents
+    if not isinstance(contents, (list, tuple)):
+        return str(contents)
+
+    texts: list[str] = []
+    for block in contents:
+        text = getattr(block, "text", None)
+        if text:
+            texts.append(text)
+        elif getattr(block, "blob", None) is not None:
+            texts.append("[binary resource omitted]")
+    return "\n".join(part for part in texts if part)
 
 
 def format_tool_result(contents: Any) -> str:

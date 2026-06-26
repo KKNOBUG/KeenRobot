@@ -34,6 +34,7 @@ function stepKey(step, index) {
 function stepStatusText(step) {
   if (step.status === STEP_STATUS.RUNNING) return '进行中'
   if (step.status === STEP_STATUS.ERROR) return '失败'
+  if (step.status === STEP_STATUS.CANCELLED) return '已取消'
   return '已完成'
 }
 
@@ -126,12 +127,16 @@ watch(
             <span class="chat-process-block-label">参数</span>
             <pre class="chat-process-step-content">{{ formatJsonBlock(step.arguments) }}</pre>
           </div>
+          <div v-if="step.logs?.length" class="chat-process-block">
+            <span class="chat-process-block-label">进度</span>
+            <pre class="chat-process-step-content">{{ step.logs.join('\n') }}</pre>
+          </div>
           <div v-if="step.result" class="chat-process-block">
             <span class="chat-process-block-label">结果</span>
             <pre class="chat-process-step-content">{{ step.result }}</pre>
           </div>
           <p
-              v-if="step.status === STEP_STATUS.RUNNING && !step.result"
+              v-if="step.status === STEP_STATUS.RUNNING && !step.result && !step.logs?.length"
               class="chat-process-step-placeholder"
           >
             工具调用中…

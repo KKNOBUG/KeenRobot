@@ -3,6 +3,7 @@
 @Project : KeenRobot
 @Module  : agent_crud.py
 """
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import UploadFile
@@ -25,6 +26,12 @@ from backend.applications.agent.services.skill_validation import (
     validate_skill_enable,
 )
 from backend.applications.base.services.scaffold import ScaffoldCrud
+from backend.applications.mcp.client_factory import (
+    diagnose_connection,
+    list_remote_tools,
+    normalize_mcp_config,
+    sync_remote_server,
+)
 from backend.applications.user.models.user_model import User
 from backend.core.exceptions import NotFoundException, ParameterException
 
@@ -235,12 +242,22 @@ class McpServerCrud(ScaffoldCrud):
         await mcp.save()
 
     async def refresh_tools(self, mcp_id: str, user: User) -> McpServer:
-        from backend.applications.mcp.client_factory import list_remote_tools
-
         mcp = await self.get_mcp_server(mcp_id, user)
-        tools = await list_remote_tools(mcp.transport, mcp.config)
-        config = dict(mcp.config or {})
-        config["tools"] = tools
+        config = normalize_mcp_config(mcp.config)
+        config["tools"] = await list_remote_tools(mcp.transport, config)
+        config["cached_at"] = datetime.now(timezone.utc).isoformat()
         mcp.config = config
         await mcp.save()
         return mcp
+
+    async def sync_server(self, mcp_id: str, user: User) -> McpServer:
+        mcp = await self.get_mcp_server(mcp_id, user)
+        config = normalize_mcp_config(mcp.config)
+        config.update(await sync_remote_server(mcp.transport, config))
+        mcp.config = config
+        await mcp.save()
+        return mcp
+
+    async def diagnose_server(self, mcp_id: str, user: User) -> dict:
+        mcp = await self.get_mcp_server(mcp_id, user)
+        return await diagnose_connection(mcp.transport, normalize_mcp_config(mcp.config))

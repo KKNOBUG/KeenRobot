@@ -5,13 +5,9 @@
 """
 import traceback
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
 
-from backend.applications.agent.dependencies import (
-    get_mcp_server_crud,
-    get_skill_crud,
-    get_skill_run_crud,
-)
+from backend.applications.agent.dependencies import get_mcp_audit_crud, get_mcp_server_crud, get_skill_crud, get_skill_run_crud
 from backend.applications.agent.schemas.skill_run_schema import (
     SkillStaleDraftCleanupQuery,
     SkillStaleDraftCleanupResult,
@@ -28,7 +24,9 @@ from backend.applications.agent.schemas.agent_schema import (
     SkillUpdate,
     SkillUploadResult,
 )
+from backend.applications.agent.schemas.mcp_audit_schema import McpAuditLogOut, McpAuditLogSelect
 from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
+from backend.applications.agent.services.mcp_audit_crud import McpAuditCrud
 from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER
 from backend.core.exceptions import NotFoundException, ParameterException
@@ -312,3 +310,67 @@ async def refresh_mcp_server_tools(
     except Exception as e:
         LOGGER.error(f"刷新MCP工具列表失败: {e}\n{traceback.format_exc()}")
         return FailureResponse(message=f"刷新失败: {e}")
+
+
+@mcp_servers.post("/{mcp_id}/sync", summary="Agent-同步MCP服务")
+async def sync_mcp_server(
+        mcp_id: str,
+        current_user: User = DependAuth,
+        mcp_crud: McpServerCrud = Depends(get_mcp_server_crud),
+):
+    try:
+        instance = await mcp_crud.sync_server(mcp_id, current_user)
+        config = instance.config or {}
+        tools = config.get("tools") or []
+        return SuccessResponse(
+            data={
+                "tools": tools,
+                "resources": config.get("resources") or [],
+                "prompts": config.get("prompts") or [],
+                "instructions": config.get("instructions") or "",
+                "capabilities": config.get("capabilities") or {},
+                "cached_at": config.get("cached_at"),
+                "total": len(tools),
+            },
+            total=len(tools),
+        )
+    except NotFoundException as e:
+        return NotFoundResponse(message=e.message)
+    except ValueError as e:
+        return FailureResponse(message=str(e))
+    except Exception as e:
+        LOGGER.error(f"同步MCP服务失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"同步失败: {e}")
+
+
+@mcp_servers.post("/{mcp_id}/diagnose", summary="Agent-诊断MCP连接")
+async def diagnose_mcp_server(
+        mcp_id: str,
+        current_user: User = DependAuth,
+        mcp_crud: McpServerCrud = Depends(get_mcp_server_crud),
+):
+    try:
+        result = await mcp_crud.diagnose_server(mcp_id, current_user)
+        if result.get("ok"):
+            return SuccessResponse(data=result)
+        return FailureResponse(message=result.get("error") or "连接诊断失败", data=result)
+    except NotFoundException as e:
+        return NotFoundResponse(message=e.message)
+    except Exception as e:
+        LOGGER.error(f"MCP连接诊断失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"诊断失败: {e}")
+
+
+@mcp_servers.post("/audit/search", summary="Agent-MCP调用审计列表")
+async def search_mcp_audit_logs(
+        query: McpAuditLogSelect = Body(...),
+        current_user: User = DependAuth,
+        audit_crud: McpAuditCrud = Depends(get_mcp_audit_crud),
+):
+    try:
+        total, rows = await audit_crud.list_logs(current_user, query)
+        data = [McpAuditLogOut.model_validate(row).model_dump() for row in rows]
+        return SuccessResponse(data=data, total=total)
+    except Exception as e:
+        LOGGER.error(f"查询 MCP 审计失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"查询失败: {e}")

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
+from backend.applications.agent.services.mcp_audit_crud import McpAuditCrud
 from backend.applications.agent.services.skill_run_crud import SkillRunCrud
 
 
@@ -13,3 +14,7 @@ async def get_mcp_server_crud() -> McpServerCrud:
 
 async def get_skill_run_crud() -> SkillRunCrud:
     return SkillRunCrud()
+
+
+async def get_mcp_audit_crud() -> McpAuditCrud:
+    return McpAuditCrud()

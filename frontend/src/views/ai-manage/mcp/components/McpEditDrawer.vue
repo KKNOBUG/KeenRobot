@@ -38,6 +38,9 @@ const emit = defineEmits(['update:show', 'saved'])
 const formRef = ref(null)
 const saving = ref(false)
 const refreshing = ref(false)
+const syncing = ref(false)
+const diagnosing = ref(false)
+const diagnoseResult = ref(null)
 const form = ref(emptyForm())
 const expandedTools = ref(new Set())
 
@@ -50,6 +53,7 @@ watch(
   () => {
     if (!props.show) {
       expandedTools.value = new Set()
+      diagnoseResult.value = null
       return
     }
     expandedTools.value = new Set()
@@ -95,6 +99,58 @@ async function handleRefreshTools() {
     window.$message?.error(err?.message || '刷新工具列表失败')
   } finally {
     refreshing.value = false
+  }
+}
+
+async function handleSyncServer() {
+  if (!form.value.id) {
+    window.$message?.warning('请先保存服务后再同步')
+    return
+  }
+  syncing.value = true
+  try {
+    const res = await api.syncMcpServer(form.value.id)
+    form.value.tools = res?.tools || []
+    form.value.resources = res?.resources || []
+    form.value.prompts = res?.prompts || []
+    form.value.instructions = res?.instructions || ''
+    expandedTools.value = new Set()
+    const resourceCount = (res?.resources || []).length
+    const promptCount = (res?.prompts || []).length
+    window.$message?.success(
+      `已同步 ${form.value.tools.length} 个工具` +
+        (resourceCount ? `、${resourceCount} 个资源` : '') +
+        (promptCount ? `、${promptCount} 个 prompt` : ''),
+    )
+  } catch (err) {
+    window.$message?.error(err?.message || '同步失败')
+  } finally {
+    syncing.value = false
+  }
+}
+
+async function handleDiagnose() {
+  if (!form.value.id) {
+    window.$message?.warning('请先保存服务后再诊断连接')
+    return
+  }
+  diagnosing.value = true
+  diagnoseResult.value = null
+  try {
+    const res = await api.diagnoseMcpServer(form.value.id)
+    diagnoseResult.value = res
+    if (res?.ok) {
+      const serverName = res?.server_info?.name || form.value.name
+      window.$message?.success(
+        `连接正常：${serverName}，${res.tool_count || 0} 工具 / ${res.resource_count || 0} 资源`,
+      )
+    } else {
+      window.$message?.error(res?.error || '连接诊断失败')
+    }
+  } catch (err) {
+    window.$message?.error(err?.message || '连接诊断失败')
+  } finally {
+    diagnosing.value = false
   }
 }
 
@@ -217,6 +273,29 @@ function validateStdioConfig(_rule, value) {
                       placeholder='{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}'
                   />
                 </NFormItem>
+
+                <div v-if="form.id" class="mcp-edit__diagnose-row">
+                  <NButton secondary :loading="diagnosing" @click="handleDiagnose">
+                    <template #icon>
+                      <component :is="renderIcon('material-symbols:network-check', { size: 16 })" />
+                    </template>
+                    连接诊断
+                  </NButton>
+                  <div
+                      v-if="diagnoseResult"
+                      class="mcp-edit__diagnose-result"
+                      :class="{ 'is-error': !diagnoseResult.ok }"
+                  >
+                    <template v-if="diagnoseResult.ok">
+                      工具 {{ diagnoseResult.tool_count || 0 }} ·
+                      资源 {{ diagnoseResult.resource_count || 0 }} ·
+                      Prompt {{ diagnoseResult.prompt_count || 0 }}
+                    </template>
+                    <template v-else>
+                      {{ diagnoseResult.error || '连接失败' }}
+                    </template>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -247,12 +326,20 @@ function validateStdioConfig(_rule, value) {
                 </div>
                 <div class="mcp-edit__tools-sub">{{ toolCountText }}</div>
               </div>
-              <NButton secondary :loading="refreshing" :disabled="!form.id" @click="handleRefreshTools">
-                <template #icon>
-                  <component :is="renderIcon('material-symbols:refresh', { size: 16 })" />
-                </template>
-                刷新
-              </NButton>
+              <NSpace>
+                <NButton secondary :loading="refreshing" :disabled="!form.id" @click="handleRefreshTools">
+                  <template #icon>
+                    <component :is="renderIcon('material-symbols:refresh', { size: 16 })" />
+                  </template>
+                  刷新工具
+                </NButton>
+                <NButton secondary :loading="syncing" :disabled="!form.id" @click="handleSyncServer">
+                  <template #icon>
+                    <component :is="renderIcon('material-symbols:sync', { size: 16 })" />
+                  </template>
+                  完整同步
+                </NButton>
+              </NSpace>
             </div>
 
             <NSpin :show="refreshing" class="mcp-edit__tools-spin">
@@ -332,6 +419,34 @@ function validateStdioConfig(_rule, value) {
                 <div class="mcp-edit__tool-empty-desc">保存服务后可刷新工具列表</div>
               </div>
             </NSpin>
+          </section>
+
+          <section
+              v-if="form.instructions || form.resources?.length || form.prompts?.length"
+              class="mcp-edit__section mcp-edit__section--meta"
+          >
+            <div class="mcp-edit__section-head mcp-edit__section-head--other">
+              <TheIcon icon="material-symbols:library-books-outline" :size="18" />
+              <span>Prompts / Resources</span>
+            </div>
+            <div class="mcp-edit__section-body mcp-edit__meta-body">
+              <div v-if="form.instructions" class="mcp-edit__meta-block">
+                <div class="mcp-edit__meta-label">服务说明</div>
+                <div class="mcp-edit__meta-text">{{ form.instructions }}</div>
+              </div>
+              <div v-if="form.prompts?.length" class="mcp-edit__meta-block">
+                <div class="mcp-edit__meta-label">Prompts（{{ form.prompts.length }}）</div>
+                <div v-for="item in form.prompts" :key="item.name" class="mcp-edit__meta-item">
+                  {{ item.name }}<span v-if="item.description"> — {{ item.description }}</span>
+                </div>
+              </div>
+              <div v-if="form.resources?.length" class="mcp-edit__meta-block">
+                <div class="mcp-edit__meta-label">Resources（{{ form.resources.length }}）</div>
+                <div v-for="item in form.resources" :key="item.uri || item.name" class="mcp-edit__meta-item">
+                  {{ item.uri || item.name }}<span v-if="item.description"> — {{ item.description }}</span>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -441,6 +556,48 @@ function validateStdioConfig(_rule, value) {
   margin-top: 2px;
   font-size: 12px;
   color: #9ca3af;
+}
+
+.mcp-edit__diagnose-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mcp-edit__diagnose-result {
+  font-size: 13px;
+  color: #16a34a;
+}
+
+.mcp-edit__diagnose-result.is-error {
+  color: #dc2626;
+}
+
+.mcp-edit__meta-body {
+  padding-bottom: 12px;
+}
+
+.mcp-edit__meta-block + .mcp-edit__meta-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #eef0f4;
+}
+
+.mcp-edit__meta-label {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.mcp-edit__meta-text,
+.mcp-edit__meta-item {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #6b7280;
+  word-break: break-word;
 }
 
 .mcp-edit__section--tools {

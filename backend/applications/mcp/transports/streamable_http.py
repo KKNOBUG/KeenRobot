@@ -10,7 +10,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 from collections.abc import AsyncIterator
-from typing import Any, Callable, Literal, Unpack
+from typing import Any, Callable, Literal, Unpack, Dict
 
 import httpx
 from mcp import ClientSession
@@ -51,8 +51,7 @@ class ExactUrlStreamableHttpTransport(ClientTransport):
     ) -> AsyncIterator[ClientSession]:
         from mcp.client.streamable_http import streamablehttp_client
 
-        client_kwargs: dict[str, Any] = {}
-        client_kwargs["headers"] = get_http_headers() | self.headers
+        client_kwargs: Dict[str, Any] = {"headers": get_http_headers() | self.headers}
 
         if self.sse_read_timeout is not None:
             client_kwargs["sse_read_timeout"] = self.sse_read_timeout

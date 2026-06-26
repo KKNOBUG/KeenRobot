@@ -8,6 +8,7 @@ import api from '@/api'
 
 import McpCard from './components/McpCard.vue'
 import McpEditDrawer from './components/McpEditDrawer.vue'
+import McpAuditDrawer from './components/McpAuditDrawer.vue'
 
 defineOptions({ name: 'McpManage' })
 
@@ -18,6 +19,7 @@ const mcpList = ref([])
 const drawerVisible = ref(false)
 const drawerMode = ref('edit')
 const currentRecord = ref(null)
+const auditVisible = ref(false)
 
 const filteredList = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
@@ -103,6 +105,7 @@ onMounted(() => {
             <span class="i-material-symbols:search text-18 text-gray-400" />
           </template>
         </NInput>
+        <NButton secondary @click="auditVisible = true">调用审计</NButton>
         <NButton type="primary" @click="openCreate">
           <template #icon>
             <component :is="renderIcon('material-symbols:add', { size: 18 })" />
@@ -136,6 +139,7 @@ onMounted(() => {
       :record="currentRecord"
       @saved="handleSaved"
     />
+    <McpAuditDrawer v-model:show="auditVisible" />
   </CommonPage>
 </template>
 

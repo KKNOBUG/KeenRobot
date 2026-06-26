@@ -8,7 +8,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
-ProcessStepStatus = Literal["running", "done", "error"]
+ProcessStepStatus = Literal["running", "done", "error", "cancelled"]
 ProcessStepType = Literal["reasoning", "skill", "mcp"]
 
 
@@ -36,6 +36,7 @@ class McpStep(ProcessStepBase):
     tool: Optional[str] = Field(default=None, description="工具名")
     arguments: Optional[dict[str, Any]] = Field(default=None, description="工具参数")
     result: Optional[str] = Field(default=None, description="工具结果")
+    logs: Optional[list[str]] = Field(default=None, description="工具执行 progress / 服务端日志")
 
 
 ProcessStep = Union[ReasoningStep, SkillStep, McpStep]

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import traceback
 
@@ -93,6 +94,8 @@ async def chat_stream(
                         "completion_tokens": chunk.get("completion_tokens"),
                         "reasoning_tokens": chunk.get("reasoning_tokens"),
                     }
+        except asyncio.CancelledError:
+            return
         except Exception as e:
             print(f"[chat_stream] 错误: {e}")
             yield {

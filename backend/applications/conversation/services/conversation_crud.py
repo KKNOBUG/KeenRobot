@@ -14,7 +14,7 @@ from backend.applications.agent.schemas.skill_run_schema import SkillRunCreate
 from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
 from backend.applications.agent.services.skill_run_crud import SkillRunCrud
 from backend.applications.base.rag.chain import rag_stream
-from backend.applications.base.rag.mcp_agent import mcp_agent_stream
+from backend.applications.mcp.orchestrator import MCP_AGENT_SYSTEM_PROMPT, McpAgentOrchestrator
 from backend.applications.base.rag.skill_agent import skill_agent_stream
 from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.conversation.models.conversation_model import Conversation, Message
@@ -54,6 +54,8 @@ from backend.applications.model_config.services.model_config_crud import ModelCo
 from backend.applications.user.models.user_model import User
 from backend.core.exceptions import NotFoundException, ParameterException
 from backend.enums.chat_session_enum import ChatMessageRole
+
+_mcp_orchestrator = McpAgentOrchestrator()
 
 
 class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
@@ -562,13 +564,15 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             return
 
         if mcp_ids and user:
-            async for chunk in mcp_agent_stream(
+            async for chunk in _mcp_orchestrator.stream(
                     question=question,
+                    mcp_server_ids=mcp_ids,
+                    user=user,
                     knowledge_base_ids=knowledge_base_ids,
                     chat_history=chat_history,
-                    mcp_ids=mcp_ids,
-                    user=user,
                     enable_thinking=effective_thinking,
+                    mcp_system_prompt=MCP_AGENT_SYSTEM_PROMPT,
+                    conversation_id=conversation_id,
                     **llm_params,
             ):
                 yield chunk
