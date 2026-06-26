@@ -7,20 +7,18 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List
 
 from backend.applications.agent.models.agent_model import McpServer
 from backend.applications.agent.services.agent_crud import McpServerCrud
-from backend.applications.agent.services.mcp_tools import (
-    build_openai_tool_specs,
-    call_remote_tool,
-)
+from backend.applications.mcp.adapters import build_openai_tool_specs
+from backend.applications.mcp.session_manager import McpSessionManager
 from backend.applications.base.rag.chain import _resolve_system_prompt, _retrieve_context
 from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages, merge_token_usage
 from backend.applications.conversation.schemas.process_step_schema import McpStep
 from backend.applications.user.models.user_model import User
 
-MAX_MCP_TOOL_ROUNDS = 6
+MAX_MCP_TOOL_ROUNDS = 10
 
 MCP_AGENT_SYSTEM_PROMPT = """你是一个可以调用外部 MCP 工具的智能助手。
 
@@ -98,94 +96,97 @@ async def mcp_agent_stream(
     process_trace: List[dict] = []
     usage_acc = {"prompt_tokens": 0, "completion_tokens": 0, "reasoning_tokens": 0}
 
-    for _round in range(MAX_MCP_TOOL_ROUNDS):
-        completion = await llm.chat_with_tools(
-            messages=messages,
-            tools=openai_tools,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-            enable_thinking=enable_thinking,
-        )
-        merge_token_usage(usage_acc, completion.get("usage"))
+    async with McpSessionManager() as mcp_session:
+        await mcp_session.open_servers(mcp_servers)
 
-        tool_calls = completion.get("tool_calls") or []
-        if tool_calls:
-            assistant_message = {
-                "role": "assistant",
-                "content": completion.get("content") or "",
-                "tool_calls": tool_calls,
-            }
-            messages.append(assistant_message)
+        for _round in range(MAX_MCP_TOOL_ROUNDS):
+            completion = await llm.chat_with_tools(
+                messages=messages,
+                tools=openai_tools,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                enable_thinking=enable_thinking,
+            )
+            merge_token_usage(usage_acc, completion.get("usage"))
 
-            for tool_call in tool_calls:
-                func = tool_call.get("function") or {}
-                openai_name = func.get("name") or ""
-                raw_args = func.get("arguments") or "{}"
-                try:
-                    arguments = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
-                except json.JSONDecodeError:
-                    arguments = {}
-
-                server, original_tool_name = tool_registry.get(openai_name, (None, openai_name))
-                server_name = server.name if server else "MCP"
-                step = McpStep(
-                    server=server_name,
-                    tool=original_tool_name,
-                    arguments=arguments,
-                    status="running",
-                )
-                step_dict = step.model_dump()
-                process_trace.append(step_dict)
-                yield {"type": "process", "step": step_dict}
-
-                try:
-                    if not server:
-                        raise ValueError(f"未找到工具映射: {openai_name}")
-                    result_text = await call_remote_tool(
-                        server.transport,
-                        server.config,
-                        original_tool_name,
-                        arguments,
-                    )
-                    step_dict["status"] = "done"
-                    step_dict["result"] = result_text
-                except Exception as exc:
-                    step_dict["status"] = "error"
-                    step_dict["result"] = str(exc)
-
-                yield {"type": "process", "step": dict(step_dict)}
+            tool_calls = completion.get("tool_calls") or []
+            if tool_calls:
                 messages.append(
                     {
-                        "role": "tool",
-                        "tool_call_id": tool_call.get("id"),
-                        "content": step_dict.get("result") or "",
+                        "role": "assistant",
+                        "content": completion.get("content") or "",
+                        "tool_calls": tool_calls,
                     }
                 )
-            continue
 
-        final_content = (completion.get("content") or "").strip()
-        if final_content:
-            chunk_size = 8
-            for i in range(0, len(final_content), chunk_size):
-                yield {"type": "content", "content": final_content[i:i + chunk_size]}
-                await asyncio.sleep(0.01)
-        else:
-            async for chunk in llm.stream_chat(
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                    enable_thinking=enable_thinking,
-            ):
-                if chunk.get("type") == "usage":
-                    merge_token_usage(usage_acc, chunk)
-                    continue
-                yield chunk
+                for tool_call in tool_calls:
+                    func = tool_call.get("function") or {}
+                    openai_name = func.get("name") or ""
+                    raw_args = func.get("arguments") or "{}"
+                    try:
+                        arguments = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                    except json.JSONDecodeError:
+                        arguments = {}
 
-        yield {"type": "process_trace", "process_trace": process_trace}
-        if any(usage_acc.values()):
-            yield {"type": "usage", **usage_acc}
-        return
+                    server, original_tool_name = tool_registry.get(openai_name, (None, openai_name))
+                    server_name = server.name if server else "MCP"
+                    step = McpStep(
+                        server=server_name,
+                        tool=original_tool_name,
+                        arguments=arguments,
+                        status="running",
+                    )
+                    step_dict = step.model_dump()
+                    process_trace.append(step_dict)
+                    yield {"type": "process", "step": step_dict}
+
+                    try:
+                        if not server:
+                            raise ValueError(f"未找到工具映射: {openai_name}")
+                        result_text = await mcp_session.call_tool(
+                            server,
+                            original_tool_name,
+                            arguments,
+                        )
+                        step_dict["status"] = "done"
+                        step_dict["result"] = result_text
+                    except Exception as exc:
+                        step_dict["status"] = "error"
+                        step_dict["result"] = str(exc)
+
+                    yield {"type": "process", "step": dict(step_dict)}
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.get("id"),
+                            "content": step_dict.get("result") or "",
+                        }
+                    )
+                continue
+
+            final_content = (completion.get("content") or "").strip()
+            if final_content:
+                chunk_size = 8
+                for i in range(0, len(final_content), chunk_size):
+                    yield {"type": "content", "content": final_content[i:i + chunk_size]}
+                    await asyncio.sleep(0.01)
+            else:
+                async for chunk in llm.stream_chat(
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=top_p,
+                        enable_thinking=enable_thinking,
+                ):
+                    if chunk.get("type") == "usage":
+                        merge_token_usage(usage_acc, chunk)
+                        continue
+                    yield chunk
+
+            yield {"type": "process_trace", "process_trace": process_trace}
+            if any(usage_acc.values()):
+                yield {"type": "usage", **usage_acc}
+            return
 
     raise RuntimeError(f"MCP 工具调用超过最大轮次 {MAX_MCP_TOOL_ROUNDS}")

@@ -13,10 +13,8 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from backend.applications.agent.models.agent_model import Skill, SkillRun
 from backend.applications.agent.services.agent_crud import SkillCrud
-from backend.applications.agent.services.mcp_tools import (
-    build_openai_tool_specs,
-    call_remote_tool,
-)
+from backend.applications.mcp.adapters import build_openai_tool_specs
+from backend.applications.mcp.session_manager import McpSessionManager
 from backend.applications.agent.services.skill_file_tools import (
     build_skill_openai_tools,
     execute_skill_tool,
@@ -94,13 +92,13 @@ def _question_needs_skill_tools(question: str) -> bool:
 async def _load_embedded_mcp_tools(
         skill: Skill,
         user: User,
-) -> tuple[List[Any], Dict[str, tuple]]:
+) -> tuple[List[Any], Dict[str, tuple], List[Any]]:
     mcp_ids = resolve_embedded_mcp_ids(skill.execution)
     if not mcp_ids or not user:
-        return [], {}
+        return [], {}, []
     servers = await _load_mcp_servers(mcp_ids, user)
     openai_tools, registry = build_openai_tool_specs(servers)
-    return openai_tools, registry
+    return openai_tools, registry, servers
 
 
 def _merge_openai_tools(
@@ -129,6 +127,7 @@ async def _execute_agent_tool(
         arguments: Dict[str, Any],
         skill: Skill,
         mcp_registry: Dict[str, tuple],
+        mcp_session: McpSessionManager,
         output_prefix: str,
         include_write: bool,
 ) -> tuple[str, dict]:
@@ -181,9 +180,8 @@ async def _execute_agent_tool(
     try:
         if not server:
             raise ValueError(f"未找到 MCP 工具映射: {tool_name}")
-        result_text = await call_remote_tool(
-            server.transport,
-            server.config,
+        result_text = await mcp_session.call_tool(
+            server,
             original_tool_name,
             arguments,
         )
@@ -289,7 +287,7 @@ async def _skill_agent_loop(
     )
 
     openai_tools, _ = build_skill_openai_tools(include_write=include_write)
-    mcp_tools, mcp_registry = await _load_embedded_mcp_tools(skill, user) if user else ([], {})
+    mcp_tools, mcp_registry, mcp_servers = await _load_embedded_mcp_tools(skill, user) if user else ([], {}, [])
     if mcp_tools:
         openai_tools = _merge_openai_tools(openai_tools, mcp_tools)
     llm = OpenAICompatibleLLM(model=model_name, api_key=api_key, base_url=base_url)
@@ -313,84 +311,89 @@ async def _skill_agent_loop(
             yield {"type": "usage", **usage_acc}
         return
 
-    for _round in range(MAX_SKILL_TOOL_ROUNDS):
-        if run_id and SkillRunEventHub.is_cancelled(run_id):
-            yield {"type": "error", "message": "Run 已取消"}
-            return
+    async with McpSessionManager() as mcp_session:
+        if mcp_servers:
+            await mcp_session.open_servers(mcp_servers)
 
-        completion = await llm.chat_with_tools(
-            messages=messages,
-            tools=openai_tools,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-            enable_thinking=enable_thinking,
-        )
-        merge_token_usage(usage_acc, completion.get("usage"))
+        for _round in range(MAX_SKILL_TOOL_ROUNDS):
+            if run_id and SkillRunEventHub.is_cancelled(run_id):
+                yield {"type": "error", "message": "Run 已取消"}
+                return
 
-        tool_calls = completion.get("tool_calls") or []
-        if tool_calls:
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": completion.get("content") or "",
-                    "tool_calls": tool_calls,
-                }
+            completion = await llm.chat_with_tools(
+                messages=messages,
+                tools=openai_tools,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                enable_thinking=enable_thinking,
             )
-            for tool_call in tool_calls:
-                func = tool_call.get("function") or {}
-                tool_name = func.get("name") or ""
-                raw_args = func.get("arguments") or "{}"
-                try:
-                    arguments = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
-                except json.JSONDecodeError:
-                    arguments = {}
+            merge_token_usage(usage_acc, completion.get("usage"))
 
-                result_text, step_dict = await _execute_agent_tool(
-                    cwd=cwd,
-                    tool_name=tool_name,
-                    arguments=arguments,
-                    skill=skill,
-                    mcp_registry=mcp_registry,
-                    output_prefix=output_prefix,
-                    include_write=include_write,
-                )
-                process_trace.append(step_dict)
-                yield {"type": "process", "step": dict(step_dict)}
+            tool_calls = completion.get("tool_calls") or []
+            if tool_calls:
                 messages.append(
                     {
-                        "role": "tool",
-                        "tool_call_id": tool_call.get("id"),
-                        "content": result_text,
+                        "role": "assistant",
+                        "content": completion.get("content") or "",
+                        "tool_calls": tool_calls,
                     }
                 )
-            continue
+                for tool_call in tool_calls:
+                    func = tool_call.get("function") or {}
+                    tool_name = func.get("name") or ""
+                    raw_args = func.get("arguments") or "{}"
+                    try:
+                        arguments = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                    except json.JSONDecodeError:
+                        arguments = {}
 
-        final_content = (completion.get("content") or "").strip()
-        if final_content:
-            chunk_size = 8
-            for i in range(0, len(final_content), chunk_size):
-                yield {"type": "content", "content": final_content[i:i + chunk_size]}
-                await asyncio.sleep(0.01)
-        else:
-            async for chunk in llm.stream_chat(
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    top_p=top_p,
-                    enable_thinking=enable_thinking,
-            ):
-                if chunk.get("type") == "usage":
-                    merge_token_usage(usage_acc, chunk)
-                    continue
-                yield chunk
+                    result_text, step_dict = await _execute_agent_tool(
+                        cwd=cwd,
+                        tool_name=tool_name,
+                        arguments=arguments,
+                        skill=skill,
+                        mcp_registry=mcp_registry,
+                        mcp_session=mcp_session,
+                        output_prefix=output_prefix,
+                        include_write=include_write,
+                    )
+                    process_trace.append(step_dict)
+                    yield {"type": "process", "step": dict(step_dict)}
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.get("id"),
+                            "content": result_text,
+                        }
+                    )
+                continue
 
-        yield {"type": "process_trace", "process_trace": process_trace}
-        if any(usage_acc.values()):
-            yield {"type": "usage", **usage_acc}
-        return
+            final_content = (completion.get("content") or "").strip()
+            if final_content:
+                chunk_size = 8
+                for i in range(0, len(final_content), chunk_size):
+                    yield {"type": "content", "content": final_content[i:i + chunk_size]}
+                    await asyncio.sleep(0.01)
+            else:
+                async for chunk in llm.stream_chat(
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=top_p,
+                        enable_thinking=enable_thinking,
+                ):
+                    if chunk.get("type") == "usage":
+                        merge_token_usage(usage_acc, chunk)
+                        continue
+                    yield chunk
 
-    raise RuntimeError(f"Skill 工具调用超过最大轮次 {MAX_SKILL_TOOL_ROUNDS}")
+            yield {"type": "process_trace", "process_trace": process_trace}
+            if any(usage_acc.values()):
+                yield {"type": "usage", **usage_acc}
+            return
+
+        raise RuntimeError(f"Skill 工具调用超过最大轮次 {MAX_SKILL_TOOL_ROUNDS}")
 
 
 async def skill_agent_stream(

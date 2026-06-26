@@ -138,6 +138,7 @@ dependencies = [
     "celery-redbeat>=2.3.3",
     "croniter>=6.2.2",
     "redis>=8.0.0",
+    "fastmcp>=2.9.2",
 ]
 
 [[tool.uv.index]]
