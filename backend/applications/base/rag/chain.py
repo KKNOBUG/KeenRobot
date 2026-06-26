@@ -41,6 +41,18 @@ def get_irrelevant_response() -> str:
     return GREETING_RESPONSE
 
 
+async def stream_irrelevant_response() -> AsyncIterator[Dict[str, Any]]:
+    """无关问题标准回复（模拟流式输出）。"""
+    response = get_irrelevant_response()
+    await asyncio.sleep(1.5)
+    for char in response:
+        yield {"type": "content", "content": char}
+        if char in ["，", "。", "！", "？", "：", "\n"]:
+            await asyncio.sleep(0.05)
+        else:
+            await asyncio.sleep(0.02)
+
+
 def _format_source_label(result: dict) -> str:
     """格式化检索结果的来源标注"""
     filename = (result.get("filename") or "").strip()
@@ -212,80 +224,38 @@ async def rag_stream(
         score_threshold: float = 0.0,
         max_history_rounds: int = 10,
         enable_thinking: bool = False,
+        user=None,
+        conversation_id: str = None,
 ) -> AsyncIterator[Dict[str, Any]]:
     """
-    流式RAG问答
+    流式 RAG 问答（薄封装 → ChatAgentOrchestrator，无 Skill/MCP）。
 
-    Args:
-        question: 用户问题
-        knowledge_base_ids: 知识库ID列表
-        chat_history: 历史对话
-        model_name: 模型名称
-        temperature: 温度参数
-        max_tokens: 最大token数
-        top_p: top-p采样
-        system_prompt: 自定义系统提示词
-        top_k: 检索返回条数
-        score_threshold: 检索相似度阈值
-        max_history_rounds: 保留历史对话轮数
-
-    Yields:
-        {"type": "content", "content": "..."} 或 usage 字典
+    保留此函数以兼容旧调用方；新代码请直接使用 ChatAgentOrchestrator.stream。
     """
-    # 0. 检查是否为无关问题
-    if is_irrelevant_question(question):
-        print(f"[rag_stream] 检测到无关问题: {question}")
-        response = get_irrelevant_response()
-        # 添加初始延迟，模拟思考时间
-        await asyncio.sleep(1.5)
-        # 逐字输出以模拟流式效果，添加小延迟
-        for char in response:
-            yield {"type": "content", "content": char}
-            # 标点符号后稍长延迟
-            if char in ['，', '。', '！', '？', '：', '\n']:
-                await asyncio.sleep(0.05)
-            else:
-                await asyncio.sleep(0.02)
-        return
+    if user is None:
+        raise ValueError("rag_stream 需要 user 参数，请改用 ChatAgentOrchestrator.stream")
 
-    # 1. 向量检索
-    search_results, context = _retrieve_context(
-        question,
-        knowledge_base_ids,
-        top_k=top_k,
-        score_threshold=score_threshold,
-    )
+    from backend.applications.agent.orchestrator.chat_agent_orchestrator import ChatAgentOrchestrator
 
-    # 2. 检查检索结果
-    has_context = bool(search_results) and len(context.strip()) > 0
-    if has_context:
-        print(f"[rag_stream] 检索到 {len(search_results)} 条相关内容")
-    else:
-        print(f"[rag_stream] 警告：未检索到相关内容，使用通用模式回答")
-
-    resolved_prompt = _resolve_system_prompt(
-        system_prompt=system_prompt,
-        context=context if has_context else "（无特定参考资料，使用通用知识）",
-        has_context=has_context,
-    )
-
-    # 3. 构建消息
-    messages = format_messages(
-        system_prompt=resolved_prompt,
-        user_question=question,
-        context=context,
-        chat_history=chat_history,
-        max_history_rounds=max_history_rounds,
-        format_context=False,
-    )
-
-    # 4. 流式调用LLM
-    llm = OpenAICompatibleLLM(model=model_name, api_key=api_key, base_url=base_url)
-    async for chunk in llm.stream_chat(
-            messages=messages,
+    orchestrator = ChatAgentOrchestrator()
+    async for chunk in orchestrator.stream(
+            question=question,
+            user=user,
+            conversation_id=conversation_id,
+            skill_ids=[],
+            mcp_server_ids=[],
+            knowledge_base_ids=knowledge_base_ids,
+            chat_history=chat_history,
+            model_name=model_name,
+            api_key=api_key,
+            base_url=base_url,
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
+            system_prompt=system_prompt,
+            top_k=top_k,
+            score_threshold=score_threshold,
+            max_history_rounds=max_history_rounds,
             enable_thinking=enable_thinking,
     ):
         yield chunk

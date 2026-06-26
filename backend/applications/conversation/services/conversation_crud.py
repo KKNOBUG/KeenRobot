@@ -13,9 +13,7 @@ from tortoise.query_utils import Prefetch
 from backend.applications.agent.schemas.skill_run_schema import SkillRunCreate
 from backend.applications.agent.services.agent_crud import McpServerCrud, SkillCrud
 from backend.applications.agent.services.skill_run_crud import SkillRunCrud
-from backend.applications.base.rag.chain import rag_stream
-from backend.applications.mcp.orchestrator import MCP_AGENT_SYSTEM_PROMPT, McpAgentOrchestrator
-from backend.applications.base.rag.skill_agent import skill_agent_stream
+from backend.applications.agent.orchestrator import ChatAgentOrchestrator
 from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.conversation.models.conversation_model import Conversation, Message
 from backend.applications.conversation.schemas.conversation_schema import (
@@ -55,7 +53,7 @@ from backend.applications.user.models.user_model import User
 from backend.core.exceptions import NotFoundException, ParameterException
 from backend.enums.chat_session_enum import ChatMessageRole
 
-_mcp_orchestrator = McpAgentOrchestrator()
+_chat_orchestrator = ChatAgentOrchestrator()
 
 
 class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
@@ -337,11 +335,6 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             chat_skill_ids if chat_skill_ids is not None else resolved_skill_ids
         )
 
-        if stream_skill_ids and resolved_mcp_ids:
-            raise ParameterException(
-                message="Skill 与 MCP 不能同时启用（请求中 skill_ids 与 mcp_ids 均非空）"
-            )
-
         if resolved_kb:
             await self._validate_kb_access(resolved_kb, user)
 
@@ -549,37 +542,15 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             model_config, enable_thinking
         )
 
-        if skill_ids and user and conversation_id:
-            async for chunk in skill_agent_stream(
-                    question=question,
-                    knowledge_base_ids=knowledge_base_ids,
-                    chat_history=chat_history,
-                    skill_ids=skill_ids,
-                    user=user,
-                    conversation_id=conversation_id,
-                    enable_thinking=effective_thinking,
-                    **llm_params,
-            ):
-                yield chunk
-            return
+        if not user:
+            raise ValueError("stream_response 需要 authenticated user")
 
-        if mcp_ids and user:
-            async for chunk in _mcp_orchestrator.stream(
-                    question=question,
-                    mcp_server_ids=mcp_ids,
-                    user=user,
-                    knowledge_base_ids=knowledge_base_ids,
-                    chat_history=chat_history,
-                    enable_thinking=effective_thinking,
-                    mcp_system_prompt=MCP_AGENT_SYSTEM_PROMPT,
-                    conversation_id=conversation_id,
-                    **llm_params,
-            ):
-                yield chunk
-            return
-
-        async for chunk in rag_stream(
+        async for chunk in _chat_orchestrator.stream(
                 question=question,
+                user=user,
+                conversation_id=conversation_id,
+                skill_ids=skill_ids or [],
+                mcp_server_ids=mcp_ids or [],
                 knowledge_base_ids=knowledge_base_ids,
                 chat_history=chat_history,
                 enable_thinking=effective_thinking,

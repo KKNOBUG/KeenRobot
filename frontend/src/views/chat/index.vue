@@ -223,12 +223,8 @@ function applyConversationBindings(detail) {
 
 function buildBindingPayload() {
   const wizardSkillIds = selectedWizardSkillTrigger.value
-  let skillIds = wizardSkillIds.length ? [...wizardSkillIds] : [...selectedSkills.value]
-  let mcpIds = [...selectedMcps.value]
-  // Skill 与 MCP 互斥；若本地状态短暂不一致，与 selectedMcps watcher 一致：保留 MCP
-  if (skillIds.length && mcpIds.length) {
-    skillIds = []
-  }
+  const skillIds = wizardSkillIds.length ? [...wizardSkillIds] : [...selectedSkills.value]
+  const mcpIds = [...selectedMcps.value]
   return {
     knowledge_base_ids: [...selectedKBs.value],
     model_config_id: selectedModelConfig.value || null,
@@ -315,24 +311,13 @@ function handleWizardSkillPickerUpdate(ids) {
 }
 
 watch(selectedSkills, (skills) => {
-  if (skills.length && selectedMcps.value.length) {
-    selectedMcps.value = []
-  }
   if (skills.length && selectedWizardSkillTrigger.value.length) {
     clearWizardSkillSelection()
   }
   schedulePersistConversationBindings()
 })
 
-watch(selectedMcps, (mcps) => {
-  if (mcps.length) {
-    if (selectedSkills.value.length) {
-      selectedSkills.value = []
-    }
-    if (selectedWizardSkillTrigger.value.length) {
-      clearWizardSkillSelection()
-    }
-  }
+watch(selectedMcps, () => {
   schedulePersistConversationBindings()
 })
 

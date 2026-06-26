@@ -4,7 +4,7 @@
 
 | skill_key | 模式 | 用途 |
 |-----------|------|------|
-| `test_chat_skill` | chat | 普通对话 + **按需** Skill 工具联调 |
+| `test_chat_skill` | chat | 普通对话 + Skill 工具（绑即注册，LLM 按需调用） |
 | `test_wizard_skill` | wizard | 向导 → SSE → `report.md` + `metrics.json` |
 | `test_async_job_skill` | async_job | 向导 → Celery → 三文件产物 |
 
@@ -26,7 +26,6 @@ Skills 管理页点击 **「同步磁盘 Skill」**，应出现上述 3 个 Skil
 
 ```json
 {
-  "chat_tools": "on_demand",
   "wizard_steps": [],
   "layout": {
     "cwd": ".",
@@ -36,9 +35,7 @@ Skills 管理页点击 **「同步磁盘 Skill」**，应出现上述 3 个 Skil
 }
 ```
 
-`chat_tools` 说明：
-- `on_demand`（推荐）：普通问题直接回答，不调用 skill_read/glob
-- `always`：每轮都可能走工具（旧行为，仅调试）
+**说明**：chat 模式绑定 Skill 后，`skill_read` / `skill_glob` 始终注册给 LLM；是否调用由模型按问题判断（已移除 `chat_tools` / `on_demand`）。
 
 **execution**:
 
@@ -54,7 +51,7 @@ Skills 管理页点击 **「同步磁盘 Skill」**，应出现上述 3 个 Skil
 | 场景 | 输入 | 期望 |
 |------|------|------|
 | A 普通对话 | 逻辑/应用题 | **无** tool 步骤，正常推理 |
-| B ping | `ping` | 含 `TEST_CHAT_OK` 与 `tools=on_demand` |
+| B ping | `ping` | 应触发 skill_read，含 `TEST_CHAT_OK` |
 | C 读清单 | `读取 checklist` | skill_read + 概括清单 |
 | D glob | `glob 扫描` | skill_glob 列出快照文件 |
 | E help | `help` | 说明双模式，可不读文件 |
