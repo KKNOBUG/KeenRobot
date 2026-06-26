@@ -14,7 +14,6 @@ class McpAgentPolicy:
     max_injected_resource_chars: int = 8000
     max_resources_per_server: int = 5
     sampling_mode: Literal["reject", "llm"] = "llm"
-    elicitation_mode: Literal["reject"] = "reject"
     log_mcp_progress: bool = True
     audit_enabled: bool = True
     audit_max_chars: int = 4096

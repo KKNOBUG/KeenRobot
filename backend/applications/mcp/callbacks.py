@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""MCP Client 回调：progress / log / sampling → process_trace 与 LOGGER；elicitation 待 SDK。"""
+"""MCP Client 回调：progress / log / sampling → process_trace 与 LOGGER。"""
 from __future__ import annotations
 
 import asyncio
@@ -205,15 +205,6 @@ def build_sampling_handler(
             await _emit_process(on_process, {"type": "process", "step": dict(step)})
             _audit("error", error=str(exc))
             raise
-
-    return handler
-
-
-def build_elicitation_reject_handler(reason: str = "MCP elicitation 未启用（待 SDK 支持）"):
-    """MCP SDK 尚无 ElicitRequest；占位拒绝 handler。"""
-
-    def handler(_request, _context):
-        raise RuntimeError(reason)
 
     return handler
 
