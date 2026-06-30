@@ -13,13 +13,13 @@ from backend.applications.base.services.scaffold import ScaffoldModel, MaintainM
 
 
 class Menu(ScaffoldModel, MaintainMixin, TimestampMixin):
-    name = fields.CharField(max_length=32, index=True, description="菜单名称")
+    name = fields.CharField(max_length=32, db_index=True, description="菜单名称")
     remark = fields.JSONField(null=True, description="保留字段")
-    menu_type = fields.CharEnumField(MenuType, index=True, null=True, description="菜单类型")
+    menu_type = fields.CharEnumField(MenuType, db_index=True, null=True, description="菜单类型")
     icon = fields.CharField(max_length=128, null=True, description="菜单图标")
-    path = fields.CharField(max_length=128, index=True, description="菜单路径")
-    order = fields.IntField(default=0, index=True, description="排序")
-    parent_id = fields.IntField(default=0, max_length=16, index=True, description="父菜单ID")
+    path = fields.CharField(max_length=128, db_index=True, description="菜单路径")
+    order = fields.IntField(default=0, db_index=True, description="排序")
+    parent_id = fields.IntField(default=0, max_length=16, db_index=True, description="父菜单ID")
     is_hidden = fields.BooleanField(default=False, description="是否隐藏")
     component = fields.CharField(max_length=128, description="组件")
     keepalive = fields.BooleanField(default=True, description="存活")

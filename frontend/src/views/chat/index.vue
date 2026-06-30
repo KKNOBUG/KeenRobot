@@ -440,6 +440,9 @@ function mapMessageFromServer(m) {
     process_trace: m.process_trace || [],
     skill_run_ref: m.skill_run_ref || null,
     skill_intake: m.skill_intake || null,
+    sources: m.sources_json || [],
+    retrieval_empty: Boolean(m.retrieval_empty),
+    retrieval_empty_message: m.retrieval_empty ? '未在知识库中找到相关内容' : '',
   }
 }
 
@@ -1073,7 +1076,14 @@ async function sendMessage() {
 
   inputText.value = ''
   messages.value.push({ role: 'user', content: question })
-  messages.value.push({ role: 'assistant', content: '', process_trace: [] })
+  messages.value.push({
+    role: 'assistant',
+    content: '',
+    process_trace: [],
+    retrieval_empty: false,
+    retrieval_empty_message: '',
+    sources: [],
+  })
   isLoading.value = true
 
   await nextTick()
@@ -1129,6 +1139,16 @@ async function sendMessage() {
               trace.push(step)
             }
           }
+          nextTick(scrollToBottom)
+        },
+        onRetrievalEmpty(data) {
+          messages.value[assistantIdx].retrieval_empty = true
+          messages.value[assistantIdx].retrieval_empty_message =
+              data?.message || '未在知识库中找到相关内容'
+          nextTick(scrollToBottom)
+        },
+        onSources(data) {
+          messages.value[assistantIdx].sources = data?.items || []
           nextTick(scrollToBottom)
         },
         onToken(token) {
@@ -1309,6 +1329,9 @@ function handleKeydown(e) {
                         :prompt-tokens="msg.prompt_tokens"
                         :completion-tokens="msg.completion_tokens"
                         :reasoning-tokens="msg.reasoning_tokens"
+                        :retrieval-empty="msg.retrieval_empty"
+                        :retrieval-empty-message="msg.retrieval_empty_message"
+                        :sources="msg.sources || []"
                         @intake-update="(intake) => handleIntakeUpdate(idx, intake)"
                         @intake-lock-change="handleIntakeLockChange"
                         @intake-started="(payload) => handleIntakeStarted(idx, payload)"

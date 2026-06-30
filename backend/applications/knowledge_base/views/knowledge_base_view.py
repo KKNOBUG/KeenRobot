@@ -163,6 +163,26 @@ async def list_documents(
         return FailureResponse(message=f"查询失败: {e}")
 
 
+@knowledge.post("/{kb_id}/reindex", summary="知识库-重建向量索引")
+async def reindex_knowledge_base(
+        kb_id: str,
+        current_user: User = DependAuth,
+        kb_crud: KnowledgeBaseCrud = Depends(get_knowledge_base_crud),
+):
+    try:
+        result = await kb_crud.reindex_kb_vectors(kb_id, current_user)
+        return SuccessResponse(data=result, message="向量重建完成")
+    except NotFoundException as e:
+        return NotFoundResponse(message=e.message)
+    except NoPermissionException as e:
+        return ForbiddenResponse(message=e.message)
+    except DataBaseStorageException as e:
+        return DataBaseStorageResponse(message=e.message)
+    except Exception as e:
+        LOGGER.error(f"重建向量失败: {e}\n{traceback.format_exc()}")
+        return FailureResponse(message=f"重建失败: {e}")
+
+
 @knowledge.post("/{kb_id}/documents/{doc_id}/retry", summary="知识库-重试处理失败文档")
 async def retry_document(
         kb_id: str,

@@ -7,23 +7,23 @@ from backend.applications.agent.orchestrator.binding_resolver import (
     resolve_chat_binding,
 )
 from backend.applications.agent.orchestrator.chat_agent_orchestrator import (
-    MCP_AGENT_SYSTEM_PROMPT,
     ChatAgentOrchestrator,
     McpAgentOrchestrator,
 )
-from backend.applications.agent.orchestrator.context_builder import (
-    CHAT_SKILL_WRAPPER,
-    HYBRID_AGENT_BASE_PROMPT,
-    build_hybrid_system_prompt,
-)
+from backend.applications.agent.orchestrator.context_builder import build_hybrid_system_prompt
 from backend.applications.agent.orchestrator.tool_dispatcher import ToolDispatcher, ToolExecutionContext
+from backend.configure.rag_config import (
+    HYBRID_AGENT_CHAT_SKILL_SECTION,
+    HYBRID_AGENT_CORE_SYSTEM_PROMPT,
+    MCP_AGENT_STANDALONE_SYSTEM_PROMPT,
+)
 
 __all__ = [
-    "CHAT_SKILL_WRAPPER",
-    "HYBRID_AGENT_BASE_PROMPT",
+    "HYBRID_AGENT_CHAT_SKILL_SECTION",
+    "HYBRID_AGENT_CORE_SYSTEM_PROMPT",
+    "MCP_AGENT_STANDALONE_SYSTEM_PROMPT",
     "ChatAgentOrchestrator",
     "McpAgentOrchestrator",
-    "MCP_AGENT_SYSTEM_PROMPT",
     "ResolvedChatBinding",
     "ToolDispatcher",
     "ToolExecutionContext",

@@ -34,10 +34,6 @@
 │   ├── password.py                 # JWT / 密码工具（argon2）
 │   ├── ctx.py                      # 请求上下文（CTX_USER_ID）
 │   ├── file_transfer.py            # 文件传输工具
-│   └── scripts/                    # 运维脚本
-│       ├── init_admin.py           # 初始化管理员
-│       ├── init_model_configs.py   # 初始化模型配置
-│       └── build_kb.py             # 离线构建向量库
 ├── applications/                   # 业务模块（models / schemas / services / views）
 │   ├── base/                       # 基础服务
 │   │   ├── rag/                    # RAG 链、向量库、LLM、Embedding
@@ -129,10 +125,7 @@ aerich upgrade
 
 ### 4. 初始化业务数据
 
-```bash
-python services/scripts/init_admin.py
-# 模型配置在「模型管理」页面自行创建，不再自动 seed 到数据库
-```
+首次启动后端时，`core/initializations/data_initialization.py` 会自动写入菜单、路由、角色与默认用户（仅在对应表为空时执行，不会覆盖已有数据）。
 
 默认管理员账号：
 
@@ -140,6 +133,8 @@ python services/scripts/init_admin.py
 |------|--------|
 | 用户名 | admin  |
 | 密码 | 123456 |
+
+模型配置请在管理端 **「模型管理」** 页面创建；知识库请在 **「知识库管理」** 页面上传文档（不再提供离线批量导入脚本）。
 
 ### 5. 启动后端
 
@@ -550,18 +545,13 @@ Celery Beat 每 60 秒扫描一次启用且配置了调度的任务：
 3. **任务版本机制**：每次启用/停止任务时版本号递增，调度器通过版本号感知任务变更
 4. **执行记录**：任务执行后会生成记录，包含执行状态、开始/结束时间、耗时、错误信息
 
-## 工具脚本
+## 运维说明
 
-```bash
-# 初始化管理员
-python services/scripts/init_admin.py
-
-# 手动创建模型配置示例（应用启动时不再自动 seed，需在「模型管理」页面创建）
-python services/scripts/init_model_configs.py
-
-# 离线构建向量库（读取 output/data/*.pdf）
-python services/scripts/build_kb.py
-```
+| 操作 | 方式 |
+|------|------|
+| 初始化用户/菜单/角色 | 首次启动后端自动执行（`data_initialization.py`） |
+| 模型配置 | 管理端「模型管理」 |
+| 知识库与向量 | 管理端「知识库管理」上传；换 Embedding 后「重建向量」 |
 
 ## 架构说明
 

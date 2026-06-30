@@ -9,6 +9,10 @@ from backend.applications.conversation.dependencies import get_conversation_crud
 from backend.applications.conversation.schemas.conversation_schema import ChatRequest
 from backend.applications.conversation.schemas.process_step_schema import ReasoningStep
 from backend.applications.conversation.services.conversation_crud import ConversationCrud
+from backend.applications.conversation.services.chat_context_service import (
+    build_memory_system_section,
+    run_conversation_summary,
+)
 from backend.applications.conversation.services.sse_helpers import merge_process_step
 from backend.enums.chat_session_enum import ChatMessageRole
 from backend.applications.user.models.user_model import User
@@ -36,6 +40,7 @@ async def chat_stream(
         await conversation_crud.prepare_for_chat(req, current_user)
     )
     conversation_id = conv.id
+    memory_section = await build_memory_system_section(conv, current_user)
 
     # 2. 定义异步生成器：惰性执行，不立即运行
     async def event_generator():
@@ -43,6 +48,8 @@ async def chat_stream(
         full_reasoning = ""
         usage_data = None
         process_trace = []
+        sources_items = None
+        retrieval_empty_flag = False
 
         yield {
             "event": "meta",
@@ -60,6 +67,7 @@ async def chat_stream(
                     user=current_user,
                     conversation_id=conversation_id,
                     enable_thinking=req.enable_thinking,
+                    extra_system=memory_section,
             ):
                 if chunk.get("type") == "reasoning":
                     token = chunk.get("content", "")
@@ -88,6 +96,24 @@ async def chat_stream(
                     }
                 elif chunk.get("type") == "process_trace":
                     process_trace = chunk.get("process_trace") or process_trace
+                elif chunk.get("type") == "retrieval_empty":
+                    retrieval_empty_flag = True
+                    yield {
+                        "event": "retrieval_empty",
+                        "data": json.dumps({
+                            "type": "retrieval_empty",
+                            "message": chunk.get("message") or "未在知识库中找到相关内容",
+                        }),
+                    }
+                elif chunk.get("type") == "sources":
+                    sources_items = chunk.get("items") or []
+                    yield {
+                        "event": "sources",
+                        "data": json.dumps({
+                            "type": "sources",
+                            "items": chunk.get("items") or [],
+                        }),
+                    }
                 elif chunk.get("type") == "usage":
                     usage_data = {
                         "prompt_tokens": chunk.get("prompt_tokens"),
@@ -120,9 +146,13 @@ async def chat_stream(
                 completion_tokens=usage_data.get("completion_tokens") if usage_data else None,
                 reasoning_tokens=usage_data.get("reasoning_tokens") if usage_data else None,
                 process_trace=process_trace or None,
+                sources_json=sources_items,
+                retrieval_empty=retrieval_empty_flag if retrieval_empty_flag else None,
             )
         except Exception as e:
             print(f"[chat_stream] 保存消息失败: {e}")
+
+        asyncio.create_task(run_conversation_summary(conversation_id))
 
         # 2.5 发送完成事件
         done_payload = {"type": "done", "content": full_response}

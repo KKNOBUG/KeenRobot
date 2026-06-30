@@ -19,7 +19,7 @@ from backend.enums.chat_session_enum import ChatMessageRole
 
 class Conversation(ScaffoldModel, StateModel, TimestampMixin):
     """对话会话模型"""
-    id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="对话ID")
+    id = fields.CharField(default=unique_identify, max_length=64, primary_key=True, description="对话ID")
     user = fields.ForeignKeyField(
         "models.User",
         related_name="conversations",
@@ -41,6 +41,12 @@ class Conversation(ScaffoldModel, StateModel, TimestampMixin):
         default=False,
         description="是否开启深度思考模式",
     )
+    summary = fields.TextField(null=True, description="滚动会话摘要（M1）")
+    summary_covered_until_message_id = fields.IntField(
+        null=True,
+        description="摘要已覆盖到的消息 ID（含）",
+    )
+    summary_updated_time = fields.DatetimeField(null=True, description="摘要最后更新时间")
     messages: fields.ReverseRelation["Message"]
 
     class Meta:
@@ -49,7 +55,7 @@ class Conversation(ScaffoldModel, StateModel, TimestampMixin):
 
 class Message(ScaffoldModel, StateModel, TimestampMixin):
     """聊天消息模型"""
-    id = fields.IntField(pk=True, description="消息ID")
+    id = fields.IntField(primary_key=True, description="消息ID")
     conversation = fields.ForeignKeyField(
         "models.Conversation",
         related_name="messages",
@@ -64,6 +70,8 @@ class Message(ScaffoldModel, StateModel, TimestampMixin):
     process_trace = fields.JSONField(null=True, description="过程追踪(推理链/工具调用等)")
     skill_run_ref = fields.JSONField(null=True, description="Skill Run 引用(执行记录链接等)")
     skill_intake = fields.JSONField(null=True, description="Skill 对话内收集面板状态")
+    sources_json = fields.JSONField(null=True, description="RAG 参考来源（SSE sources.items）")
+    retrieval_empty = fields.BooleanField(default=False, description="是否空召回")
 
     class Meta:
         table = "keenrobot_messages"

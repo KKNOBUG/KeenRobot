@@ -6,6 +6,33 @@
 @Module  : backend_main.py
 @DateTime: 2025/1/12 19:41
 """
+import warnings
+
+
+def _suppress_upstream_deprecation_warnings() -> None:
+    """屏蔽 fastmcp/authlib 与 uvicorn/websockets 的上游弃用告警（非本项目代码）。"""
+    try:
+        # 先触发 authlib 的 always filter，再用 ignore 覆盖（见 authlib.deprecate）
+        from authlib.deprecate import AuthlibDeprecationWarning
+
+        warnings.filterwarnings("ignore", category=AuthlibDeprecationWarning)
+    except ImportError:
+        warnings.filterwarnings("ignore", message=r"authlib\.jose module is deprecated")
+
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        module=r"websockets(\..*)?$",
+    )
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        module=r"uvicorn\.protocols\.websockets",
+    )
+
+
+_suppress_upstream_deprecation_warnings()
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -62,6 +89,8 @@ app = FastAPI(
 register_exceptions(app)
 register_middlewares(app)
 register_routers(app)
+# fastmcp 等依赖会在 register_routers 中重置 DeprecationWarning 过滤器，需再覆盖一次
+_suppress_upstream_deprecation_warnings()
 
 
 @app.get("/", summary="root")

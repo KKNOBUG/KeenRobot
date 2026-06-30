@@ -36,7 +36,7 @@ class Product(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin, UUIDMode
     description = fields.TextField(null=True, description="商品描述")
     price = fields.DecimalField(max_digits=10, decimal_places=2, description="商品价格")
     stock = fields.IntField(default=0, description="库存数量")
-    category_id = fields.BigIntField(index=True, description="分类ID")
+    category_id = fields.BigIntField(db_index=True, description="分类ID")
     is_featured = fields.BooleanField(default=False, description="是否推荐")
     tags = fields.JSONField(default=list, description="商品标签")
 

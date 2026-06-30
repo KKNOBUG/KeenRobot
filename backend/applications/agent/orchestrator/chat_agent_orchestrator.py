@@ -10,12 +10,17 @@ from backend.applications.agent.orchestrator.context_builder import build_hybrid
 from backend.applications.agent.orchestrator.tool_dispatcher import ToolDispatcher, ToolExecutionContext
 from backend.applications.agent.policies.hybrid_agent_policy import HybridAgentPolicy
 from backend.applications.base.rag.chain import (
-    _resolve_system_prompt,
-    _retrieve_context,
     is_irrelevant_question,
     stream_irrelevant_response,
 )
-from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages, merge_token_usage
+from backend.configure.rag_config import resolve_chat_system_prompt
+from backend.applications.base.rag.retriever import retrieve, format_sources_payload, expand_context
+from backend.applications.base.rag.llm import (
+    OpenAICompatibleLLM,
+    format_messages,
+    merge_token_usage,
+    trim_chat_history,
+)
 from backend.applications.mcp.audit import McpAuditContext, bind_mcp_audit_context, reset_mcp_audit_context
 from backend.applications.mcp.cancel_scope import (
     McpCancelScope,
@@ -25,15 +30,6 @@ from backend.applications.mcp.cancel_scope import (
 )
 from backend.applications.mcp.session_manager import McpSessionManager
 from backend.applications.user.models.user_model import User
-
-MCP_AGENT_SYSTEM_PROMPT = """你是一个可以调用外部 MCP 工具的智能助手。
-
-规则：
-1. 当用户问题需要地图、天气、实时数据等外部能力时，优先调用已提供的工具。
-2. 工具返回结果后，用自然语言整理并回答用户。
-3. 若无需工具即可回答，直接回复，不要强行调用工具。
-4. 结合参考资料（若有）与工具结果给出准确、简洁的中文回答。
-"""
 
 
 class ChatAgentOrchestrator:
@@ -56,7 +52,11 @@ class ChatAgentOrchestrator:
             system_prompt: str = None,
             top_k: int = 5,
             score_threshold: float = 0.0,
-            max_history_rounds: int = 10,
+            fetch_top_k: Optional[int] = None,
+            rerank_enabled: bool = True,
+            rerank_model: Optional[str] = None,
+            max_history_rounds: int = 8,
+            max_history_tokens: int = 6000,
             enable_thinking: bool = False,
             policy: Optional[HybridAgentPolicy] = None,
             extra_system: str = "",
@@ -96,7 +96,11 @@ class ChatAgentOrchestrator:
                     system_prompt=system_prompt,
                     top_k=top_k,
                     score_threshold=score_threshold,
+                    fetch_top_k=fetch_top_k,
+                    rerank_enabled=rerank_enabled,
+                    rerank_model=rerank_model,
                     max_history_rounds=max_history_rounds,
+                    max_history_tokens=max_history_tokens,
                     enable_thinking=enable_thinking,
                     policy=policy,
                     extra_system=extra_system,
@@ -133,7 +137,11 @@ class ChatAgentOrchestrator:
             system_prompt: str,
             top_k: int,
             score_threshold: float,
+            fetch_top_k: Optional[int],
+            rerank_enabled: bool,
+            rerank_model: Optional[str],
             max_history_rounds: int,
+            max_history_tokens: int,
             enable_thinking: bool,
             policy: HybridAgentPolicy,
             extra_system: str,
@@ -163,17 +171,29 @@ class ChatAgentOrchestrator:
         if mcp_server_ids and not skill_ids and not binding.openai_tools:
             raise ValueError("所选 MCP 服务没有可用工具，请先在管理页刷新工具列表")
 
-        search_results, context = _retrieve_context(
+        history = trim_chat_history(
+            chat_history or [],
+            max_history_rounds,
+            max_history_tokens,
+        )
+
+        outcome = retrieve(
             question,
             knowledge_base_ids or [],
+            chat_history=history,
             top_k=top_k,
+            fetch_top_k=fetch_top_k,
             score_threshold=score_threshold,
+            rerank_enabled=rerank_enabled,
+            rerank_model=rerank_model,
         )
-        has_context = bool(search_results) and bool(context.strip())
-        rag_prompt = _resolve_system_prompt(
-            system_prompt=system_prompt,
-            context=context if has_context else "（无特定参考资料）",
-            has_context=has_context,
+        context = await expand_context(outcome.items) if outcome.items else outcome.context
+        has_context = bool(outcome.items) and bool(context.strip())
+        rag_prompt = resolve_chat_system_prompt(
+            custom_system_prompt=system_prompt,
+            kb_context=context if has_context else "",
+            has_kb_context=has_context,
+            kb_retrieval_was_empty=outcome.retrieval_attempted and outcome.is_empty,
         )
         combined_system = build_hybrid_system_prompt(
             binding=binding,
@@ -185,10 +205,23 @@ class ChatAgentOrchestrator:
             system_prompt=combined_system,
             user_question=question,
             context=context,
-            chat_history=chat_history or [],
+            chat_history=history,
             max_history_rounds=max_history_rounds,
+            max_history_tokens=max_history_tokens,
             format_context=False,
         )
+
+        if outcome.retrieval_attempted:
+            if outcome.is_empty:
+                yield {
+                    "type": "retrieval_empty",
+                    "message": "未在知识库中找到相关内容",
+                }
+            else:
+                yield {
+                    "type": "sources",
+                    "items": format_sources_payload(outcome.items),
+                }
 
         llm = OpenAICompatibleLLM(model=model_name, api_key=api_key, base_url=base_url)
         process_trace: List[dict] = []

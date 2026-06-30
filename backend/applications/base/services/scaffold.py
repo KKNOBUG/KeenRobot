@@ -45,7 +45,7 @@ class ScaffoldModel(models.Model):
     所有业务模型应继承此类，以获得 to_dict 序列化支持。
     支持本表字段的包含/排除/别名，以及外键和多对多关系的递归序列化。
     """
-    id = fields.BigIntField(pk=True, description="主键")
+    id = fields.BigIntField(primary_key=True, description="主键")
 
     async def to_dict(
             self,
@@ -217,7 +217,7 @@ class UUIDModel:
 
 class PacketModel:
     """分组标识 Mixin，为模型添加 pid 字段用于分组。"""
-    pid = fields.BigIntField(index=True, description="分组标识符")
+    pid = fields.BigIntField(db_index=True, description="分组标识符")
 
 
 class StateModel:
@@ -232,7 +232,7 @@ class StateModel:
         await crud.soft_delete(id=1)      # state = 1
         await crud.soft_delete_restore(id=1)  # state = 0
     """
-    state = fields.SmallIntField(default=0, index=True, description="状态(0:启用, 1:禁用)")
+    state = fields.SmallIntField(default=0, db_index=True, description="状态(0:启用, 1:禁用)")
 
 
 class ClassModel:

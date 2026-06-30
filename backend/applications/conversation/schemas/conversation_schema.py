@@ -141,9 +141,11 @@ class MessageCreate(MessageBase):
     conversation_id: str = Field(..., description="对话ID")
     role: ChatMessageRole = Field(..., description="消息角色")
     content: str = Field(..., min_length=1, description="消息内容")
+    sources_json: Optional[List[dict]] = Field(default=None, description="RAG 参考来源")
+    retrieval_empty: Optional[bool] = Field(default=None, description="是否空召回")
 
     def create_dict(self):
-        obj = self.model_dump(exclude_unset=True)
+        obj = self.model_dump(exclude_unset=True, exclude_none=True)
         if isinstance(obj.get("role"), ChatMessageRole):
             obj["role"] = obj["role"].value
         return obj
@@ -229,6 +231,8 @@ class MessageOut(BaseModel):
         default=None,
         description="Skill 对话内收集面板状态",
     )
+    sources_json: Optional[List[dict]] = Field(default=None, description="RAG 参考来源")
+    retrieval_empty: Optional[bool] = Field(default=None, description="是否空召回")
     created_time: datetime = Field(..., description="创建时间")
 
     model_config = ConfigDict(from_attributes=True)

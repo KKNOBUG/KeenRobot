@@ -11,7 +11,6 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from backend.applications.agent.models.agent_model import Skill, SkillRun
 from backend.applications.agent.orchestrator.chat_agent_orchestrator import ChatAgentOrchestrator
-from backend.applications.agent.orchestrator.context_builder import SKILL_AGENT_WRAPPER
 from backend.applications.agent.policies.hybrid_agent_policy import HybridAgentPolicy
 from backend.applications.agent.services.workspace_service import WorkspaceService
 from backend.applications.user.models.user_model import User

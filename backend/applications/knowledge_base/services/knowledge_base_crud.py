@@ -7,12 +7,12 @@
 @DateTime: 2026/6/9
 """
 import hashlib
+import asyncio
 import os
 import uuid
 from typing import List, Optional, Tuple
 
 from fastapi import UploadFile
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tortoise.exceptions import IntegrityError
 from tortoise.expressions import Q
 
@@ -20,6 +20,7 @@ from backend.applications.base.rag.chroma_store import chroma_store
 from backend.applications.base.rag.embeddings import get_embedding
 from backend.applications.base.services.scaffold import ScaffoldCrud
 from backend.applications.knowledge_base.services.document_loader import load_document_pages
+from backend.applications.knowledge_base.services.structure_chunker import structure_parent_index_pages
 from backend.applications.knowledge_base.services.file_type import validate_file_type
 from backend.applications.knowledge_base.models.knowledge_base_model import (
     Document,
@@ -294,37 +295,58 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         try:
             chunk_size, chunk_overlap = self._resolve_chunk_config(kb)
             pages = load_document_pages(doc.file_path, doc.file_type)
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                separators=["\n\n", "\n", "。", "；", "，", " ", ""],
+            index_size = PROJECT_CONFIG.INDEX_CHUNK_SIZE
+            section_groups = structure_parent_index_pages(
+                pages, index_size, chunk_overlap
             )
 
             chunk_models: List[DocumentChunk] = []
             chunk_index = 0
-            for page in pages:
-                raw_page = page.metadata.get("page")
-                page_number = int(raw_page) + 1 if raw_page is not None else None
-                for chunk_text in splitter.split_text(page.page_content):
-                    if not chunk_text or not chunk_text.strip():
+            for group in section_groups:
+                parent_content = (group.get("parent_content") or "").strip()
+                if not parent_content:
+                    continue
+                section_id = str(uuid.uuid4())
+                parent_id = str(uuid.uuid4())
+                chunk_models.append(
+                    DocumentChunk(
+                        id=parent_id,
+                        document_id=doc.id,
+                        content=parent_content,
+                        chunk_index=chunk_index,
+                        page_number=group.get("page_number"),
+                        section_id=section_id,
+                        is_index=False,
+                    )
+                )
+                chunk_index += 1
+                for index_text in group.get("index_chunks") or []:
+                    index_text = (index_text or "").strip()
+                    if not index_text:
                         continue
                     chunk_models.append(
                         DocumentChunk(
                             id=str(uuid.uuid4()),
                             document_id=doc.id,
-                            content=chunk_text,
+                            content=index_text,
                             chunk_index=chunk_index,
-                            page_number=page_number,
+                            page_number=group.get("page_number"),
+                            section_id=section_id,
+                            is_index=True,
+                            parent_chunk_id=parent_id,
                         )
                     )
                     chunk_index += 1
 
-            if not chunk_models:
+            index_models = [c for c in chunk_models if c.is_index]
+            if not index_models:
                 raise DataBaseStorageException(message="文档解析后无有效文本分块，请检查 PDF 内容")
 
             await self.chunk.bulk_create_chunks(chunk_models)
 
-            embeddings = get_embedding([c.content for c in chunk_models])
+            embeddings = await asyncio.to_thread(
+                get_embedding, [c.content for c in index_models]
+            )
             chroma_chunks = [
                 {
                     "doc_id": doc.id,
@@ -334,17 +356,18 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                     "page_number": chunk.page_number,
                     "filename": doc.filename,
                     "embedding_model": doc.embedding_model,
+                    "parent_chunk_id": chunk.parent_chunk_id,
                 }
-                for chunk, emb in zip(chunk_models, embeddings)
+                for chunk, emb in zip(index_models, embeddings)
             ]
             chroma_ids = chroma_store.upsert_chunks(kb.id, chroma_chunks)
 
-            for chunk, chroma_id in zip(chunk_models, chroma_ids):
+            for chunk, chroma_id in zip(index_models, chroma_ids):
                 chunk.chroma_id = chroma_id
-            await DocumentChunk.bulk_update(chunk_models, fields=["chroma_id"])
+            await DocumentChunk.bulk_update(index_models, fields=["chroma_id"])
 
             doc.status = DocumentStatus.COMPLETED
-            doc.chunk_count = len(chunk_models)
+            doc.chunk_count = len(index_models)
             await doc.save()
         except Exception as e:
             chroma_store.delete_by_doc(doc.id)
@@ -354,6 +377,61 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             doc.chunk_count = 0
             await doc.save()
             raise DataBaseStorageException(message=f"文档处理失败: {str(e)}")
+
+    async def _reembed_document(self, kb: KnowledgeBase, doc: Document) -> None:
+        """按已有索引用分块重新向量化并写入 Chroma（方案 H；仅 is_index=True）。"""
+        chunks = await DocumentChunk.filter(
+            document_id=doc.id, is_index=True
+        ).order_by("chunk_index").all()
+        if not chunks:
+            await self._process_document(kb, doc)
+            return
+
+        chroma_store.delete_by_doc(doc.id)
+        embedding_model = PROJECT_CONFIG.EMBEDDING_MODEL_NAME
+        doc.status = DocumentStatus.PROCESSING
+        doc.error_message = None
+        await doc.save()
+
+        try:
+            embedding_model = PROJECT_CONFIG.EMBEDDING_MODEL_NAME
+            batch_size = 10
+            for i in range(0, len(chunks), batch_size):
+                batch = chunks[i: i + batch_size]
+                embeddings = await asyncio.to_thread(
+                    get_embedding, [c.content for c in batch]
+                )
+                chroma_ids = chroma_store.upsert_chunks(
+                    kb.id,
+                    [
+                        {
+                            "doc_id": doc.id,
+                            "chunk_id": chunk.id,
+                            "content": chunk.content,
+                            "embedding": emb,
+                            "page_number": chunk.page_number,
+                            "filename": doc.filename,
+                            "embedding_model": embedding_model,
+                            "parent_chunk_id": chunk.parent_chunk_id,
+                        }
+                        for chunk, emb in zip(batch, embeddings)
+                    ],
+                )
+                for chunk, chroma_id in zip(batch, chroma_ids):
+                    chunk.chroma_id = chroma_id
+                await DocumentChunk.bulk_update(batch, fields=["chroma_id"])
+
+            doc.status = DocumentStatus.COMPLETED
+            doc.embedding_model = embedding_model
+            doc.chunk_count = len(chunks)
+            await doc.save()
+        except Exception as e:
+            chroma_store.delete_by_doc(doc.id)
+            doc.status = DocumentStatus.FAILED
+            doc.error_message = str(e)
+            doc.chunk_count = 0
+            await doc.save()
+            raise DataBaseStorageException(message=f"向量重建失败: {str(e)}")
 
     async def upload_document(
         self, kb_id: str, user: User, file: UploadFile
@@ -427,13 +505,8 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         await self._process_document(kb, doc)
         return self._to_document_out(doc)
 
-    async def reindex_kb_vectors(self, kb_id: str, user_id: int) -> dict:
-        """全量重建知识库向量：清空 Chroma 索引后重新处理所有可用文档。"""
-        from backend.applications.user.models.user_model import User
-
-        user = await User.get_or_none(id=user_id)
-        if not user:
-            raise NotFoundException(message="用户不存在")
+    async def reindex_kb_vectors(self, kb_id: str, user: User) -> dict:
+        """全量重建知识库向量：清空 Chroma 后按已有分块 re-embed（无分块则重新解析）。"""
         kb = await self.get_by_id(kb_id)
         if not kb:
             raise NotFoundException(message="知识库不存在")
@@ -444,20 +517,25 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
         result = {"total": 0, "success": 0, "failed": 0, "skipped": 0, "errors": []}
 
         for doc in docs:
-            if doc.status == DocumentStatus.PROCESSING:
+            chunk_count = await self.chunk.count_by_document(doc.id)
+            if doc.status == DocumentStatus.PROCESSING and chunk_count == 0:
                 result["skipped"] += 1
                 continue
-            if not os.path.exists(doc.file_path):
+            if chunk_count == 0 and not os.path.exists(doc.file_path):
                 result["failed"] += 1
                 result["errors"].append({
                     "doc_id": doc.id,
                     "filename": doc.filename,
-                    "error": "原始文件不存在",
+                    "error": "无分块且原始文件不存在",
                 })
                 continue
+
             result["total"] += 1
             try:
-                await self._process_document(kb, doc)
+                if chunk_count > 0:
+                    await self._reembed_document(kb, doc)
+                else:
+                    await self._process_document(kb, doc)
                 result["success"] += 1
             except Exception as e:
                 result["failed"] += 1
@@ -572,6 +650,10 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
             raise NotFoundException(message="知识块不存在")
 
         chunk.content = data.content
+        if not chunk.is_index:
+            await chunk.save()
+            return self._to_chunk_out(chunk)
+
         embedding = get_embedding([data.content])[0]
         if chunk.chroma_id:
             chroma_store.delete_by_vector_id(chunk.chroma_id)
@@ -588,6 +670,7 @@ class KnowledgeBaseCrud(ScaffoldCrud[KnowledgeBase, KnowledgeBaseCreate, Knowled
                     "page_number": chunk.page_number,
                     "filename": filename,
                     "embedding_model": embedding_model,
+                    "parent_chunk_id": chunk.parent_chunk_id,
                 }
             ],
         )

@@ -38,6 +38,7 @@ from backend.applications.conversation.services.binding_utils import (
     mcp_ids_from_conversation,
     skill_ids_from_conversation,
 )
+from backend.applications.conversation.services.user_memory_crud import try_save_explicit_memory_from_question
 from backend.applications.conversation.services.skill_intake_helpers import (
     freeze_intake_as_submitted,
 )
@@ -78,6 +79,8 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
             process_trace: Optional[List[dict]] = None,
             skill_run_ref: Optional[dict] = None,
             skill_intake: Optional[dict] = None,
+            sources_json: Optional[List[dict]] = None,
+            retrieval_empty: Optional[bool] = None,
     ) -> Message:
         """添加消息"""
         data = MessageCreate(
@@ -90,6 +93,8 @@ class MessageCrud(ScaffoldCrud[Message, MessageCreate, MessageUpdate]):
             process_trace=process_trace,
             skill_run_ref=skill_run_ref,
             skill_intake=skill_intake,
+            sources_json=sources_json,
+            retrieval_empty=retrieval_empty,
         )
         return await self.create(data.create_dict())
 
@@ -514,6 +519,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             await self.update_meta(conv, title=title)
 
         await self.message.add_message(conv.id, ChatMessageRole.USER, req.question)
+        await try_save_explicit_memory_from_question(user, req.question)
 
         return (
             conv,
@@ -535,6 +541,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
             user: Optional[User] = None,
             conversation_id: Optional[str] = None,
             enable_thinking: bool = False,
+            extra_system: str = "",
     ) -> AsyncIterator[Dict[str, Any]]:
         """流式生成聊天回复"""
         llm_params = resolve_chat_llm_params(model_config)
@@ -554,6 +561,7 @@ class ConversationCrud(ScaffoldCrud[Conversation, ConversationCreate, Conversati
                 knowledge_base_ids=knowledge_base_ids,
                 chat_history=chat_history,
                 enable_thinking=effective_thinking,
+                extra_system=extra_system,
                 **llm_params,
         ):
             yield chunk

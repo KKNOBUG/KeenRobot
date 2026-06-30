@@ -19,7 +19,7 @@ from backend.enums.chat_session_enum import DocumentStatus
 
 class KnowledgeBase(ScaffoldModel, StateModel, TimestampMixin):
     """知识库模型"""
-    id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="知识库ID")
+    id = fields.CharField(default=unique_identify, max_length=64, primary_key=True, description="知识库ID")
     knowledge_name = fields.CharField(max_length=128, description="知识库名称")
     description = fields.TextField(null=True, description="知识库描述")
     user = fields.ForeignKeyField(
@@ -40,7 +40,7 @@ class KnowledgeBase(ScaffoldModel, StateModel, TimestampMixin):
 
 class Document(ScaffoldModel, TimestampMixin):
     """文档模型"""
-    id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="文档ID")
+    id = fields.CharField(default=unique_identify, max_length=64, primary_key=True, description="文档ID")
     knowledge_base = fields.ForeignKeyField(
         "models.KnowledgeBase",
         related_name="documents",
@@ -68,7 +68,7 @@ class Document(ScaffoldModel, TimestampMixin):
 
 class DocumentChunk(ScaffoldModel, TimestampMixin):
     """文档分块模型"""
-    id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="分块ID")
+    id = fields.CharField(default=unique_identify, max_length=64, primary_key=True, description="分块ID")
     document = fields.ForeignKeyField(
         "models.Document",
         related_name="document_chunks",
@@ -79,6 +79,11 @@ class DocumentChunk(ScaffoldModel, TimestampMixin):
     chunk_index = fields.IntField(description="分块序号")
     page_number = fields.IntField(null=True, description="PDF页码(从1开始)")
     chroma_id = fields.CharField(max_length=128, null=True, description="Chroma向量ID")
+    parent_chunk_id = fields.CharField(
+        max_length=64, null=True, description="父块 ID（方案 C；索引块指向节级 parent）"
+    )
+    section_id = fields.CharField(max_length=64, null=True, description="同节 parent/child 共享")
+    is_index = fields.BooleanField(default=True, description="True=进 Chroma 的 child；False=仅存储 parent")
 
     class Meta:
         table = "keenrobot_document_chunks"

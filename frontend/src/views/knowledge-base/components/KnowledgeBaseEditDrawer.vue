@@ -47,6 +47,7 @@ const form = ref(emptyForm())
 const documents = ref([])
 const docsLoading = ref(false)
 const retryingDocId = ref(null)
+const reindexing = ref(false)
 const uploadFile = ref(null)
 const uploading = ref(false)
 
@@ -141,6 +142,31 @@ async function handleRetryDoc(doc) {
   } finally {
     retryingDocId.value = null
   }
+}
+
+async function handleReindex() {
+  if (!form.value.id) return
+  await window.$dialog?.confirm({
+    title: '重建向量',
+    type: 'warning',
+    content: '将清空该知识库在向量库中的索引，并按现有分块重新向量化。换 Embedding 模型后建议使用。是否继续？',
+    positiveText: '重建',
+    negativeText: '取消',
+    async onPositiveClick() {
+      reindexing.value = true
+      try {
+        const result = await api.reindexKnowledgeBase(form.value.id)
+        const ok = result?.success ?? 0
+        const failed = result?.failed ?? 0
+        window.$message?.success(`向量重建完成：成功 ${ok}，失败 ${failed}`)
+        await loadDocuments()
+      } catch (err) {
+        window.$message?.error(err?.message || '重建失败')
+      } finally {
+        reindexing.value = false
+      }
+    },
+  })
 }
 
 async function handleDeleteDoc(docId) {
@@ -254,6 +280,18 @@ async function viewChunks(doc) {
                 </div>
                 <div class="kb-edit__docs-sub">{{ documents.length }} 个文档</div>
               </div>
+              <NButton
+                  secondary
+                  type="warning"
+                  :loading="reindexing"
+                  :disabled="!documents.length"
+                  @click="handleReindex"
+              >
+                <template #icon>
+                  <component :is="renderIcon('material-symbols:sync', { size: 16 })" />
+                </template>
+                重建向量
+              </NButton>
             </div>
 
             <div class="kb-edit__upload">

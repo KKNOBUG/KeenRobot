@@ -137,6 +137,69 @@ class ProjectConfig(BaseSettings):
         default=5,
         description="向量检索条数兜底；聊天以 ModelConfig.top_k(1-20) 为准",
     )
+    RETRIEVAL_FETCH_TOP_K: int = Field(
+        default=30,
+        description="向量扩召回数（fetch_top_k）；Rerank 前候选条数",
+    )
+    RETRIEVAL_SCORE_THRESHOLD: float = Field(
+        default=0.45,
+        ge=0.0,
+        le=1.0,
+        description="检索相似度阈值（方案 A 标定默认；ModelConfig 为 0 时回退）",
+    )
+
+    # Rerank（可选；不配则整条 F 跳过）
+    RERANK_API_KEY: str = Field(default="", description="Rerank API Key")
+    RERANK_BASE_URL: str = Field(
+        default="https://dashscope.aliyuncs.com/compatible-api/v1",
+        description="Rerank API Base URL",
+    )
+    RERANK_MODEL: str = Field(default="qwen3-rerank", description="Rerank 模型名称")
+
+    # M0 短程原文（.env 可选；聊天以 ModelConfig.max_history_rounds 为准）
+    MAX_HISTORY_TOKENS: int = Field(
+        default=6000,
+        description="注入 LLM 的历史原文 token 硬顶；与 max_history_rounds 取更严者",
+    )
+    RETRIEVAL_QUERY_CONTEXT_TURNS: int = Field(
+        default=2,
+        description="检索 query 拼接最近 N 轮对话（M0.2）",
+    )
+    INDEX_CHUNK_SIZE: int = Field(
+        default=350,
+        description="方案 C：索引用 child chunk 字符上限（进 Chroma）",
+    )
+    PARENT_CONTEXT_MAX_CHARS: int = Field(
+        default=1500,
+        description="方案 C：父块进 Prompt 的字符上限",
+    )
+
+    # M1 滚动摘要（.env 可选）
+    SUMMARY_ENABLED: bool = Field(default=True, description="是否启用滚动会话摘要")
+    SUMMARY_TRIGGER_MESSAGES: int = Field(
+        default=24,
+        description="总消息数超过该值且存在待摘要区时首次触发",
+    )
+    SUMMARY_RETRIGGER_GAP_MESSAGES: int = Field(
+        default=8,
+        description="再次滚动：待摘要区新增消息数达到该值",
+    )
+    SUMMARY_TRIGGER_HISTORY_TOKENS: int = Field(
+        default=8000,
+        description="未摘要区+保留区 token 超过该值时兜底触发",
+    )
+    SUMMARY_MAX_TOKENS: int = Field(
+        default=800,
+        description="单次摘要输出 token 上限（约等于字符/2）",
+    )
+
+    # M2 显式用户记忆
+    USER_MEMORY_ENABLED: bool = Field(default=True, description="是否启用显式跨会话记忆")
+    USER_MEMORY_MAX_ITEMS: int = Field(default=10, description="注入 Prompt 的最大记忆条数")
+    USER_MEMORY_MAX_CONTENT_CHARS: int = Field(
+        default=200,
+        description="单条记忆最大字符数",
+    )
 
     # # 允许访问的源（域名）列表
     CORS_ORIGINS: List[str] = [

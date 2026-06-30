@@ -32,6 +32,8 @@ class ModelConfigBase(BaseModel):
     top_k: Optional[int] = Field(default=None, ge=0, le=100, description="候选词数(TOP-K)")
     max_history_rounds: Optional[int] = Field(default=None, ge=0, le=20, description="保留历史对话轮数")
     score_threshold: Optional[float] = Field(default=None, ge=0, le=1, description="检索相似度阈值(0-1)")
+    rerank_enabled: Optional[bool] = Field(default=None, description="是否启用 Rerank")
+    rerank_model: Optional[str] = Field(default=None, max_length=64, description="Rerank 模型")
     system_prompt: Optional[str] = Field(default=None, max_length=4000, description="系统提示词，支持{context}占位符")
     is_default: Optional[bool] = Field(default=None, description="是否默认配置")
 
@@ -44,9 +46,10 @@ class ModelConfigCreate(ModelConfigBase):
     temperature: float = Field(default=0.7, ge=0, le=2, description="温度控制")
     max_tokens: int = Field(default=4096, ge=512, le=128000, description="限制单次回答的最大输出Token数")
     top_p: float = Field(default=0.95, ge=0, le=1, description="核采样数(TOP-P)")
-    top_k: int = Field(default=5, ge=0, le=100, description="候选词数(TOP-K)")
-    max_history_rounds: int = Field(default=10, ge=0, le=20, description="保留历史对话轮数")
+    top_k: int = Field(default=6, ge=0, le=100, description="候选词数(TOP-K)")
+    max_history_rounds: int = Field(default=8, ge=0, le=20, description="保留历史对话轮数")
     score_threshold: float = Field(default=0.0, ge=0, le=1, description="检索相似度阈值(0-1)")
+    rerank_enabled: bool = Field(default=True, description="是否启用 Rerank")
     is_default: bool = Field(default=False, description="是否默认配置")
 
     def create_dict(self):

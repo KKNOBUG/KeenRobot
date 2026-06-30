@@ -212,12 +212,48 @@ class OpenAICompatibleLLM:
                             pass
 
 
+def estimate_message_tokens(content: str) -> int:
+    """估算单条消息 token 数（无 tiktoken 时用字符启发式，中文偏多场景）。"""
+    text = (content or "").strip()
+    if not text:
+        return 0
+    return max(1, (len(text) + 1) // 2)
+
+
+def trim_chat_history(
+        chat_history: List[Dict[str, str]],
+        max_history_rounds: int,
+        max_history_tokens: int,
+) -> List[Dict[str, str]]:
+    """
+    M0.1：按轮数与 token 双限截断，保留最近消息；两限制取更严结果。
+    """
+    if not chat_history or max_history_rounds <= 0:
+        return []
+
+    by_rounds = chat_history[-(max_history_rounds * 2):]
+    if max_history_tokens <= 0:
+        return list(by_rounds)
+
+    total = 0
+    kept: List[Dict[str, str]] = []
+    for msg in reversed(by_rounds):
+        tokens = estimate_message_tokens(msg.get("content") or "")
+        if kept and total + tokens > max_history_tokens:
+            break
+        kept.append(msg)
+        total += tokens
+    kept.reverse()
+    return kept
+
+
 def format_messages(
         system_prompt: str,
         user_question: str,
         context: str,
         chat_history: List[Dict[str, str]] = None,
         max_history_rounds: int = 10,
+        max_history_tokens: int = 6000,
         format_context: bool = True,
 ) -> List[Dict[str, str]]:
     """
@@ -229,6 +265,7 @@ def format_messages(
         context: 检索到的上下文
         chat_history: 历史对话
         max_history_rounds: 保留历史对话轮数
+        max_history_tokens: 历史原文 token 硬顶（M0）
         format_context: 是否将 context 注入 system_prompt 的 {context} 占位符
 
     Returns:
@@ -243,11 +280,14 @@ def format_messages(
         system_content = system_prompt
     messages.append({"role": "system", "content": system_content})
 
-    # 历史对话
-    if chat_history and max_history_rounds > 0:
-        history_limit = max_history_rounds * 2
-        for msg in chat_history[-history_limit:]:
-            messages.append({"role": msg["role"], "content": msg["content"]})
+    # 历史对话（M0：轮数 + token 双限）
+    trimmed = trim_chat_history(
+        chat_history or [],
+        max_history_rounds,
+        max_history_tokens,
+    )
+    for msg in trimmed:
+        messages.append({"role": msg["role"], "content": msg["content"]})
 
     # 用户当前问题
     messages.append({"role": "user", "content": user_question})

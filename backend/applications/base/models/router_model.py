@@ -13,10 +13,10 @@ from backend.applications.base.services.scaffold import ScaffoldModel, MaintainM
 
 
 class Router(ScaffoldModel, MaintainMixin, TimestampMixin):
-    path = fields.CharField(max_length=255, index=True, description="路由请求路径")
+    path = fields.CharField(max_length=255, db_index=True, description="路由请求路径")
     method = fields.CharEnumField(HTTPMethod, description="路由请求方式")
-    summary = fields.CharField(max_length=255, index=True, description="路由作用简介")
-    tags = fields.CharField(max_length=255, index=True, description="路由所属标签")
+    summary = fields.CharField(max_length=255, db_index=True, description="路由作用简介")
+    tags = fields.CharField(max_length=255, db_index=True, description="路由所属标签")
     description = fields.TextField(null=True, description="路由功能描述")
 
     class Meta:

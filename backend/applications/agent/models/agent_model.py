@@ -16,7 +16,7 @@ from backend.applications.base.services.scaffold import (
 class Skill(ScaffoldModel, StateModel, TimestampMixin):
     """Agent 技能定义"""
     id = fields.CharField(
-        default=unique_identify, max_length=64, pk=True, description="技能ID"
+        default=unique_identify, max_length=64, primary_key=True, description="技能ID"
     )
     skill_key = fields.CharField(
         max_length=128, null=True, description="磁盘 Skill 目录名"
@@ -51,7 +51,7 @@ class Skill(ScaffoldModel, StateModel, TimestampMixin):
 class McpServer(ScaffoldModel, StateModel, TimestampMixin):
     """MCP 服务配置"""
     id = fields.CharField(
-        default=unique_identify, max_length=64, pk=True, description="MCP服务ID"
+        default=unique_identify, max_length=64, primary_key=True, description="MCP服务ID"
     )
     name = fields.CharField(max_length=128, description="服务名称")
     description = fields.TextField(null=True, description="服务描述")
@@ -74,7 +74,7 @@ class McpServer(ScaffoldModel, StateModel, TimestampMixin):
 class SkillRun(ScaffoldModel, StateModel, TimestampMixin):
     """Skill 执行任务"""
     id = fields.CharField(
-        default=unique_identify, max_length=64, pk=True, description="Run ID"
+        default=unique_identify, max_length=64, primary_key=True, description="Run ID"
     )
     status = fields.CharField(
         max_length=32,

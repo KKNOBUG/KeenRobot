@@ -107,7 +107,7 @@ def get_embedding(texts: List[str], model: str = None) -> List[List[float]]:
             url,
             headers=headers,
             json=payload,
-            timeout=60,
+            timeout=120,
         )
 
         if resp.status_code != 200:

@@ -13,10 +13,12 @@ import asyncio
 from collections.abc import AsyncIterator
 from typing import List, Dict, Any
 
-from backend.configure import PROJECT_CONFIG, RAG_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT, GREETING_RESPONSE
-from backend.applications.base.rag.embeddings import get_single_embedding, is_embedding_configured
+from backend.configure.rag_config import (
+    CHAT_GREETING_CANNED_REPLY,
+    resolve_chat_system_prompt,
+)
 from backend.applications.base.rag.llm import OpenAICompatibleLLM, format_messages
-from backend.applications.base.rag.chroma_store import chroma_store
+from backend.applications.base.rag.retriever import retrieve
 
 
 def is_irrelevant_question(question: str) -> bool:
@@ -36,16 +38,10 @@ def is_irrelevant_question(question: str) -> bool:
     return False
 
 
-def get_irrelevant_response() -> str:
-    """生成无关问题的标准回复"""
-    return GREETING_RESPONSE
-
-
 async def stream_irrelevant_response() -> AsyncIterator[Dict[str, Any]]:
     """无关问题标准回复（模拟流式输出）。"""
-    response = get_irrelevant_response()
     await asyncio.sleep(1.5)
-    for char in response:
+    for char in CHAT_GREETING_CANNED_REPLY:
         yield {"type": "content", "content": char}
         if char in ["，", "。", "！", "？", "：", "\n"]:
             await asyncio.sleep(0.05)
@@ -53,90 +49,19 @@ async def stream_irrelevant_response() -> AsyncIterator[Dict[str, Any]]:
             await asyncio.sleep(0.02)
 
 
-def _format_source_label(result: dict) -> str:
-    """格式化检索结果的来源标注"""
-    filename = (result.get("filename") or "").strip()
-    page_number = result.get("page_number")
-    if filename and page_number:
-        return f"来源: {filename} 第{page_number}页"
-    if filename:
-        return f"来源: {filename}"
-    if page_number:
-        return f"来源: 第{page_number}页"
-    return ""
-
-
-def _filter_embedding_model_consistency(results: List[dict]) -> List[dict]:
-    """过滤与当前 Embedding 模型不一致的检索结果"""
-    current_model = PROJECT_CONFIG.EMBEDDING_MODEL_NAME
-    filtered = []
-    for item in results:
-        stored_model = (item.get("embedding_model") or "").strip()
-        if stored_model and stored_model != current_model:
-            print(
-                f"[rag] 跳过 embedding 模型不一致的向量: "
-                f"{stored_model} != {current_model}"
-            )
-            continue
-        filtered.append(item)
-    return filtered
-
-
-def format_context_from_results(results: List[dict]) -> str:
-    """将检索结果格式化为上下文字符串"""
-    parts = []
-    for i, result in enumerate(results, 1):
-        content = result.get("content", "")
-        score = result.get("score", 0)
-        source = _format_source_label(result)
-        header = f"[{i}] (相关度: {score:.3f})"
-        if source:
-            header += f", {source}"
-        parts.append(f"{header}\n{content}")
-    return "\n\n".join(parts)
-
-
-def _retrieve_context(
-        question: str,
-        knowledge_base_ids: List[str],
-        top_k: int = 5,
-        score_threshold: float = 0.0,
-) -> tuple[List[dict], str]:
-    """向量检索，未配置 Embedding 或无知识库时返回空结果"""
-    if not knowledge_base_ids:
-        return [], ""
-
-    if not is_embedding_configured():
-        print("[rag] Embedding API 未配置，跳过知识库检索，使用通用对话模式")
-        return [], ""
-
-    query_embedding = get_single_embedding(question)
-    search_results = chroma_store.search(
-        knowledge_base_ids, query_embedding, top_k=top_k
-    )
-    search_results = _filter_embedding_model_consistency(search_results)
-    if score_threshold > 0:
-        search_results = [
-            item for item in search_results
-            if item.get("score", 0) >= score_threshold
-        ]
-    context = format_context_from_results(search_results)
-    return search_results, context
-
-
 def _resolve_system_prompt(
         system_prompt: str = None,
         context: str = "",
         has_context: bool = True,
+        retrieval_attempted: bool = False,
 ) -> str:
-    """解析系统提示词，支持自定义模板或全局默认模板"""
-    if not has_context:
-        return (system_prompt or "").strip() or GENERAL_SYSTEM_PROMPT
-
-    prompt_template = (system_prompt or "").strip() or RAG_SYSTEM_PROMPT
-    if "{context}" in prompt_template:
-        return prompt_template.format(context=context)
-    return f"{prompt_template}\n\n## 参考资料\n{context}"
+    """兼容旧调用方；新代码请使用 rag_config.resolve_chat_system_prompt。"""
+    return resolve_chat_system_prompt(
+        custom_system_prompt=system_prompt,
+        kb_context=context,
+        has_kb_context=has_context,
+        kb_retrieval_was_empty=retrieval_attempted,
+    )
 
 
 def rag_query(
@@ -174,24 +99,26 @@ def rag_query(
         模型回答
     """
     # 1. 向量检索
-    search_results, context = _retrieve_context(
+    outcome = retrieve(
         question,
         knowledge_base_ids,
+        chat_history=chat_history,
         top_k=top_k,
         score_threshold=score_threshold,
     )
-    has_context = bool(search_results) and len(context.strip()) > 0
+    has_context = bool(outcome.items) and len(outcome.context.strip()) > 0
     resolved_prompt = _resolve_system_prompt(
         system_prompt=system_prompt,
-        context=context if has_context else "（无特定参考资料，使用通用知识）",
+        context=outcome.context if has_context else "",
         has_context=has_context,
+        retrieval_attempted=outcome.retrieval_attempted and outcome.is_empty,
     )
 
     # 2. 构建消息
     messages = format_messages(
         system_prompt=resolved_prompt,
         user_question=question,
-        context=context,
+        context=outcome.context,
         chat_history=chat_history,
         max_history_rounds=max_history_rounds,
         format_context=False,

@@ -1,8 +1,62 @@
-# 智能聊天后端执行链路文档
+# 智能聊天执行链路文档
 
-> 版本：2026-06-26（统一 Hybrid Runtime：单 `ChatAgentOrchestrator` 入口）  
-> 范围：`/chat/stream`、会话绑定、Skill 收集（wizard/async_job）、Skill Run 执行  
-> 目标：按 **入口 → 编排 → 执行 → 出口** 梳理每种对话模式对应的后端逻辑，便于对照代码阅读。
+> 版本：2026-06-29（RAG Sprint 2：`retriever` + Rerank + sources 持久化）  
+> 范围：前端 `智能聊天` 页、后端 `/chat/stream`、会话绑定、Skill 收集与 Run 执行  
+> 关联：`MCP_INTEGRATION.md`（MCP 专项）、`HYBRID_AGENT_ORCHESTRATION.md`（架构决策）、`RAG_RETRIEVAL_QUALITY.md`（检索质量）  
+> 读法：**先看 §0 导读 → §1 模式 → §2 前端 → §3 决策图 → 按需查 §4～§7 链路细节 → § 维护速查**
+
+---
+
+## 0. 给维护者的小白导读
+
+### 0.1 智能聊天是什么？
+
+「智能聊天」页（前端 `views/chat/index.vue`）是 **一个会话界面、三条后端路径**：
+
+| 用户操作 | 后端路径 | 一句话 |
+|----------|----------|--------|
+| 输入框发消息 | `POST /chat/stream` | 混合助手：可选 KB + chat Skill + MCP，**同一条** ReAct 运行时 |
+| 「Skill 任务」向导填表提交 | `skill-intake/*` → `skill-runs/*` | wizard/async 结构化任务，**不走** `/chat/stream` |
+| 切换 KB / 模型 / Skill / MCP | `PUT /conversations/{id}/bindings` | 只改会话绑定，**不调用 LLM** |
+
+**核心原则（2026-06-26）：** 普通聊天不再按 RAG / Skill / MCP 分三条后端分支；全部汇总到 `ChatAgentOrchestrator`。Wizard/Async 仍是独立的 Run 流水线。
+
+### 0.2 三层代码怎么分工？
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 前端 views/chat/index.vue                                    │
+│  三个 Picker + sendMessage + SkillIntakePanel + SSE 解析     │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ HTTP / SSE
+┌───────────────────────────▼─────────────────────────────────┐
+│ 会话层 conversation/                                         │
+│  prepare_for_chat · stream_response · bindings · intake      │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+        ┌───────────────────┴───────────────────┐
+        │                                       │
+┌───────▼────────┐                    ┌─────────▼──────────┐
+│ /chat/stream   │                    │ skill-runs/*       │
+│ ChatAgent      │                    │ execute_skill_run  │
+│ Orchestrator   │◄── run_mode=True ──│ → 同一 Orchestrator│
+└────────────────┘                    └────────────────────┘
+```
+
+### 0.3 维护速查（改哪里）
+
+| 你想改… | 优先看 |
+|---------|--------|
+| RAG 检索、Rerank、参考来源、空召回 | `retriever.py`、`reranker.py`、`chat_agent_orchestrator.py`、`MessageBubble.vue`；见 `RAG_RETRIEVAL_QUALITY.md` |
+| 聊天 UI、Picker、发消息、SSE 展示 | `frontend/src/views/chat/index.vue`、`frontend/src/api/index.js`（`chatStream`） |
+| 绑定校验（Skill 个数、wizard 禁 chat 等） | `conversation_crud.py` · `_resolve_and_validate_bindings`、`_partition_skill_ids` |
+| 混合 ReAct、RAG 短路、工具轮次 | `chat_agent_orchestrator.py` |
+| Skill/MCP 工具注册、内嵌 MCP 去重 | `binding_resolver.py` |
+| Skill 文件工具 vs MCP `call_tool` | `tool_dispatcher.py` |
+| System prompt 拼装 | `context_builder.py` |
+| MCP 连接、审计、取消 | `applications/mcp/`（见 `MCP_INTEGRATION.md`） |
+| Wizard 表单、提交、Run SSE | `SkillIntakePanel.vue`、`skill_run_view.py`、`skill_run_executor.py` |
+| 深度思考 / 模型参数 | `llm_connection.py` · `resolve_effective_enable_thinking` |
 
 ---
 
@@ -16,6 +70,24 @@
 | **D. 会话绑定同步** | 切换 KB/模型/MCP/Skill/深度思考 | `PUT /conversations/{id}/bindings` | 仅写 meta，不生成 | JSON 响应 |
 
 **`/chat/stream` 路由（2026-06-26）**：`stream_response` **始终** 走 `ChatAgentOrchestrator`；无 Skill/MCP 时等价于纯 RAG（含无关问题短路）。Skill 与 MCP **可同时绑定**（1 chat Skill + N MCP）。
+
+### 1.1 前端三个入口（`views/chat/index.vue`）
+
+| UI 控件 | 绑定状态 | 触发的 API | 说明 |
+|---------|----------|------------|------|
+| 选择知识库 | `selectedKBs` | `PUT .../bindings`（防抖 300ms）+ `chatStream` 携带 `knowledge_base_ids` | 未选 KB 发消息会弹确认框 |
+| 选择 Skill（魔杖） | `selectedSkills` | 同上 + `chatStream.skill_ids` | 仅列出 `interaction_mode=chat` 的 Skill |
+| Skill 任务（流程） | `selectedWizardSkillTrigger` | `POST .../skill-intake/start` → 面板内 `skill-runs/*` | 仅 `wizard` / `async_job`；**锁定输入框**，收集期间 **禁用 MCP Picker** |
+| 选择 MCP | `selectedMcps` | 同上 + `chatStream.mcp_ids` | 与 chat Skill **可同时选**；wizard 收集中 UI 禁用 |
+| 深度思考 | `enableDeepThinking` | bindings + `chatStream.enable_thinking` | 仅当当前模型 `model_thinking=true` 时显示 |
+| 模型 | `selectedModelConfig` | bindings + `chatStream.model_config_id` | |
+
+**发消息逻辑（`sendMessage`）：**
+
+1. 若存在 wizard 收集中（`skillIntakeLocked`），输入框不可用。  
+2. 调用 `chatStream(...)` → `POST /chat/stream`；`skill_ids`：有 wizard 触发器时传 `null`（沿用会话里 chat Skill），否则传 `selectedSkills`。  
+3. SSE：`meta` → `reasoning`/`token`/`process` → `done`；`AbortController` 断开即取消 fetch（MCP in-flight 见 `McpCancelScope`）。  
+4. Wizard Run 启动后：`attachSkillRunStream` → `GET /skill-runs/{id}/stream`；async_job 则轮询 Run 详情。
 
 ---
 
@@ -70,7 +142,7 @@ SkillRun（Run 级草稿/执行）
 | `model_config/services/llm_connection.py` | `resolve_chat_llm_params`、`resolve_effective_enable_thinking` |
 | `base/rag/llm.py` | `merge_token_usage`（多轮 ReAct token 累加） |
 | `agent/orchestrator/chat_agent_orchestrator.py` | 统一 Hybrid ReAct：RAG + Skill 工具 + MCP 工具 |
-| `agent/orchestrator/binding_resolver.py` | 解析 Skill/MCP 绑定、内嵌 MCP 去重、OpenAI tools 注册 |
+| `agent/orchestrator/binding_resolver.py` | 解析 Skill/MCP 绑定、内嵌 MCP 去重、OpenAI tools 注册；`run_mode=True` 时允许 wizard/async Skill |
 | `agent/orchestrator/tool_dispatcher.py` | Skill 文件工具与 MCP `call_tool` 统一分发 |
 
 **包导入约定**：`conversation/services/__init__.py` **不做** eager import（避免 `skill_run_crud → binding_utils → conversation_crud` 循环依赖）。View / 依赖注入应直接从具体模块导入，例如 `from ...conversation_crud import ConversationCrud`。
@@ -109,7 +181,7 @@ flowchart TD
 | **入口** | `conversation/views/chat_view.py` · `chat_stream` | `POST /chat/stream`，Body: `ChatRequest` |
 | **编排** | `conversation/services/conversation_crud.py` · `prepare_for_chat` | 解析/创建会话；`_partition_skill_ids`；`_resolve_and_validate_bindings`；`update_meta`；加载历史；`message.add_message(user)` |
 | **编排** | 同上 · `stream_response` | **始终** `_chat_orchestrator.stream(...)` |
-| **执行** | `agent/orchestrator/chat_agent_orchestrator.py` · `stream` | ① 纯 RAG 时无关问题短路 ② `resolve_chat_binding` ③ RAG 检索 ④ `build_hybrid_system_prompt` ⑤ 无工具 → `stream_chat`；有工具 → ReAct + `ToolDispatcher` |
+| **执行** | `agent/orchestrator/chat_agent_orchestrator.py` · `stream` | ① 无 Skill/MCP 且非 run 时，问候类走 `stream_irrelevant_response` ② `resolve_chat_binding(run_mode=False)` ③ RAG 检索 ④ `build_hybrid_system_prompt` ⑤ 无工具 → `stream_chat`；有工具 → ReAct + `McpSessionManager` + `ToolDispatcher` |
 | **兼容入口** | `base/rag/skill_agent.py` · `skill_agent_stream` | 薄 delegate → 同上 Orchestrator（chat 模式） |
 | **兼容入口** | `base/rag/chain.py` · `rag_stream` | 薄 delegate → 同上 Orchestrator（需 `user` 参数） |
 | **出口** | `chat_view.py` · `event_generator` | SSE：`meta` → `reasoning`/`token`/`process` → `done`；`message.add_message(assistant)` 持久化 |
@@ -170,6 +242,22 @@ req.enable_thinking
   → llm.stream_chat / chat_with_tools(..., enable_thinking=True)
 ```
 
+### 4.5 `ChatAgentOrchestrator` 内部步骤（对照代码）
+
+`chat_agent_orchestrator.py` · `_stream_impl` 顺序：
+
+1. **短路**：无 Skill、无 MCP、非 Run → `is_irrelevant_question` → 固定寒暄 SSE。  
+2. **绑定**：`resolve_chat_binding(run_mode=…)` → `openai_tools`、`tool_registry`、`mcp_servers`。  
+3. **RAG**：`trim_chat_history`（M0）→ `retriever.retrieve()` → yield `sources` / `retrieval_empty` → `_resolve_system_prompt` → `build_hybrid_system_prompt` → `format_messages`（含 token 双限）。  
+4. **无工具**：`llm.stream_chat` → 直接 token 流。  
+5. **有工具**：`async with McpSessionManager` → `open_servers` → ReAct 循环（最多 `policy.max_tool_rounds`）：  
+   - `llm.chat_with_tools`  
+   - 有 `tool_calls` → `ToolDispatcher`（SkillStep / McpStep）→ 结果写回 messages  
+   - 无 `tool_calls` → `_stream_final_answer`  
+6. **收尾**：`process_trace` + `usage` chunk；外层 `CancelledError` → `McpCancelScope`。
+
+策略默认值见 `HybridAgentPolicy`（`parallel_tool_calls`、`inject_resource_contents`、`audit_enabled` 等）；MCP 细节见 `MCP_INTEGRATION.md` §4.2。
+
 ---
 
 ## 5. 链路 B：Wizard Skill（收集 → 启动 → SSE 执行）
@@ -223,7 +311,7 @@ req.enable_thinking
 | 阶段 | 文件 · 函数 | 说明 |
 |------|-------------|------|
 | **执行** | `skill_run_executor.py` · `execute_skill_run` | status→running；`kb_ids_from_conversation`；`resolve_effective_enable_thinking` |
-| **执行** | `skill_agent.py` · `skill_run_agent_stream` | delegate → `ChatAgentOrchestrator`（`run_mode=True`，`ToolDispatcher`，`allow_skill_write=True`） |
+| **执行** | `skill_agent.py` · `skill_run_agent_stream` | delegate → `ChatAgentOrchestrator`（`run_mode=True` 跳过 chat 模式校验；`allow_skill_write=True`；`mcp_server_ids=[]`，Run 暂不接会话 MCP） |
 | **事件** | `SkillRunEventHub.publish` | wizard：`publish_events=True`；每个 chunk 推入队列 |
 | **持久化** | `persist_skill_run_conversation_message` | 更新 execution 消息：正文、usage、`process_trace`、`skill_run_ref` |
 | **结束** | `SkillRunEventHub.finish` + `cleanup` | 关闭队列 |
@@ -265,7 +353,7 @@ sequenceDiagram
 
 ## 6. 链路 C：Async Job Skill
 
-与 Wizard **收集阶段完全相同**（链路 D 阶段一、二）。差异仅在 `start_run`：
+与 Wizard **收集阶段完全相同**（§5 阶段一、二）。差异仅在 `start_run`：
 
 | 阶段 | 文件 · 函数 | 说明 |
 |------|-------------|------|
@@ -307,11 +395,15 @@ celery -A backend.celery_scheduler.celery_worker worker -Q default --pool=solo -
 | event | 含义 | 来源 chunk.type |
 |-------|------|-----------------|
 | `meta` | `conversation_id` | 固定首包 |
+| `sources` | RAG 参考来源列表（≤ `ModelConfig.top_k`，默认 6） | `sources` |
+| `retrieval_empty` | 空召回提示文案 | `retrieval_empty` |
 | `reasoning` | 深度思考 token | `reasoning` |
 | `token` | 正文 token | `content` |
 | `process` | 工具步骤 | `process`（经 `merge_process_step` 去重） |
 | `error` | 异常 | except |
 | `done` | 结束 + usage + process_trace | 生成器末尾 |
+
+**持久化**：`chat_view` 在流式过程中收集 `sources_items` / `retrieval_empty_flag`，助手消息落库时写入 `Message.sources_json`、`Message.retrieval_empty`；前端刷新对话经 `mapMessageFromServer` 恢复展示。
 
 ### 8.2 `GET /skill-runs/{id}/stream`
 
@@ -328,6 +420,9 @@ celery -A backend.celery_scheduler.celery_worker worker -Q default --pool=solo -
 
 | 职责 | 路径 |
 |------|------|
+| 聊天页 UI | `frontend/src/views/chat/index.vue` |
+| SSE 客户端 | `frontend/src/api/index.js` · `chatStream` / `skillRunStream` |
+| Skill 向导面板 | `frontend/src/components/skill/SkillIntakePanel.vue` |
 | 聊天 SSE 入口 | `applications/conversation/views/chat_view.py` |
 | 会话 / 收集 API | `applications/conversation/views/history_view.py` |
 | 会话编排核心 | `applications/conversation/services/conversation_crud.py` |
@@ -337,7 +432,10 @@ celery -A backend.celery_scheduler.celery_worker worker -Q default --pool=solo -
 | Run CRUD / 启动 | `applications/agent/services/skill_run_crud.py` |
 | Run 执行器 | `applications/agent/services/skill_run_executor.py` |
 | Run SSE 总线 | `applications/agent/services/skill_run_events.py` |
-| RAG 检索 / 无关问题短路 | `applications/base/rag/chain.py`（`_retrieve_context`、`stream_irrelevant_response`） |
+| RAG 统一检索 | `applications/base/rag/retriever.py` |
+| Rerank 精排 | `applications/base/rag/reranker.py` |
+| RAG Prompt / 空召回 | `applications/base/rag/chain.py`（`_resolve_system_prompt`、`stream_irrelevant_response`） |
+| 参考来源 UI | `frontend/src/components/MessageBubble.vue` |
 | Hybrid 编排（chat + run） | `applications/agent/orchestrator/chat_agent_orchestrator.py` |
 | Skill 兼容入口 | `applications/base/rag/skill_agent.py`（delegate） |
 | MCP 会话 / 审计 | `applications/mcp/session_manager.py`、`audit.py` |
@@ -405,10 +503,13 @@ celery -A backend.celery_scheduler.celery_worker worker -Q default --pool=solo -
 
 ---
 
-## 13. E2E 验证基准（2026-06-26）
+## 13. E2E 验证基准（2026-06-29）
 
-| 链路 | 样例 Skill | 关键断言 |
-|------|------------|----------|
+| 链路 | 样例 | 关键断言 |
+|------|------|----------|
+| RAG + 有文档 KB | nginx 知识库 | SSE `sources` 条数 ≤ 6；刷新后「参考来源（N）」仍可见 |
+| RAG + 空 KB | 空知识库 + 制度类问题 | SSE `retrieval_empty`；横幅持久化；回答声明未命中 |
+| Rerank 已配置 | `.env` `RERANK_API_KEY` | 日志无「跳过 Rerank」降级；精排 API 被调用 |
 | Wizard 全流程 | `test_wizard_skill` | validate 通过 → start → `completed`；`report.md` + `metrics.json`；execution 消息含 `TEST_WIZARD_OK` |
 | Async Celery | `test_async_job_skill` | `async_execution=true`；SSE 拒绝；轮询 `completed`；`status.txt` 含 `TEST_ASYNC_OK` |
 | Chat Skill | `test_chat_skill` | 普通题可无 tool 步骤；`ping` 含 `TEST_CHAT_OK` |
@@ -416,4 +517,4 @@ celery -A backend.celery_scheduler.celery_worker worker -Q default --pool=solo -
 
 ---
 
-*文档与代码同步基准：`stream_response` 始终 `ChatAgentOrchestrator`；`McpAgentOrchestrator` 为别名 re-export；`resolve_effective_enable_thinking` 位于 `llm_connection.py`。*
+*文档与代码同步基准（2026-06-29）：RAG 经 `retriever.retrieve()` + `reranker.apply_rerank()`；SSE 新增 `sources` / `retrieval_empty` 及 `Message` 持久化；默认 `ModelConfig.top_k=6`（migration 28 修正历史 20→6）。*

@@ -51,7 +51,13 @@ def resolve_effective_enable_thinking(
 def resolve_chat_llm_params(model_config: Optional[ModelConfig] = None) -> Dict[str, Any]:
     """合并 ModelConfig 生成参数与 env 兜底连接信息"""
     conn = resolve_llm_connection(model_config)
+    fetch_top_k = PROJECT_CONFIG.RETRIEVAL_FETCH_TOP_K
+    max_history_tokens = PROJECT_CONFIG.MAX_HISTORY_TOKENS
+    default_threshold = PROJECT_CONFIG.RETRIEVAL_SCORE_THRESHOLD
     if model_config:
+        threshold = model_config.score_threshold
+        if threshold is None or threshold <= 0:
+            threshold = default_threshold
         return {
             "model_name": conn.llm_model_name,
             "api_key": conn.llm_api_key,
@@ -61,8 +67,12 @@ def resolve_chat_llm_params(model_config: Optional[ModelConfig] = None) -> Dict[
             "top_p": model_config.top_p,
             "system_prompt": model_config.system_prompt,
             "top_k": model_config.top_k,
-            "score_threshold": model_config.score_threshold,
+            "score_threshold": threshold,
             "max_history_rounds": model_config.max_history_rounds,
+            "max_history_tokens": max_history_tokens,
+            "fetch_top_k": fetch_top_k,
+            "rerank_enabled": model_config.rerank_enabled,
+            "rerank_model": model_config.rerank_model,
         }
     return {
         "model_name": conn.llm_model_name,
@@ -72,7 +82,11 @@ def resolve_chat_llm_params(model_config: Optional[ModelConfig] = None) -> Dict[
         "max_tokens": 4096,
         "top_p": 0.95,
         "system_prompt": None,
-        "top_k": 5,
-        "score_threshold": 0.0,
-        "max_history_rounds": 10,
+        "top_k": 6,
+        "score_threshold": default_threshold,
+        "max_history_rounds": 8,
+        "max_history_tokens": max_history_tokens,
+        "fetch_top_k": fetch_top_k,
+        "rerank_enabled": True,
+        "rerank_model": None,
     }

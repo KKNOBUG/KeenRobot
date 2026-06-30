@@ -12,7 +12,7 @@ from backend.applications.base.services.scaffold import (
 
 class ModelConfig(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
     """模型配置"""
-    id = fields.CharField(default=unique_identify, max_length=64, pk=True, description="配置ID")
+    id = fields.CharField(default=unique_identify, max_length=64, primary_key=True, description="配置ID")
     user = fields.ForeignKeyField(
         "models.User",
         related_name="model_configs",
@@ -29,9 +29,11 @@ class ModelConfig(ScaffoldModel, StateModel, TimestampMixin, MaintainMixin):
     temperature = fields.FloatField(default=0.7, description="温度(控制AI回答随机性)")
     max_tokens = fields.IntField(default=4096, description="限制单次回答的最大输出Token数")
     top_p = fields.FloatField(default=0.95, description="Top P(核采样参数)")
-    top_k = fields.IntField(default=5, description="Top K(知识库检索条数)")
-    max_history_rounds = fields.IntField(default=10, description="保留历史对话轮数")
+    top_k = fields.IntField(default=6, description="Top K(知识库检索条数)")
+    max_history_rounds = fields.IntField(default=8, description="保留历史对话轮数")
     score_threshold = fields.FloatField(default=0.0, description="检索相似度阈值(0-1)")
+    rerank_enabled = fields.BooleanField(default=True, description="是否启用 Rerank（须配置 RERANK_API_KEY）")
+    rerank_model = fields.CharField(max_length=64, null=True, description="Rerank 模型，覆盖 .env RERANK_MODEL")
     system_prompt = fields.TextField(default=None, null=True, description="系统提示词，支持{context}占位符")
     is_default = fields.BooleanField(default=True, description="是否默认配置")
 

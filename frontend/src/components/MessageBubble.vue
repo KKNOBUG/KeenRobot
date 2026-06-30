@@ -25,10 +25,21 @@ const props = defineProps({
   promptTokens: Number,
   completionTokens: Number,
   reasoningTokens: Number,
+  retrievalEmpty: Boolean,
+  retrievalEmptyMessage: String,
+  sources: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const emit = defineEmits(['intake-update', 'intake-lock-change', 'intake-started', 'intake-cancelled'])
 
+const sourcesExpanded = ref(false)
+
+const showSources = computed(() =>
+  props.role === 'assistant' && Array.isArray(props.sources) && props.sources.length > 0,
+)
 const renderedHtml = ref('')
 
 const intakePhase = computed(() => props.skillIntake?.phase || '')
@@ -157,6 +168,28 @@ async function copyContent() {
           :steps="processTrace"
           :streaming="isStreaming"
       />
+      <div
+          v-if="role === 'assistant' && retrievalEmpty"
+          class="retrieval-empty-banner"
+      >
+        {{ retrievalEmptyMessage || '未在知识库中找到相关内容' }}
+      </div>
+      <div v-if="showSources" class="rag-sources">
+        <button type="button" class="rag-sources__toggle" @click="sourcesExpanded = !sourcesExpanded">
+          参考来源（{{ sources.length }}）
+          <span class="rag-sources__chevron">{{ sourcesExpanded ? '▾' : '▸' }}</span>
+        </button>
+        <ul v-show="sourcesExpanded" class="rag-sources__list">
+          <li v-for="item in sources" :key="item.chunk_id || item.index" class="rag-sources__item">
+            <span class="rag-sources__title">
+              [{{ item.index }}] {{ item.filename || '未知文档' }}
+              <template v-if="item.page_number"> · 第{{ item.page_number }}页</template>
+              <template v-if="item.score != null"> · {{ item.score }}</template>
+            </span>
+            <p v-if="item.snippet" class="rag-sources__snippet">{{ item.snippet }}</p>
+          </li>
+        </ul>
+      </div>
       <div
           v-if="role === 'assistant' && showAssistantContent()"
           class="markdown-body bubble-content"
@@ -400,6 +433,65 @@ async function copyContent() {
 .token-badge--reasoning {
   background: rgba(250, 140, 22, 0.12);
   color: #fa8c16;
+}
+
+.retrieval-empty-banner {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(250, 140, 22, 0.12);
+  color: #d46b08;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rag-sources {
+  margin-bottom: 8px;
+}
+
+.rag-sources__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--chat-muted-text, #737373);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rag-sources__toggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.rag-sources__list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rag-sources__item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 12px;
+}
+
+.rag-sources__item + .rag-sources__item {
+  margin-top: 6px;
+}
+
+.rag-sources__title {
+  font-weight: 600;
+  color: var(--n-text-color, #333);
+}
+
+.rag-sources__snippet {
+  margin: 4px 0 0;
+  color: var(--chat-muted-text, #737373);
+  line-height: 1.5;
 }
 
 .cursor-blink {

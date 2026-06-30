@@ -79,6 +79,10 @@ export default {
   },
   deleteConversation: (id) => request.delete(`/conversations/${id}`).then(payload),
 
+  fetchUserMemories: () => request.get('/chat/memories').then(payload),
+  createUserMemory: (data) => request.post('/chat/memories', data).then(payload),
+  deleteUserMemory: (id) => request.delete(`/chat/memories/${id}`).then(payload),
+
   fetchKnowledgeBases: (search = '') =>
       request
           .get(search ? `/knowledge-bases/?search=${encodeURIComponent(search)}` : '/knowledge-bases/')
@@ -88,6 +92,7 @@ export default {
   deleteKnowledgeBase: (id) => request.delete(`/knowledge-bases/${id}`).then(payload),
   fetchDocuments: (kbId) => request.get(`/knowledge-bases/${kbId}/documents`).then(payload),
   retryDocument: (kbId, docId) => request.post(`/knowledge-bases/${kbId}/documents/${docId}/retry`).then(payload),
+  reindexKnowledgeBase: (kbId) => request.post(`/knowledge-bases/${kbId}/reindex`).then(payload),
   deleteDocument: (kbId, docId) => request.delete(`/knowledge-bases/${kbId}/documents/${docId}`).then(payload),
   fetchChunks: (kbId, docId) =>
       request.get(`/knowledge-bases/${kbId}/chunks?document_id=${docId}`).then(payload),
@@ -230,7 +235,7 @@ export function chatStream(
     enableThinking = false,
     skillIds = null,
     mcpIds = [],
-    { onToken, onReasoning, onMeta, onProcess, onDone, onError }
+    { onToken, onReasoning, onMeta, onProcess, onDone, onError, onRetrievalEmpty, onSources }
 ) {
   const controller = new AbortController()
   const token = getToken()
@@ -300,6 +305,8 @@ export function chatStream(
                 else if (eventType === 'reasoning' && onReasoning) onReasoning(data.content)
                 else if (eventType === 'meta' && onMeta) onMeta(data)
                 else if (eventType === 'process' && onProcess) onProcess(data)
+                else if (eventType === 'retrieval_empty' && onRetrievalEmpty) onRetrievalEmpty(data)
+                else if (eventType === 'sources' && onSources) onSources(data)
                 else if (eventType === 'done' && onDone) onDone(data)
                 else if (eventType === 'error' && onError) onError(new Error(data.message))
               } catch {

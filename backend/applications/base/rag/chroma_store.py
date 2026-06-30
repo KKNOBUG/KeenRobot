@@ -66,6 +66,8 @@ class ChromaStore:
                 metadata["filename"] = chunk["filename"]
             if chunk.get("embedding_model"):
                 metadata["embedding_model"] = chunk["embedding_model"]
+            if chunk.get("parent_chunk_id"):
+                metadata["parent_chunk_id"] = chunk["parent_chunk_id"]
             metadatas.append(metadata)
 
         self._collection.upsert(
@@ -117,6 +119,7 @@ class ChromaStore:
                     "kb_id": metadata.get("kb_id", ""),
                     "doc_id": metadata.get("doc_id", ""),
                     "chunk_id": metadata.get("chunk_id", ""),
+                    "parent_chunk_id": metadata.get("parent_chunk_id", ""),
                     "filename": metadata.get("filename", ""),
                     "page_number": page_number,
                     "embedding_model": metadata.get("embedding_model", ""),
@@ -152,5 +155,3 @@ class ChromaStore:
 
 
 chroma_store = ChromaStore()
-
-# 向量重建入口（预留）：更换 Embedding 模型或迁移向量库时，可在此扩展 reindex 能力。
