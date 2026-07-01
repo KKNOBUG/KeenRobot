@@ -73,7 +73,16 @@ async def register_database(app: FastAPI) -> None:
     except FileExistsError:
         pass
 
-    await command.init()
+    try:
+        await command.init()
+    except RuntimeError as exc:
+        if "fix-migrations" in str(exc):
+            LOGGER.warning(
+                "Aerich 迁移文件格式过旧，已跳过 init（请在本机执行 aerich fix-migrations）: %s",
+                exc,
+            )
+        else:
+            raise
 
     if not PROJECT_CONFIG.aerich_should_run_on_startup:
         LOGGER.warning(

@@ -1,0 +1,1546 @@
+{
+  "generated_at": "2026-07-01T10:10:55",
+  "questions_file": "/Users/yangkai/ProjectWorkspace/Fastapi-Vue/KeenRobot/backend/output/eval/questions.jsonl",
+  "used_template_fallback": false,
+  "tag_filter": null,
+  "retrieval_scenario": "balanced",
+  "retrieval_params": {
+    "top_k": 6,
+    "fetch_top_k": 30,
+    "score_threshold": 0.45,
+    "rerank_enabled": true,
+    "rerank_model": null
+  },
+  "env_flags": {
+    "RETRIEVAL_QUERY_ENHANCE_ENABLED": true,
+    "RETRIEVAL_EMPTY_RETRY_ENABLED": true,
+    "RETRIEVAL_MULTI_QUERY_FUSION_ENABLED": false,
+    "RETRIEVAL_MULTI_QUERY_MAX": 3,
+    "RETRIEVAL_MIN_HITS_PER_KB": 2
+  },
+  "summary": {
+    "total": 50,
+    "errors": 35,
+    "recall_rate": 1.0,
+    "hit_at_k_rate": 0.6667,
+    "empty_accuracy": 0.6667,
+    "multi_kb_coverage_rate": null,
+    "latency_ms": {
+      "p50": 29060.72,
+      "p95": 36369.15,
+      "avg": 30497.01
+    },
+    "by_tag_counts": {
+      "nginx": {
+        "total": 15,
+        "errors": 3
+      },
+      "制度": {
+        "total": 19,
+        "errors": 18
+      },
+      "空召回": {
+        "total": 6,
+        "errors": 3
+      },
+      "多库": {
+        "total": 5,
+        "errors": 5
+      },
+      "多轮": {
+        "total": 8,
+        "errors": 6
+      },
+      "query增强": {
+        "total": 8,
+        "errors": 6
+      },
+      "财务": {
+        "total": 9,
+        "errors": 9
+      },
+      "编号": {
+        "total": 2,
+        "errors": 2
+      },
+      "跨域": {
+        "total": 4,
+        "errors": 1
+      },
+      "空召回重试": {
+        "total": 2,
+        "errors": 1
+      },
+      "运维": {
+        "total": 8,
+        "errors": 8
+      }
+    }
+  },
+  "cases": [
+    {
+      "index": 1,
+      "question": "nginx反向代理怎么配置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "proxy_pass",
+        "反向代理"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 36436.59,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 2,
+      "question": "公司年假有多少天",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "年假"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.05,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 3,
+      "question": "量子纠缠在企业报销里如何申请",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "空召回"
+      ],
+      "expect_empty": true,
+      "expect_multi_kb": false,
+      "expected_keywords": [],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 4,
+      "question": "nginx SSL 证书路径配置",
+      "kb_names": [
+        "nginx",
+        "运维规范"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多库",
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "ssl",
+        "certificate",
+        "证书"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.02,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 5,
+      "question": "那调休呢",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多轮",
+        "query增强"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "调休"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 6,
+      "question": "报销流程是什么",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度",
+        "财务"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "报销"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 7,
+      "question": "第3条年假规定是什么",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "编号",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "年假",
+        "第"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 8,
+      "question": "Docker 容器内存限制",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "空召回",
+        "跨域"
+      ],
+      "expect_empty": true,
+      "expect_multi_kb": false,
+      "expected_keywords": [],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": true,
+      "latency_ms": 19817.5,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 9,
+      "question": "考勤迟到怎么处理",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "迟到",
+        "考勤"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 10,
+      "question": "proxy_pass 和 upstream 区别",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "proxy_pass",
+        "upstream"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 28476.98,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 11,
+      "question": "nginx 负载均衡怎么配置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "负载",
+        "upstream",
+        "均衡"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 27677.78,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 12,
+      "question": "nginx 访问日志格式怎么自定义",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "log_format",
+        "日志"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 36002.11,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 13,
+      "question": "静态资源缓存 Cache-Control 怎么配",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "缓存",
+        "Cache",
+        "expires"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 29030.99,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 14,
+      "question": "location 匹配优先级是什么",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "location",
+        "匹配"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 35856.35,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 15,
+      "question": "nginx 413 Request Entity Too Large 怎么处理",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "413",
+        "client_max_body_size"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 36369.15,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 16,
+      "question": "WebSocket 反向代理怎么配置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "WebSocket",
+        "Upgrade",
+        "proxy"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 27755.1,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 17,
+      "question": "server_name 和 default_server 有什么区别",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "server_name",
+        "default"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 29060.72,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 18,
+      "question": "nginx worker_processes 怎么设置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "worker_processes"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 29135.59,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 19,
+      "question": "试用期有多长",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "试用"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 20,
+      "question": "离职手续办理流程",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "离职"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 21,
+      "question": "加班怎么申请",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "加班"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 22,
+      "question": "病假需要哪些材料",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "病假"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 23,
+      "question": "社保公积金缴纳比例",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "社保",
+        "公积金"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.29,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 24,
+      "question": "保密协议适用范围",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "保密"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 25,
+      "question": "第5条考勤规定是什么",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "编号",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "考勤",
+        "第"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 26,
+      "question": "那病假呢",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多轮",
+        "query增强"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "病假"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 27,
+      "question": "继续",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多轮",
+        "query增强",
+        "空召回重试"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "年假",
+        "调休",
+        "福利"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 28,
+      "question": "发票抬头有什么要求",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "财务",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "发票",
+        "抬头"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 29,
+      "question": "差旅住宿费报销标准是多少",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "财务",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "差旅",
+        "住宿",
+        "报销"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 30,
+      "question": "费用审批权限怎么划分",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "财务",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "审批",
+        "权限"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 31,
+      "question": "对公付款流程是什么",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "财务",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "对公",
+        "付款"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 32,
+      "question": "电子发票怎么提交报销",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "财务",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "电子发票",
+        "报销"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 33,
+      "question": "差旅交通费能报出租车吗",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "财务"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "交通",
+        "出租车",
+        "差旅"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 34,
+      "question": "那住宿标准呢",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多轮",
+        "query增强",
+        "财务"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "住宿",
+        "标准"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 35,
+      "question": "同样呢",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多轮",
+        "query增强"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "报销",
+        "审批"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 36,
+      "question": "生产环境发布 checklist 有哪些项",
+      "kb_names": [
+        "运维规范"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "运维",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "发布",
+        "checklist",
+        "生产"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 37,
+      "question": "备份恢复 RPO 和 RTO 要求",
+      "kb_names": [
+        "运维规范"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "备份",
+        "RPO",
+        "RTO"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 38,
+      "question": "监控告警升级流程是什么",
+      "kb_names": [
+        "运维规范"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "告警",
+        "升级"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 39,
+      "question": "变更窗口时间规定",
+      "kb_names": [
+        "运维规范"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "变更",
+        "窗口"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 40,
+      "question": "还有吗",
+      "kb_names": [
+        "运维规范"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多轮",
+        "query增强"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "备份",
+        "告警",
+        "变更"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 41,
+      "question": "生产 nginx 部署规范有哪些",
+      "kb_names": [
+        "nginx",
+        "运维规范"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多库",
+        "nginx",
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "nginx",
+        "生产",
+        "部署"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 42,
+      "question": "HTTPS 证书更新流程和 nginx 配置要点",
+      "kb_names": [
+        "nginx",
+        "运维规范"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多库",
+        "nginx",
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "证书",
+        "HTTPS",
+        "ssl"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 运维规范"
+    },
+    {
+      "index": 43,
+      "question": "请假期间远程办公 VPN 怎么配",
+      "kb_names": [
+        "员工手册",
+        "运维规范"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多库",
+        "制度",
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "远程",
+        "VPN",
+        "请假"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册",
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 员工手册, 运维规范"
+    },
+    {
+      "index": 44,
+      "question": "报销系统上线变更要走什么流程",
+      "kb_names": [
+        "财务制度",
+        "运维规范"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "多库",
+        "财务",
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "变更",
+        "报销",
+        "上线"
+      ],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "财务制度",
+        "运维规范"
+      ],
+      "error": "知识库名称未找到: 财务制度, 运维规范"
+    },
+    {
+      "index": 45,
+      "question": "上面说的 SSL 路径在哪",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多轮",
+        "query增强",
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "ssl",
+        "证书",
+        "路径"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 35800.62,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 46,
+      "question": "然后呢",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多轮",
+        "query增强",
+        "空召回重试",
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "proxy_pass",
+        "upstream",
+        "负载"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 28982.82,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 47,
+      "question": "区块链挖矿收益怎么入账",
+      "kb_names": [
+        "财务制度"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "空召回",
+        "跨域"
+      ],
+      "expect_empty": true,
+      "expect_multi_kb": false,
+      "expected_keywords": [],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.01,
+      "missing_kb_names": [
+        "财务制度"
+      ],
+      "error": "知识库名称未找到: 财务制度"
+    },
+    {
+      "index": 48,
+      "question": "Kubernetes Pod 驱逐策略怎么配",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "空召回",
+        "跨域"
+      ],
+      "expect_empty": true,
+      "expect_multi_kb": false,
+      "expected_keywords": [],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": true,
+      "latency_ms": 27668.21,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 49,
+      "question": "火星基地员工落户政策",
+      "kb_names": [
+        "员工手册"
+      ],
+      "kb_ids": [],
+      "tags": [
+        "空召回"
+      ],
+      "expect_empty": true,
+      "expect_multi_kb": false,
+      "expected_keywords": [],
+      "retrieval_empty": true,
+      "source_count": 0,
+      "kb_ids_in_sources": [],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 0.0,
+      "missing_kb_names": [
+        "员工手册"
+      ],
+      "error": "知识库名称未找到: 员工手册"
+    },
+    {
+      "index": 50,
+      "question": "Transformer 注意力机制在 nginx 里怎么调",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "空召回",
+        "跨域"
+      ],
+      "expect_empty": true,
+      "expect_multi_kb": false,
+      "expected_keywords": [],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": null,
+      "multi_kb_ok": null,
+      "empty_ok": false,
+      "latency_ms": 29384.66,
+      "missing_kb_names": [],
+      "error": null
+    }
+  ],
+  "output_file": "backend/output/eval/results/recall_baseline.json"
+}

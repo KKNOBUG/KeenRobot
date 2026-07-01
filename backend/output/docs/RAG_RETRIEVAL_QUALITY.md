@@ -1,8 +1,8 @@
 # RAG 检索质量与记忆能力方案
 
 > 状态：**已确认 — 企业标准方案（阶段 1 + 阶段 2 + 方案 A 均已落地）**  
-> 更新：2026-06-22（Round 4：多 query 融合 P2-2 + 引用率审计 P2-3）  
-> 关联：`CHAT_KB_SELECTION.md`（知识库范围）、`CHAT_EXECUTION_FLOWS.md`（聊天编排）、`PROJECT_GUIDE.md` §7.2（路线图摘要）
+> 更新：2026-07-01（§11 E2E 验收 + 文档与实现对齐）；2026-06-22（Round 4：P2-2 多 query 融合 + P2-3 引用率审计）  
+> 关联：`CHAT_KB_SELECTION.md`（知识库范围）、`CHAT_EXECUTION_FLOWS.md`（聊天编排）、`RAG_EVAL_GUIDE.md`（离线评测）、`PROJECT_GUIDE.md` §7.2（路线图摘要）
 
 ### 落地进度一览
 
@@ -31,7 +31,7 @@
 
 ### 1.1 RAG 企业标准
 
-**A（调参，贯穿始终）+ B（结构分块）+ C（父块扩展）+ F（Rerank）+ G（溯源）+ H（重建）**（原方案 I 离线评测脚本已移出代码库）
+**A（调参，贯穿始终）+ B（结构分块）+ C（父块扩展）+ F（Rerank）+ G（溯源）+ H（重建）+ I（离线评测 CLI）**（`backend/services/recall_test/`，非运行时路径）
 
 目标链路：
 
@@ -54,9 +54,9 @@ SSE sources / retrieval_empty → LLM                      ← G ✅
 （M1）滚动摘要注入 system ## 对话摘要                      ← M1 ✅
 ```
 
-**当前实际链路（2026-06-30）**：M0 → `retrieve()`（F 可选）→ `expand_context()`（C）→ G → **M1 摘要段** → LLM。
+**当前实际链路（2026-07-01）**：M0 → `build_retrieval_query`（P1-1）→ `retrieve()`（可选 P2-2 融合、P2-1 空 retry、P0-4 多库配额；F 可选）→ `expand_context()`（C）→ G → **M1 摘要段** → LLM。
 
-**不在本方案范围**：原 **方案 E（Meilisearch / BM25 混合检索）**、查询改写/多查询（HyDE）、Graph RAG、ColBERT、Agentic 多轮检索循环、**Embedding 语义切块（Semantic Chunking / B6）**、LLM 分块。
+**不在本方案范围**：原 **方案 E（Meilisearch / BM25 混合检索）**、HyDE / LLM 查询改写、Graph RAG、ColBERT、Agentic 多轮检索循环、**Embedding 语义切块（Semantic Chunking / B6）**、LLM 分块。（**P2-2 规则多 query 融合**已落地，默认 `RETRIEVAL_MULTI_QUERY_FUSION_ENABLED=false`。）
 
 > **剔除 E 的补偿**：结构分块 B（条款号/标题写入 chunk 正文）、提高 `fetch_top_k`、F Rerank、C 父块扩展；精确编号类问法依赖线上抽检，必要时再单独立项 E。
 
@@ -86,7 +86,7 @@ SSE sources / retrieval_empty → LLM                      ← G ✅
 
 ## 二、当前基线（已实现）
 
-### 2.0 已落地能力摘要（截至 2026-06-30）
+### 2.0 已落地能力摘要（截至 2026-07-01）
 
 | 能力 | 状态 | 落点 |
 |------|------|------|
@@ -108,6 +108,8 @@ SSE sources / retrieval_empty → LLM                      ← G ✅
 
 - **换 Embedding 模型**：管理端「重建向量」或 `POST .../reindex`（按已有分块 re-embed，约 1～20 min/库，视块数而定）。
 - **应用 B 结构分块到旧文档**：须 **重新上传 PDF**（reindex 不会重新分块）。
+- **Aerich 迁移格式过旧**：启动时 `app_initialization` 会 warn 并跳过 init；本机执行 `aerich fix-migrations` 后按需 `aerich upgrade`。
+- **离线 baseline**：`output/eval/questions.local.jsonl`（映射本机 KB 名）；nginx 子集见 `output/eval/results/recall_nginx.json`；引用率见 `citation_e2e.json`（详见 `RAG_EVAL_GUIDE.md`）。
 
 ### 2.1 RAG
 
@@ -419,7 +421,7 @@ reindex_kb_vectors(kb_id):
 | `precision` | 24 | 4 | 0.5 |
 | `recall` | 40 | 8 | 0.4 |
 
-**落点**：`backend/configure/retrieval_presets.py` → `apply_retrieval_scenario()` 在 `resolve_chat_llm_params()` 末尾叠加；运行时 params 带 `retrieval_scenario` 字段便于日志。
+**落点**：`backend/configure/retrieval_presets.py` → `apply_retrieval_scenario()` 在 `resolve_chat_llm_params()` 末尾叠加 `fetch_top_k` / `top_k` / `score_threshold`。**注意**：`retrieval_scenario` **不得**传入 `ChatAgentOrchestrator`（曾导致 `unexpected keyword argument`）；场景名仅由 `resolve_retrieval_scenario()` 写入离线评测报告。
 
 ---
 
@@ -670,17 +672,23 @@ LLM 输入:
 验收            §十一 checklist
 ```
 
-### 6.2 当前检索链路（2026-06-30 已实现）
+### 6.2 当前检索链路（2026-07-01 已实现）
 
 ```text
-memory_ctx = await build_memory_context(conv, user)   # M1 summary + M2 facts ✅
-retrieval_q = retriever.build_query(question, chat_history)     # M0.2 ✅
-trimmed_history = trim_chat_history(..., max_history_tokens)    # M0.1 ✅
-candidates = retriever.vector_fetch(retrieval_q, kb_ids, fetch_top_k)
-final = retriever.apply_rerank(candidates, top_k)               # F ✅（可选）
-context = await expand_context(final)                           # C ✅
-yield sources / retrieval_empty → LLM(extra_system=memory)      # G + M1 ✅
-# SSE done → run_conversation_summary(conversation_id)        # M1 异步
+memory_ctx = await build_memory_context(conv, user)              # M1 summary + M2 facts ✅
+trimmed_history = trim_chat_history(..., max_history_tokens)     # M0.1 ✅
+chat_params = apply_retrieval_scenario(resolve_chat_llm_params()) # P1-7 ✅
+outcome = await retrieve(                                        # 统一入口 ✅
+    question, chat_history, kb_ids,
+    query=build_retrieval_query(...),                            # P1-1
+    fusion_queries=build_fusion_queries(...) if enabled,         # P2-2（默认关）
+    empty_retry via build_empty_retry_query inside retrieve,     # P2-1
+    apply_kb_quota for multi-KB,                                 # P0-4
+    apply_rerank inside retrieve,                                # F（可选）
+)
+context = await expand_context(outcome.snippets)                 # C ✅
+yield sources / retrieval_empty → LLM(extra_system=memory)     # G + M1 ✅
+# SSE done → run_conversation_summary(conversation_id)           # M1 异步
 ```
 
 ### 6.3 目标检索链路（阶段 2 全部完成后）
@@ -704,7 +712,9 @@ yield sources(G) → LLM
 ```
 applications/base/rag/
 ├── chain.py
-├── retriever.py          # retrieve / vector_fetch / build_query / expand_context ✅
+├── retriever.py          # retrieve / vector_fetch / expand_context ✅
+├── query_enhancer.py     # P1-1 / P2-1 / P2-2 ✅
+├── answer_consistency.py # P1-5 ✅
 ├── reranker.py           # F ✅
 ├── chroma_store.py
 ├── embeddings.py
@@ -726,29 +736,18 @@ applications/conversation/models/
 
 ### 7.2 Orchestrator 顺序
 
-**当前（已实现）**：
+**当前（已实现，2026-07-01）**：
 
 ```
 1. memory_section = format_memory_system_section(conv)（M1）
 2. prepare_for_chat → trim_chat_history（M0）
-3. retrieval_q = build_query(question, chat_history)（M0.2）
-4. retrieve() → expand_context() → sources / context（F+G+C）
+3. chat_params = apply_retrieval_scenario(resolve_chat_llm_params())（P1-7）
+4. retrieve(build_retrieval_query, 可选 fusion / empty-retry, apply_kb_quota) → expand_context()（P1-1/P2/P0-4 + F+G+C）
 5. yield sources / retrieval_empty
 6. _resolve_system_prompt + build_hybrid_system_prompt(extra_system=memory)
 7. format_messages(trimmed_history)
 8. llm.stream_chat()
-9. chat_view 落库 → run_conversation_summary（M1 异步）
-```
-
-**目标（M1/M2/C 完成后）**：
-1. resolve_chat_binding(skill, mcp)
-2. memory_ctx = memory_service.build_context(user, conversation)
-3. retrieval_q = retriever.build_query(question, chat_history)
-4. search_results, context = retriever.retrieve(retrieval_q, kb_ids)
-5. combined_system = build_hybrid_system_prompt(rag + skill + memory_ctx)
-6. messages = format_messages(history, summary=memory_ctx.summary)
-7. yield sources / retrieval_empty
-8. yield LLM stream
+9. chat_view 落库 → answer_consistency 日志（P1-5）→ run_conversation_summary（M1 异步）
 ```
 
 ---
@@ -894,31 +893,34 @@ M2 **不提供** `memory_auto_extract`（自动抽取不在范围内）。
 
 ## 十一、验收要点
 
+> **2026-07-01 E2E（Playwright）**：admin 登录 → nginx KB →「nginx反向代理怎么配置」出现「参考来源（6）」；「量子纠缠在企业报销里如何申请」出现横幅 + 无 sources + 回答含「通用参考 / 非官方资料」。  
+> **2026-07-01 记忆 E2E（Playwright + 长会话种子）**：M2「记住…」→ 个人中心可见 → 新会话召回 → 删除后不可召回；M0 nginx 指代「它的反向代理」命中；M1 26 条消息后 summary 含 `E2E-M1-ALPHA` 且可问答召回；M1 二次滚动 `covered_until` 递增且摘要合并增长。
+
 ### 11.1 RAG
 
-- [x] 空召回：无关问「量子纠缠…」在 `score_threshold=0.45` 下正确空召回（开发期抽检）
+- [x] 空召回：无关问「量子纠缠…」在 `score_threshold=0.45` 下正确空召回（2026-07-01 E2E + 开发期抽检）
 - [x] Rerank 已配置时：SSE sources 条数 ≤ `top_k`（默认 6）
 - [x] Rerank 未配置时：系统可正常 RAG，日志有降级提示，无 Rerank API 调用
 - [ ] 编号/专有名词子集召回可接受（B 新上传 + 线上抽检）
 - [ ] 父块扩展（C）后跨页条款回答完整度提升
-- [x] SSE `sources` 与回答引用一致（文件名、页码）；刷新后 `sources_json` 仍可见
-- [x] 空召回：SSE `retrieval_empty` + 回答 **开头声明未命中**
-- [x] 空召回：前端横幅「未在知识库中找到相关内容」；刷新后仍显示
-- [ ] 空召回：常识补充处标注「非官方 / 通用参考」；抽检无编造条款/数字
-- [ ] 空召回：制度类问题引导查阅正式文件（见 §4.5.1 示例）
+- [x] SSE `sources` 与回答引用一致（文件名、页码）；刷新后 `sources_json` 仍可见（2026-07-01 E2E）
+- [x] 空召回：SSE `retrieval_empty` + 回答 **开头声明未命中**（2026-07-01 E2E）
+- [x] 空召回：前端横幅「未在知识库中找到相关内容」；刷新后仍显示（2026-07-01 E2E）
+- [x] 空召回：常识补充处标注「非官方 / 通用参考」；抽检无编造条款/数字（2026-07-01 E2E 见「通用参考 / 非官方资料」段落）
+- [ ] 空召回：制度类问题引导查阅正式文件（见 §4.5.1 示例；本次 E2E 为 nginx KB，未测制度库）
 - [x] 换 embedding 后可通过管理端「重建向量」完成 re-embed（无单独「待重建」状态 UI）
-- [ ] P95 延迟增加可控（Rerank 目标按环境标定，通常 +200～500ms）
+- [ ] P95 延迟增加可控（Rerank 目标按环境标定，通常 +200～500ms；nginx 离线子集 p95≈4.3s，见 `recall_nginx.json`）
 
 ### 11.2 记忆
 
-- [ ] 多轮指代追问：RAG 召回优于「仅用当前问」（M0 待线上验证）
-- [ ] 总消息 >24 后：早期约束可通过 **滚动 summary** 回答（M1 ✅ 已落地，待长会话实测）
-- [ ] 最近 8 轮指代/改写仍主要依赖 **原文**（M0），不依赖 summary
-- [ ] 再次滚动：待摘要区新增 ≥8 条后 summary 增量更新，非整段覆盖（M1 ✅）
-- [ ] 显式「记住…」后新会话可召回；删除后不可召回（M2 ✅ 待 E2E 验证）
+- [x] 多轮指代追问：RAG 召回优于「仅用当前问」（2026-07-01：nginx KB 先问「nginx 是什么」再问「它的反向代理怎么配置」，第二轮命中 proxy 配置 / 参考来源）
+- [x] 总消息 >24 后：早期约束可通过 **滚动 summary** 回答（2026-07-01：种子 26 条 + summary 含 `E2E-M1-ALPHA`，Playwright 问答召回）
+- [x] 最近 8 轮指代/改写仍主要依赖 **原文**（M0）（2026-07-01：长会话中问「我刚才上一个问题是什么」正确复述「项目代号」）
+- [x] 再次滚动：待摘要区新增 ≥8 条后 summary 增量更新，非整段覆盖（2026-07-01：`covered_until` 324→344，摘要长度增长且保留 ALPHA；BETA 暂由近轮原文召回，摘要合并待 LLM 抽检优化）
+- [x] 显式「记住…」后新会话可召回；删除后不可召回（2026-07-01 Playwright：「记住：我在 E2E 记忆测试部门…」→ 新会话答「E2E 记忆测试部门」→ 删除后答「无法记住」）
 - [x] 无自动写入 user_memories 的代码路径（仅 parser + 手动 API）
 - [x] 注销/删除用户时 memory 随 `user_id` CASCADE 删除
-- [ ] 摘要任务失败时聊天仍可用（M0 原文 + 旧 summary）（M1 ✅ 异常仅打日志）
+- [ ] 摘要任务失败时聊天仍可用（M0 原文 + 旧 summary）（M1 ✅ 异常仅打日志；**未** Playwright 注入 LLM 失败，需故障注入或单测）
 
 ---
 
@@ -927,6 +929,9 @@ M2 **不提供** `memory_auto_extract`（自动抽取不在范围内）。
 | 层级 | 路径 |
 |------|------|
 | 统一检索 | `backend/applications/base/rag/retriever.py` → `retrieve()` |
+| Query 增强 / 融合 / 空 retry | `backend/applications/base/rag/query_enhancer.py` |
+| 回答一致性日志 | `backend/applications/base/rag/answer_consistency.py` |
+| 场景预设 | `backend/configure/retrieval_presets.py` |
 | Rerank | `backend/applications/base/rag/reranker.py` → `apply_rerank()` |
 | 兼容入口 | `backend/applications/base/rag/chain.py` → `rag_stream` / `_resolve_system_prompt` |
 | 向量库 | `backend/applications/base/rag/chroma_store.py` |
@@ -953,7 +958,9 @@ M2 **不提供** `memory_auto_extract`（自动抽取不在范围内）。
 | 前端溯源 | `frontend/src/components/MessageBubble.vue` |
 | 前端重建 | `frontend/src/views/knowledge-base/components/KnowledgeBaseEditDrawer.vue` |
 | 知识库选择 | `backend/output/docs/CHAT_KB_SELECTION.md` |
-| 离线评测 | `backend/output/docs/RAG_EVAL_GUIDE.md` + `backend/output/eval/questions.template.jsonl` |
+| 离线评测 CLI | `backend/services/recall_test/`（`run_recall_test` / `run_citation_audit` / `db.tortoise_session`） |
+| 评测数据与指南 | `backend/output/docs/RAG_EVAL_GUIDE.md` + `output/eval/questions.template.jsonl` / `questions.local.jsonl` |
+| 启动 / Aerich guard | `backend/core/initializations/app_initialization.py` |
 | 聊天流程 | `backend/output/docs/CHAT_EXECUTION_FLOWS.md` |
 
 ---

@@ -1,0 +1,95 @@
+{
+  "generated_at": "2026-07-01T10:15:21",
+  "limit": 50,
+  "days": 30,
+  "answer_consistency_log_enabled": true,
+  "summary": {
+    "sampled": 6,
+    "checked": 6,
+    "citation_rate": 0.8333,
+    "citation_file_and_page_rate": 0.0,
+    "orphan_digits_rate": 1.0
+  },
+  "items": [
+    {
+      "message_id": 309,
+      "conversation_id": "1782783300-5C28416489A34C29933D9DB48B216630",
+      "cites_filename": false,
+      "cites_page": true,
+      "orphan_digits": [
+        "10000",
+        "120",
+        "4",
+        "8800"
+      ],
+      "source_count": 6
+    },
+    {
+      "message_id": 305,
+      "conversation_id": "1782779840-B9FDE40E3DE94F239FA3CD6B5748F088",
+      "cites_filename": false,
+      "cites_page": true,
+      "orphan_digits": [
+        "10000",
+        "120",
+        "127.0",
+        "8081",
+        "8800"
+      ],
+      "source_count": 6
+    },
+    {
+      "message_id": 302,
+      "conversation_id": "1782779754-25932D996B8844FDA289617E8B6F5BE5",
+      "cites_filename": false,
+      "cites_page": true,
+      "orphan_digits": [
+        "10000",
+        "120",
+        "8800"
+      ],
+      "source_count": 6
+    },
+    {
+      "message_id": 300,
+      "conversation_id": "1782721623-C9E32E707136412CB766DA9589B0F94C",
+      "cites_filename": false,
+      "cites_page": false,
+      "orphan_digits": [
+        "10000",
+        "120",
+        "192.0",
+        "2.1",
+        "4",
+        "8800"
+      ],
+      "source_count": 6
+    },
+    {
+      "message_id": 298,
+      "conversation_id": "1782721004-ED6231FBB60E4564BC4334FE2C519CDA",
+      "cites_filename": false,
+      "cites_page": true,
+      "orphan_digits": [
+        "4",
+        "8800"
+      ],
+      "source_count": 20
+    },
+    {
+      "message_id": 294,
+      "conversation_id": "1782720862-2D1186834803445D92FAFFC1EE9EAC21",
+      "cites_filename": false,
+      "cites_page": true,
+      "orphan_digits": [
+        "10000",
+        "120",
+        "128",
+        "3072",
+        "4",
+        "8800"
+      ],
+      "source_count": 20
+    }
+  ]
+}

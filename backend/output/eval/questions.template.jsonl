@@ -1,0 +1,50 @@
+{"question": "nginx反向代理怎么配置", "kb_names": ["nginx"], "expected_keywords": ["proxy_pass", "反向代理"], "expect_empty": false, "tags": ["nginx", "制度"], "note": "单库命中样例；跑批前请将 kb_names 与线上知识库 display name 对齐"}
+{"question": "公司年假有多少天", "kb_names": ["员工手册"], "expected_keywords": ["年假"], "expect_empty": false, "tags": ["制度"]}
+{"question": "量子纠缠在企业报销里如何申请", "kb_names": ["员工手册"], "expected_keywords": [], "expect_empty": true, "tags": ["空召回"]}
+{"question": "nginx SSL 证书路径配置", "kb_names": ["nginx", "运维规范"], "expected_keywords": ["ssl", "certificate", "证书"], "expect_empty": false, "expect_multi_kb": true, "tags": ["多库", "nginx"]}
+{"question": "那调休呢", "kb_names": ["员工手册"], "expected_keywords": ["调休"], "expect_empty": false, "followup": true, "prior_user": "公司年假有多少天", "tags": ["多轮", "query增强"]}
+{"question": "报销流程是什么", "kb_names": ["财务制度"], "expected_keywords": ["报销"], "expect_empty": false, "tags": ["制度", "财务"]}
+{"question": "第3条年假规定是什么", "kb_names": ["员工手册"], "expected_keywords": ["年假", "第"], "expect_empty": false, "tags": ["编号", "制度"]}
+{"question": "Docker 容器内存限制", "kb_names": ["nginx"], "expected_keywords": [], "expect_empty": true, "tags": ["空召回", "跨域"]}
+{"question": "考勤迟到怎么处理", "kb_names": ["员工手册"], "expected_keywords": ["迟到", "考勤"], "expect_empty": false, "tags": ["制度"]}
+{"question": "proxy_pass 和 upstream 区别", "kb_names": ["nginx"], "expected_keywords": ["proxy_pass", "upstream"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "nginx 负载均衡怎么配置", "kb_names": ["nginx"], "expected_keywords": ["负载", "upstream", "均衡"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "nginx 访问日志格式怎么自定义", "kb_names": ["nginx"], "expected_keywords": ["log_format", "日志"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "静态资源缓存 Cache-Control 怎么配", "kb_names": ["nginx"], "expected_keywords": ["缓存", "Cache", "expires"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "location 匹配优先级是什么", "kb_names": ["nginx"], "expected_keywords": ["location", "匹配"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "nginx 413 Request Entity Too Large 怎么处理", "kb_names": ["nginx"], "expected_keywords": ["413", "client_max_body_size"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "WebSocket 反向代理怎么配置", "kb_names": ["nginx"], "expected_keywords": ["WebSocket", "Upgrade", "proxy"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "server_name 和 default_server 有什么区别", "kb_names": ["nginx"], "expected_keywords": ["server_name", "default"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "nginx worker_processes 怎么设置", "kb_names": ["nginx"], "expected_keywords": ["worker_processes"], "expect_empty": false, "tags": ["nginx"]}
+{"question": "试用期有多长", "kb_names": ["员工手册"], "expected_keywords": ["试用"], "expect_empty": false, "tags": ["制度"]}
+{"question": "离职手续办理流程", "kb_names": ["员工手册"], "expected_keywords": ["离职"], "expect_empty": false, "tags": ["制度"]}
+{"question": "加班怎么申请", "kb_names": ["员工手册"], "expected_keywords": ["加班"], "expect_empty": false, "tags": ["制度"]}
+{"question": "病假需要哪些材料", "kb_names": ["员工手册"], "expected_keywords": ["病假"], "expect_empty": false, "tags": ["制度"]}
+{"question": "社保公积金缴纳比例", "kb_names": ["员工手册"], "expected_keywords": ["社保", "公积金"], "expect_empty": false, "tags": ["制度"]}
+{"question": "保密协议适用范围", "kb_names": ["员工手册"], "expected_keywords": ["保密"], "expect_empty": false, "tags": ["制度"]}
+{"question": "第5条考勤规定是什么", "kb_names": ["员工手册"], "expected_keywords": ["考勤", "第"], "expect_empty": false, "tags": ["编号", "制度"]}
+{"question": "那病假呢", "kb_names": ["员工手册"], "expected_keywords": ["病假"], "expect_empty": false, "followup": true, "prior_user": "公司年假有多少天", "tags": ["多轮", "query增强"]}
+{"question": "继续", "kb_names": ["员工手册"], "expected_keywords": ["年假", "调休", "福利"], "expect_empty": false, "followup": true, "prior_user": "公司年假有多少天", "tags": ["多轮", "query增强", "空召回重试"]}
+{"question": "发票抬头有什么要求", "kb_names": ["财务制度"], "expected_keywords": ["发票", "抬头"], "expect_empty": false, "tags": ["财务", "制度"]}
+{"question": "差旅住宿费报销标准是多少", "kb_names": ["财务制度"], "expected_keywords": ["差旅", "住宿", "报销"], "expect_empty": false, "tags": ["财务", "制度"]}
+{"question": "费用审批权限怎么划分", "kb_names": ["财务制度"], "expected_keywords": ["审批", "权限"], "expect_empty": false, "tags": ["财务", "制度"]}
+{"question": "对公付款流程是什么", "kb_names": ["财务制度"], "expected_keywords": ["对公", "付款"], "expect_empty": false, "tags": ["财务", "制度"]}
+{"question": "电子发票怎么提交报销", "kb_names": ["财务制度"], "expected_keywords": ["电子发票", "报销"], "expect_empty": false, "tags": ["财务", "制度"]}
+{"question": "差旅交通费能报出租车吗", "kb_names": ["财务制度"], "expected_keywords": ["交通", "出租车", "差旅"], "expect_empty": false, "tags": ["财务"]}
+{"question": "那住宿标准呢", "kb_names": ["财务制度"], "expected_keywords": ["住宿", "标准"], "expect_empty": false, "followup": true, "prior_user": "差旅住宿费报销标准是多少", "tags": ["多轮", "query增强", "财务"]}
+{"question": "同样呢", "kb_names": ["财务制度"], "expected_keywords": ["报销", "审批"], "expect_empty": false, "followup": true, "prior_user": "报销流程是什么", "tags": ["多轮", "query增强"]}
+{"question": "生产环境发布 checklist 有哪些项", "kb_names": ["运维规范"], "expected_keywords": ["发布", "checklist", "生产"], "expect_empty": false, "tags": ["运维", "制度"]}
+{"question": "备份恢复 RPO 和 RTO 要求", "kb_names": ["运维规范"], "expected_keywords": ["备份", "RPO", "RTO"], "expect_empty": false, "tags": ["运维"]}
+{"question": "监控告警升级流程是什么", "kb_names": ["运维规范"], "expected_keywords": ["告警", "升级"], "expect_empty": false, "tags": ["运维"]}
+{"question": "变更窗口时间规定", "kb_names": ["运维规范"], "expected_keywords": ["变更", "窗口"], "expect_empty": false, "tags": ["运维"]}
+{"question": "还有吗", "kb_names": ["运维规范"], "expected_keywords": ["备份", "告警", "变更"], "expect_empty": false, "followup": true, "prior_user": "生产环境发布 checklist 有哪些项", "tags": ["多轮", "query增强"]}
+{"question": "生产 nginx 部署规范有哪些", "kb_names": ["nginx", "运维规范"], "expected_keywords": ["nginx", "生产", "部署"], "expect_empty": false, "expect_multi_kb": true, "tags": ["多库", "nginx", "运维"]}
+{"question": "HTTPS 证书更新流程和 nginx 配置要点", "kb_names": ["nginx", "运维规范"], "expected_keywords": ["证书", "HTTPS", "ssl"], "expect_empty": false, "expect_multi_kb": true, "tags": ["多库", "nginx", "运维"]}
+{"question": "请假期间远程办公 VPN 怎么配", "kb_names": ["员工手册", "运维规范"], "expected_keywords": ["远程", "VPN", "请假"], "expect_empty": false, "expect_multi_kb": true, "tags": ["多库", "制度", "运维"]}
+{"question": "报销系统上线变更要走什么流程", "kb_names": ["财务制度", "运维规范"], "expected_keywords": ["变更", "报销", "上线"], "expect_empty": false, "expect_multi_kb": true, "tags": ["多库", "财务", "运维"]}
+{"question": "上面说的 SSL 路径在哪", "kb_names": ["nginx"], "expected_keywords": ["ssl", "证书", "路径"], "expect_empty": false, "followup": true, "prior_user": "nginx SSL 证书路径配置", "tags": ["多轮", "query增强", "nginx"]}
+{"question": "然后呢", "kb_names": ["nginx"], "expected_keywords": ["proxy_pass", "upstream", "负载"], "expect_empty": false, "followup": true, "prior_user": "nginx 负载均衡怎么配置", "tags": ["多轮", "query增强", "空召回重试", "nginx"]}
+{"question": "区块链挖矿收益怎么入账", "kb_names": ["财务制度"], "expected_keywords": [], "expect_empty": true, "tags": ["空召回", "跨域"]}
+{"question": "Kubernetes Pod 驱逐策略怎么配", "kb_names": ["nginx"], "expected_keywords": [], "expect_empty": true, "tags": ["空召回", "跨域"]}
+{"question": "火星基地员工落户政策", "kb_names": ["员工手册"], "expected_keywords": [], "expect_empty": true, "tags": ["空召回"]}
+{"question": "Transformer 注意力机制在 nginx 里怎么调", "kb_names": ["nginx"], "expected_keywords": [], "expect_empty": true, "tags": ["空召回", "跨域"]}

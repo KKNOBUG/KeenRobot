@@ -1,0 +1,538 @@
+{
+  "generated_at": "2026-07-01T10:18:06",
+  "questions_file": "backend/output/eval/questions.local.jsonl",
+  "used_template_fallback": false,
+  "tag_filter": "nginx",
+  "retrieval_scenario": "balanced",
+  "retrieval_params": {
+    "top_k": 6,
+    "fetch_top_k": 30,
+    "score_threshold": 0.45,
+    "rerank_enabled": true,
+    "rerank_model": null
+  },
+  "env_flags": {
+    "RETRIEVAL_QUERY_ENHANCE_ENABLED": true,
+    "RETRIEVAL_EMPTY_RETRY_ENABLED": true,
+    "RETRIEVAL_MULTI_QUERY_FUSION_ENABLED": false,
+    "RETRIEVAL_MULTI_QUERY_MAX": 3,
+    "RETRIEVAL_MIN_HITS_PER_KB": 2
+  },
+  "summary": {
+    "total": 15,
+    "errors": 0,
+    "recall_rate": 1.0,
+    "hit_at_k_rate": 0.6,
+    "empty_accuracy": null,
+    "multi_kb_coverage_rate": 0.0,
+    "latency_ms": {
+      "p50": 3050.15,
+      "p95": 4277.13,
+      "avg": 3107.99
+    },
+    "by_tag_counts": {
+      "nginx": {
+        "total": 15,
+        "errors": 0
+      },
+      "制度": {
+        "total": 1,
+        "errors": 0
+      },
+      "多库": {
+        "total": 3,
+        "errors": 0
+      },
+      "运维": {
+        "total": 2,
+        "errors": 0
+      },
+      "多轮": {
+        "total": 2,
+        "errors": 0
+      },
+      "query增强": {
+        "total": 2,
+        "errors": 0
+      },
+      "空召回重试": {
+        "total": 1,
+        "errors": 0
+      }
+    }
+  },
+  "cases": [
+    {
+      "index": 1,
+      "question": "nginx反向代理怎么配置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx",
+        "制度"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "proxy_pass",
+        "反向代理"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 2482.35,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 2,
+      "question": "nginx SSL 证书路径配置",
+      "kb_names": [
+        "nginx",
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多库",
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "ssl",
+        "certificate",
+        "证书"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 2818.96,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 3,
+      "question": "proxy_pass 和 upstream 区别",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "proxy_pass",
+        "upstream"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 2104.94,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 4,
+      "question": "nginx 负载均衡怎么配置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "负载",
+        "upstream",
+        "均衡"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 3922.53,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 5,
+      "question": "nginx 访问日志格式怎么自定义",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "log_format",
+        "日志"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 4063.93,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 6,
+      "question": "静态资源缓存 Cache-Control 怎么配",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "缓存",
+        "Cache",
+        "expires"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 2265.98,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 7,
+      "question": "location 匹配优先级是什么",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "location",
+        "匹配"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 3110.64,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 8,
+      "question": "nginx 413 Request Entity Too Large 怎么处理",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "413",
+        "client_max_body_size"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 3050.15,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 9,
+      "question": "WebSocket 反向代理怎么配置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "WebSocket",
+        "Upgrade",
+        "proxy"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 3140.11,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 10,
+      "question": "server_name 和 default_server 有什么区别",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "server_name",
+        "default"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 4277.13,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 11,
+      "question": "nginx worker_processes 怎么设置",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "worker_processes"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 3644.54,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 12,
+      "question": "生产 nginx 部署规范有哪些",
+      "kb_names": [
+        "nginx",
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多库",
+        "nginx",
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "nginx",
+        "生产",
+        "部署"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 1802.66,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 13,
+      "question": "HTTPS 证书更新流程和 nginx 配置要点",
+      "kb_names": [
+        "nginx",
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多库",
+        "nginx",
+        "运维"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": true,
+      "expected_keywords": [
+        "证书",
+        "HTTPS",
+        "ssl"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 2991.01,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 14,
+      "question": "上面说的 SSL 路径在哪",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多轮",
+        "query增强",
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "ssl",
+        "证书",
+        "路径"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": false,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 4379.82,
+      "missing_kb_names": [],
+      "error": null
+    },
+    {
+      "index": 15,
+      "question": "然后呢",
+      "kb_names": [
+        "nginx"
+      ],
+      "kb_ids": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "tags": [
+        "多轮",
+        "query增强",
+        "空召回重试",
+        "nginx"
+      ],
+      "expect_empty": false,
+      "expect_multi_kb": false,
+      "expected_keywords": [
+        "proxy_pass",
+        "upstream",
+        "负载"
+      ],
+      "retrieval_empty": false,
+      "source_count": 6,
+      "kb_ids_in_sources": [
+        "1781166382-D66BB02287B14B68894EEFE813339CF4"
+      ],
+      "hit_at_k": true,
+      "multi_kb_ok": null,
+      "empty_ok": null,
+      "latency_ms": 2565.07,
+      "missing_kb_names": [],
+      "error": null
+    }
+  ],
+  "output_file": "backend/output/eval/results/recall_nginx.json"
+}

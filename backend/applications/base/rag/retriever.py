@@ -295,9 +295,8 @@ def _run_retrieval_pass(
         fusion_queries: Optional[List[str]] = None,
 ) -> List[dict]:
     """单次检索：向量扩召回 → 阈值 → Rerank → 多库配额。"""
-    queries = fusion_queries if fusion_queries else [retrieval_q]
-    if len(queries) > 1:
-        candidates = vector_fetch_fusion(queries, kb_ids, fetch_k)
+    if fusion_queries:
+        candidates = vector_fetch_fusion(fusion_queries, kb_ids, fetch_k)
     else:
         candidates = vector_fetch(retrieval_q, kb_ids, fetch_k)
 
@@ -400,17 +399,20 @@ def retrieve(
 
     retrieval_q = build_retrieval_query(question, chat_history)
     fusion_queries = build_fusion_queries(question, chat_history, retrieval_q)
-    if len(fusion_queries) > 1:
+    use_fusion = len(fusion_queries) > 1
+    if use_fusion:
         print(f"[rag/multi-query] 融合 {len(fusion_queries)} 个 query 扩召回")
-    pass_kwargs = {
-        "fetch_k": fetch_k,
-        "top_k": top_k,
-        "score_threshold": score_threshold,
-        "rerank_enabled": rerank_enabled,
-        "rerank_model": rerank_model,
-        "fusion_queries": fusion_queries if len(fusion_queries) > 1 else None,
-    }
-    final_items = _run_retrieval_pass(retrieval_q, kb_ids, **pass_kwargs)
+
+    final_items = _run_retrieval_pass(
+        retrieval_q,
+        kb_ids,
+        fetch_k=fetch_k,
+        top_k=top_k,
+        score_threshold=score_threshold,
+        rerank_enabled=rerank_enabled,
+        rerank_model=rerank_model,
+        fusion_queries=fusion_queries if use_fusion else None,
+    )
 
     if not final_items:
         retry_q = build_empty_retry_query(question, chat_history, retrieval_q)
@@ -419,7 +421,16 @@ def retrieve(
                 f"[rag/empty-retry] 空召回，使用 alternate query 再检索 1 次: "
                 f"{retry_q[:120]}{'...' if len(retry_q) > 120 else ''}"
             )
-            final_items = _run_retrieval_pass(retry_q, kb_ids, **pass_kwargs)
+            final_items = _run_retrieval_pass(
+                retry_q,
+                kb_ids,
+                fetch_k=fetch_k,
+                top_k=top_k,
+                score_threshold=score_threshold,
+                rerank_enabled=rerank_enabled,
+                rerank_model=rerank_model,
+                fusion_queries=None,
+            )
 
     context = format_context_from_results(final_items)
     is_empty = len(final_items) == 0
