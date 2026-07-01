@@ -11,7 +11,10 @@ from backend.applications.conversation.services.user_memory_crud import list_act
 from backend.applications.model_config.services.llm_connection import resolve_llm_connection
 from backend.applications.user.models.user_model import User
 from backend.configure import LOGGER, PROJECT_CONFIG
-from backend.configure.rag_config import CONVERSATION_SUMMARY_MERGE_SYSTEM_PROMPT
+from backend.configure.rag_config import (
+    CONVERSATION_SUMMARY_MERGE_SYSTEM_PROMPT,
+    USER_MEMORY_VS_RAG_BOUNDARY_NOTE,
+)
 
 
 async def build_memory_system_section(
@@ -32,6 +35,9 @@ async def build_memory_system_section(
                 prefix = f"[{item.memory_key}] " if item.memory_key else ""
                 lines.append(f"{index}. {prefix}{item.content}")
             parts.append("## 用户相关信息\n\n" + "\n".join(lines))
+
+    if parts:
+        parts.insert(0, USER_MEMORY_VS_RAG_BOUNDARY_NOTE)
 
     return "\n\n".join(parts)
 

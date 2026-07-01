@@ -103,6 +103,7 @@ def format_sources_payload(results: List[dict]) -> List[dict]:
             {
                 "index": i,
                 "score": round(float(result.get("score") or 0), 4),
+                "kb_id": result.get("kb_id") or "",
                 "filename": result.get("filename") or "",
                 "page_number": page_number,
                 "chunk_id": result.get("chunk_id") or "",
@@ -174,23 +175,117 @@ async def expand_context(
     return "\n\n".join(parts)
 
 
+def _result_dedupe_key(item: dict) -> str:
+    return (item.get("chunk_id") or item.get("id") or "").strip()
+
+
+def _resolve_fetch_per_kb(fetch_top_k: int, kb_count: int) -> int:
+    if kb_count <= 1:
+        return fetch_top_k
+    configured = PROJECT_CONFIG.RETRIEVAL_FETCH_PER_KB
+    if configured and configured > 0:
+        return configured
+    return max(10, (fetch_top_k + kb_count - 1) // kb_count)
+
+
+def _effective_min_hits_per_kb(top_k: int, kb_count: int, configured_min: int) -> int:
+    if kb_count <= 1 or configured_min <= 0 or top_k <= 0:
+        return 0
+    capped = min(configured_min, top_k)
+    if kb_count * capped > top_k:
+        return max(1, top_k // kb_count)
+    return capped
+
+
+def apply_kb_quota(
+        ranked: List[dict],
+        knowledge_base_ids: List[str],
+        top_k: int,
+) -> List[dict]:
+    """多库终选：每库保底 min 条，余量按全局分数填充。"""
+    kb_ids = [kb for kb in knowledge_base_ids if kb]
+    if len(kb_ids) <= 1 or top_k <= 0:
+        return ranked[:top_k]
+
+    min_per_kb = _effective_min_hits_per_kb(
+        top_k,
+        len(kb_ids),
+        PROJECT_CONFIG.RETRIEVAL_MIN_HITS_PER_KB,
+    )
+    max_per_kb = PROJECT_CONFIG.RETRIEVAL_MAX_HITS_PER_KB or 0
+
+    by_kb: Dict[str, List[dict]] = {kb: [] for kb in kb_ids}
+    for item in ranked:
+        kb = (item.get("kb_id") or "").strip()
+        if kb in by_kb:
+            by_kb[kb].append(item)
+
+    selected: List[dict] = []
+    selected_keys: set[str] = set()
+
+    if min_per_kb > 0:
+        for kb in kb_ids:
+            taken = 0
+            for item in by_kb.get(kb, []):
+                key = _result_dedupe_key(item)
+                if key and key in selected_keys:
+                    continue
+                selected.append(item)
+                if key:
+                    selected_keys.add(key)
+                taken += 1
+                if taken >= min_per_kb or len(selected) >= top_k:
+                    break
+
+    for item in ranked:
+        if len(selected) >= top_k:
+            break
+        key = _result_dedupe_key(item)
+        if key and key in selected_keys:
+            continue
+        kb = (item.get("kb_id") or "").strip()
+        if max_per_kb > 0:
+            kb_count = sum(1 for s in selected if (s.get("kb_id") or "").strip() == kb)
+            if kb_count >= max_per_kb:
+                continue
+        selected.append(item)
+        if key:
+            selected_keys.add(key)
+
+    return selected[:top_k]
+
+
 def vector_fetch(
         query: str,
         knowledge_base_ids: List[str],
         fetch_top_k: int,
 ) -> List[dict]:
-    """向量扩召回（Chroma）.
-    """
+    """向量扩召回（Chroma）；多库时分库 query 再合并去重。"""
     if not knowledge_base_ids or not is_embedding_configured():
         return []
 
     query_embedding = get_single_embedding(query)
-    results = chroma_store.search(
-        knowledge_base_ids,
-        query_embedding,
-        top_k=fetch_top_k,
-    )
-    return _filter_embedding_model_consistency(results)
+    kb_ids = list(dict.fromkeys(knowledge_base_ids))
+
+    if len(kb_ids) == 1:
+        results = chroma_store.search(kb_ids, query_embedding, top_k=fetch_top_k)
+        return _filter_embedding_model_consistency(results)
+
+    per_kb = _resolve_fetch_per_kb(fetch_top_k, len(kb_ids))
+    merged: List[dict] = []
+    seen_keys: set[str] = set()
+    for kb_id in kb_ids:
+        hits = chroma_store.search([kb_id], query_embedding, top_k=per_kb)
+        for item in _filter_embedding_model_consistency(hits):
+            key = _result_dedupe_key(item)
+            if key and key in seen_keys:
+                continue
+            if key:
+                seen_keys.add(key)
+            merged.append(item)
+
+    merged.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
+    return merged
 
 
 def retrieve(
@@ -239,13 +334,19 @@ def retrieve(
             if float(item.get("score") or 0) >= score_threshold
         ]
 
+    rerank_k = top_k
+    if len(kb_ids) > 1 and candidates:
+        rerank_k = min(len(candidates), max(top_k, top_k * len(kb_ids)))
+
     final_items = apply_rerank(
         retrieval_q,
         candidates,
-        top_k,
+        rerank_k,
         enabled=rerank_enabled,
         model=rerank_model,
     )
+    if len(kb_ids) > 1:
+        final_items = apply_kb_quota(final_items, kb_ids, top_k)
     context = format_context_from_results(final_items)
     is_empty = len(final_items) == 0
 

@@ -700,6 +700,9 @@ RERANK_MODEL=qwen3-rerank
 # RAG 全局（可选）
 RETRIEVAL_FETCH_TOP_K=30
 RETRIEVAL_SCORE_THRESHOLD=0.45
+RETRIEVAL_MIN_HITS_PER_KB=2
+# RETRIEVAL_FETCH_PER_KB=0   # 0=自动 max(10, fetch_top_k // 库数)
+# RETRIEVAL_MAX_HITS_PER_KB=0  # 0=不限制单库上限
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=200
 ```
@@ -767,7 +770,7 @@ M2 **不提供** `memory_auto_extract`（自动抽取不在范围内）。
 ### 9.1 RAG
 
 1. 检索参数以 `prepare_for_chat` → `ModelConfig` 为准；分块以知识库 `chunk_size` 为准，**入库走 B**（`structure_chunker`）。
-2. 多库 `$in` 检索可在 `retriever` 内做 per-kb 配额（每库至少 2 条）— **尚未实现**。
+2. 多库检索已实现 **per-KB 配额**（`retriever.apply_kb_quota`：分库 fetch + 终选每库至少 `RETRIEVAL_MIN_HITS_PER_KB` 条）。
 3. **空召回（§4.5.1）**：已实现 yield `retrieval_empty` + 前端提示 + `EMPTY_RETRIEVAL_SYSTEM_PROMPT`。
 4. `is_irrelevant_question()` 仍 bypass 检索（与 F 正交）。
 5. **`is_rerank_configured()`** 与 **`is_embedding_configured()`** 独立；缺 Rerank Key 不报错，走降级。

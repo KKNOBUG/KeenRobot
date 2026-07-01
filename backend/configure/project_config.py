@@ -147,6 +147,24 @@ class ProjectConfig(BaseSettings):
         le=1.0,
         description="检索相似度阈值（方案 A 标定默认；ModelConfig 为 0 时回退）",
     )
+    RETRIEVAL_MIN_HITS_PER_KB: int = Field(
+        default=2,
+        ge=0,
+        le=20,
+        description="多库绑定时终选每库至少保留条数（0 表示不保底）",
+    )
+    RETRIEVAL_FETCH_PER_KB: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="多库分库扩召回条数；0 表示自动 max(10, fetch_top_k // 库数)",
+    )
+    RETRIEVAL_MAX_HITS_PER_KB: int = Field(
+        default=0,
+        ge=0,
+        le=20,
+        description="多库终选单库上限；0 表示不限制",
+    )
 
     # Rerank（可选；不配则整条 F 跳过）
     RERANK_API_KEY: str = Field(default="", description="Rerank API Key")
