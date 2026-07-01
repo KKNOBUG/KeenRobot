@@ -26,7 +26,7 @@ from backend.applications.agent.services.skill_validation import (
     validate_skill_enable,
 )
 from backend.applications.base.services.scaffold import ScaffoldCrud
-from backend.applications.mcp.client_factory import (
+from backend.applications.mcp_client.client_factory import (
     diagnose_connection,
     list_remote_tools,
     normalize_mcp_config,

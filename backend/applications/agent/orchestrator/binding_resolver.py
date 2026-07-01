@@ -12,7 +12,7 @@ from backend.applications.agent.services.agent_crud import McpServerCrud, SkillC
 from backend.applications.agent.services.skill_file_tools import build_skill_openai_tools
 from backend.applications.agent.services.skill_registry import ensure_chat_snapshot, parse_skill_md
 from backend.applications.agent.services.skill_validation import resolve_embedded_mcp_ids
-from backend.applications.mcp.adapters import build_openai_tool_specs
+from backend.applications.mcp_client.adapters import build_openai_tool_specs
 from backend.applications.user.models.user_model import User
 
 

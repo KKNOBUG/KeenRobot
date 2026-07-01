@@ -21,14 +21,14 @@ from backend.applications.base.rag.llm import (
     merge_token_usage,
     trim_chat_history,
 )
-from backend.applications.mcp.audit import McpAuditContext, bind_mcp_audit_context, reset_mcp_audit_context
-from backend.applications.mcp.cancel_scope import (
+from backend.applications.mcp_client.audit import McpAuditContext, bind_mcp_audit_context, reset_mcp_audit_context
+from backend.applications.mcp_client.cancel_scope import (
     McpCancelScope,
     bind_mcp_cancel_scope,
     get_mcp_cancel_scope,
     reset_mcp_cancel_scope,
 )
-from backend.applications.mcp.session_manager import McpSessionManager
+from backend.applications.mcp_client.session_manager import McpSessionManager
 from backend.applications.user.models.user_model import User
 
 

@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
-from backend.applications.mcp.adapters import normalize_tools, tools_to_cache
-from backend.applications.mcp.transports.streamable_http import ExactUrlStreamableHttpTransport
+from backend.applications.mcp_client.adapters import normalize_tools, tools_to_cache
+from backend.applications.mcp_client.transports.streamable_http import ExactUrlStreamableHttpTransport
 from backend.configure import LOGGER
 
 SUPPORTED_TRANSPORTS = frozenset({"http", "sse", "stdio"})

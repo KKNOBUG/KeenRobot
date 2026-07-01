@@ -12,12 +12,12 @@ from fastmcp import Client
 
 from backend.applications.agent.models.agent_model import McpServer
 from backend.applications.base.rag.llm import OpenAICompatibleLLM
-from backend.applications.mcp.adapters import format_resource_contents, format_tool_result
-from backend.applications.mcp.audit import schedule_mcp_audit
-from backend.applications.mcp.callbacks import build_tool_progress_handler, resolve_client_handlers
-from backend.applications.mcp.cancel_scope import get_mcp_cancel_scope
-from backend.applications.mcp.client_factory import open_client, resolve_timeout
-from backend.applications.mcp.policies import McpAgentPolicy
+from backend.applications.mcp_client.adapters import format_resource_contents, format_tool_result
+from backend.applications.mcp_client.audit import schedule_mcp_audit
+from backend.applications.mcp_client.callbacks import build_tool_progress_handler, resolve_client_handlers
+from backend.applications.mcp_client.cancel_scope import get_mcp_cancel_scope
+from backend.applications.mcp_client.client_factory import open_client, resolve_timeout
+from backend.applications.mcp_client.policies import McpAgentPolicy
 
 _active_tool_step: ContextVar[Optional[dict]] = ContextVar("mcp_active_tool_step", default=None)
 

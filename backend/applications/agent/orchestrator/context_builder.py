@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import List
 
 from backend.applications.agent.orchestrator.binding_resolver import ResolvedChatBinding
-from backend.applications.mcp.adapters import build_mcp_metadata_block
+from backend.applications.mcp_client.adapters import build_mcp_metadata_block
 from backend.configure.rag_config import (
     HYBRID_AGENT_CHAT_SKILL_SECTION,
     HYBRID_AGENT_CORE_SYSTEM_PROMPT,

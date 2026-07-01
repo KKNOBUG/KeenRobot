@@ -11,8 +11,8 @@ from mcp.types import LoggingMessageNotificationParams, SamplingMessage, TextCon
 
 from backend.applications.agent.models.agent_model import McpServer
 from backend.applications.base.rag.llm import OpenAICompatibleLLM
-from backend.applications.mcp.audit import schedule_mcp_audit
-from backend.applications.mcp.policies import McpAgentPolicy
+from backend.applications.mcp_client.audit import schedule_mcp_audit
+from backend.applications.mcp_client.policies import McpAgentPolicy
 from backend.configure import LOGGER
 
 ProcessEventSink = Callable[[Dict[str, Any]], Any]

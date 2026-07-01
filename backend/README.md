@@ -637,4 +637,31 @@ DATABASE_NAME=rag_system
 
 ---
 
+### 如遇到 Aerich 元数据与真实数据库 schema 不一致 问题
+
+```python
+cd /Users/yangkai/ProjectWorkspace/Fastapi-Vue/KeenRobot
+
+backend/.venv/bin/python <<'PY'
+import asyncio
+from aerich import Command
+from backend.configure import PROJECT_CONFIG
+
+async def main():
+    config = {
+        "connections": PROJECT_CONFIG.DATABASE_CONNECTIONS,
+        "apps": {"models": {"models": PROJECT_CONFIG.APPLICATIONS_MODELS, "default_connection": "default"}},
+        "use_tz": False,
+        "timezone": "Asia/Shanghai",
+    }
+    command = Command(app="models", tortoise_config=config, location=PROJECT_CONFIG.MIGRATION_DIR)
+    await command.init()
+    await command.migrate(name="auto_migrate", no_input=True)   # 生成迁移文件
+    await command.upgrade(run_in_transaction=True, fake=True) # 标记已应用，不执行 SQL
+    print("done")
+
+asyncio.run(main())
+
+```
+
 *文档最后更新：2026-06-15*

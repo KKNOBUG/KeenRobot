@@ -12,7 +12,7 @@ from backend.applications.agent.models.agent_model import Skill
 from backend.applications.agent.orchestrator.binding_resolver import ToolRoute
 from backend.applications.agent.services.skill_file_tools import execute_skill_tool
 from backend.applications.conversation.schemas.process_step_schema import McpStep, SkillStep
-from backend.applications.mcp.session_manager import McpSessionManager
+from backend.applications.mcp_client.session_manager import McpSessionManager
 
 
 @dataclass
