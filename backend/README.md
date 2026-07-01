@@ -34,6 +34,7 @@
 │   ├── password.py                 # JWT / 密码工具（argon2）
 │   ├── ctx.py                      # 请求上下文（CTX_USER_ID）
 │   ├── file_transfer.py            # 文件传输工具
+│   └── recall_test/                # RAG 检索召回离线评测 CLI（非运行时）
 ├── applications/                   # 业务模块（models / schemas / services / views）
 │   ├── base/                       # 基础服务
 │   │   ├── rag/                    # RAG 链、向量库、LLM、Embedding

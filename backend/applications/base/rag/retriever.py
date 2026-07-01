@@ -255,6 +255,74 @@ def apply_kb_quota(
     return selected[:top_k]
 
 
+def vector_fetch_fusion(
+        queries: List[str],
+        knowledge_base_ids: List[str],
+        fetch_top_k: int,
+) -> List[dict]:
+    """多 query 扩召回：各 query 分 budget 检索，按 chunk 去重后取 top fetch。"""
+    cleaned = [(q or "").strip() for q in queries if (q or "").strip()]
+    if not cleaned:
+        return []
+    if len(cleaned) == 1:
+        return vector_fetch(cleaned[0], knowledge_base_ids, fetch_top_k)
+
+    per_query_k = max(10, (fetch_top_k + len(cleaned) - 1) // len(cleaned))
+    merged: List[dict] = []
+    seen_keys: set[str] = set()
+    for query in cleaned:
+        for item in vector_fetch(query, knowledge_base_ids, per_query_k):
+            key = _result_dedupe_key(item)
+            if key and key in seen_keys:
+                continue
+            if key:
+                seen_keys.add(key)
+            merged.append(item)
+
+    merged.sort(key=lambda x: float(x.get("score") or 0), reverse=True)
+    return merged[:fetch_top_k]
+
+
+def _run_retrieval_pass(
+        retrieval_q: str,
+        kb_ids: List[str],
+        *,
+        fetch_k: int,
+        top_k: int,
+        score_threshold: float,
+        rerank_enabled: bool,
+        rerank_model: Optional[str],
+        fusion_queries: Optional[List[str]] = None,
+) -> List[dict]:
+    """单次检索：向量扩召回 → 阈值 → Rerank → 多库配额。"""
+    queries = fusion_queries if fusion_queries else [retrieval_q]
+    if len(queries) > 1:
+        candidates = vector_fetch_fusion(queries, kb_ids, fetch_k)
+    else:
+        candidates = vector_fetch(retrieval_q, kb_ids, fetch_k)
+
+    if score_threshold > 0:
+        candidates = [
+            item for item in candidates
+            if float(item.get("score") or 0) >= score_threshold
+        ]
+
+    rerank_k = top_k
+    if len(kb_ids) > 1 and candidates:
+        rerank_k = min(len(candidates), max(top_k, top_k * len(kb_ids)))
+
+    final_items = apply_rerank(
+        retrieval_q,
+        candidates,
+        rerank_k,
+        enabled=rerank_enabled,
+        model=rerank_model,
+    )
+    if len(kb_ids) > 1:
+        final_items = apply_kb_quota(final_items, kb_ids, top_k)
+    return final_items
+
+
 def vector_fetch(
         query: str,
         knowledge_base_ids: List[str],
@@ -324,30 +392,35 @@ def retrieve(
         )
 
     fetch_k = fetch_top_k or PROJECT_CONFIG.RETRIEVAL_FETCH_TOP_K
-    from backend.applications.base.rag.query_enhancer import build_retrieval_query
+    from backend.applications.base.rag.query_enhancer import (
+        build_empty_retry_query,
+        build_fusion_queries,
+        build_retrieval_query,
+    )
 
     retrieval_q = build_retrieval_query(question, chat_history)
-    candidates = vector_fetch(retrieval_q, kb_ids, fetch_k)
+    fusion_queries = build_fusion_queries(question, chat_history, retrieval_q)
+    if len(fusion_queries) > 1:
+        print(f"[rag/multi-query] 融合 {len(fusion_queries)} 个 query 扩召回")
+    pass_kwargs = {
+        "fetch_k": fetch_k,
+        "top_k": top_k,
+        "score_threshold": score_threshold,
+        "rerank_enabled": rerank_enabled,
+        "rerank_model": rerank_model,
+        "fusion_queries": fusion_queries if len(fusion_queries) > 1 else None,
+    }
+    final_items = _run_retrieval_pass(retrieval_q, kb_ids, **pass_kwargs)
 
-    if score_threshold > 0:
-        candidates = [
-            item for item in candidates
-            if float(item.get("score") or 0) >= score_threshold
-        ]
+    if not final_items:
+        retry_q = build_empty_retry_query(question, chat_history, retrieval_q)
+        if retry_q:
+            print(
+                f"[rag/empty-retry] 空召回，使用 alternate query 再检索 1 次: "
+                f"{retry_q[:120]}{'...' if len(retry_q) > 120 else ''}"
+            )
+            final_items = _run_retrieval_pass(retry_q, kb_ids, **pass_kwargs)
 
-    rerank_k = top_k
-    if len(kb_ids) > 1 and candidates:
-        rerank_k = min(len(candidates), max(top_k, top_k * len(kb_ids)))
-
-    final_items = apply_rerank(
-        retrieval_q,
-        candidates,
-        rerank_k,
-        enabled=rerank_enabled,
-        model=rerank_model,
-    )
-    if len(kb_ids) > 1:
-        final_items = apply_kb_quota(final_items, kb_ids, top_k)
     context = format_context_from_results(final_items)
     is_empty = len(final_items) == 0
 

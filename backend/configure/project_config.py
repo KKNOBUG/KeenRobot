@@ -191,6 +191,23 @@ class ProjectConfig(BaseSettings):
         default=True,
         description="有源回答后记录引用/数字一致性检查结果（仅日志）",
     )
+    RETRIEVAL_EMPTY_RETRY_ENABLED: bool = Field(
+        default=True,
+        description="空召回时用 alternate query 再检索 1 次（P2-1）",
+    )
+    RETRIEVAL_SCENARIO: str = Field(
+        default="balanced",
+        description="检索场景预设：balanced | precision | recall（P1-7）",
+    )
+    RETRIEVAL_MULTI_QUERY_FUSION_ENABLED: bool = Field(
+        default=False,
+        description="多 query 向量融合：2～3 个改写 query 各扩召回后去重合并（P2-2）",
+    )
+    RETRIEVAL_MULTI_QUERY_MAX: int = Field(
+        default=3,
+        description="多 query 融合最多使用的 query 数（2～3）",
+    )
+
     INDEX_CHUNK_SIZE: int = Field(
         default=350,
         description="方案 C：索引用 child chunk 字符上限（进 Chroma）",

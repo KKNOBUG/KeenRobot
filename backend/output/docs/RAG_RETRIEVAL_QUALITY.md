@@ -1,7 +1,7 @@
 # RAG 检索质量与记忆能力方案
 
 > 状态：**已确认 — 企业标准方案（阶段 1 + 阶段 2 + 方案 A 均已落地）**  
-> 更新：2026-06-22（已移除离线评测脚本与 `backend/eval/`；参数标定保留 `RETRIEVAL_SCORE_THRESHOLD=0.45` + 迁移 `32_*`）  
+> 更新：2026-06-22（Round 4：多 query 融合 P2-2 + 引用率审计 P2-3）  
 > 关联：`CHAT_KB_SELECTION.md`（知识库范围）、`CHAT_EXECUTION_FLOWS.md`（聊天编排）、`PROJECT_GUIDE.md` §7.2（路线图摘要）
 
 ### 落地进度一览
@@ -11,13 +11,19 @@
 | F Rerank + 统一检索 | ✅ | `retriever.retrieve()` + `reranker.apply_rerank()` |
 | G 溯源 SSE + 落库 + 前端 | ✅ | `sources` / `retrieval_empty`；`MessageBubble.vue` |
 | M0 短程记忆 | ✅ | `trim_chat_history` + `build_query` |
-| I 离线评测 | — | 开发期脚本已移出代码库（非业务运行时）；回归见 §11 手工验收 |
+| I 离线评测 | ✅ CLI | `backend/services/recall_test/`；数据见 `output/eval/`、`RAG_EVAL_GUIDE.md` |
 | H 向量重建 | ✅ | `POST /knowledge-bases/{id}/reindex` + 管理端「重建向量」 |
 | B 结构分块 | ✅ | `structure_chunker`；**仅新上传**文档生效 |
 | C 父块扩展 | ✅ | `structure_parent_index_pages` + `expand_context()`；**须重新上传**才建 parent/child |
 | A 参数标定 | ✅ | 默认 `score_threshold=0.45`；迁移 `32_*calibrate_score_threshold` |
 | M1 滚动摘要 | ✅ | `chat_context_service` + `Conversation.summary`；SSE 后异步合并 |
 | M2 显式记忆 | ✅ | `user_memories`；「记住…」写入；`/chat/memories` + 个人中心 |
+| P1-1 query 增强 | ✅ | `query_enhancer.build_retrieval_query`（省略追问 compact 补全） |
+| P1-7 场景预设 | ✅ | `retrieval_presets.py` + `RETRIEVAL_SCENARIO` |
+| P2-1 空召回重试 | ✅ | `build_empty_retry_query` + `retrieve()` 内 1 次 alternate pass |
+| P2-2 多 query 融合 | ✅ | `build_fusion_queries` + `vector_fetch_fusion`（默认关） |
+| P2-3 引用率审计 | ✅ | `recall_test/run_citation_audit` + `answer_consistency` |
+| P1-5 一致性日志 | ✅ | `answer_consistency` + `chat_view` `[rag/consistency]` |
 
 ---
 
@@ -403,17 +409,89 @@ reindex_kb_vectors(kb_id):
 
 ---
 
-### 4.7 方案 I：离线评测（已移出代码库）
+### 4.7 方案 P1-7：检索场景预设 ✅ 已落地
 
-原 `backend/eval/`、`backend/services/scripts/`（含 `run_rag_eval.py`、`run_rag_tune.py`、`init_admin.py`、`build_kb.py` 等）为开发/运维期 CLI，**不属于业务运行时**，已从仓库删除。
+**目的**：在不改 ModelConfig 的前提下，用 `.env` 一键切换「均衡 / 高精 / 高召回」三档 fetch、top_k、threshold。
 
-**当前验收方式**：
+| 场景 | fetch_top_k | top_k | score_threshold |
+|------|-------------|-------|-----------------|
+| `balanced`（默认） | 30 | 6 | 沿用 ModelConfig / env |
+| `precision` | 24 | 4 | 0.5 |
+| `recall` | 40 | 8 | 0.4 |
 
-- 产品验收：§11 手工检查清单（空召回、溯源、多轮等）
+**落点**：`backend/configure/retrieval_presets.py` → `apply_retrieval_scenario()` 在 `resolve_chat_llm_params()` 末尾叠加；运行时 params 带 `retrieval_scenario` 字段便于日志。
 
 ---
 
-### 4.8 方案 M0：会话记忆完善（L1 短程原文）✅ 已落地
+### 4.8 方案 P2-1：空召回 alternate query 重试 ✅ 已落地
+
+**触发**：首轮 `retrieve()` 终选为空，且 `RETRIEVAL_EMPTY_RETRY_ENABLED=true`。
+
+**策略**（`query_enhancer.build_empty_retry_query`）：
+
+1. 若首轮 query 含多轮拼接或 compact 补全 → 重试用 **bare question**（仅当前问）。
+2. 若首轮已是 bare question → 重试用 **M0.2 全量多轮 query**（若与首轮不同）。
+
+**落点**：`retriever._run_retrieval_pass()` 抽取单次 pass；`retrieve()` 空结果时最多再跑 1 次，日志前缀 `[rag/empty-retry]`。
+
+**注意**：重试 **不** 降低 `score_threshold`、不 bypass Rerank；仅换 query 表述。
+
+---
+
+### 4.9 方案 P2-2：多 query 向量融合 ✅ 已落地
+
+**目的**：对同一用户问生成 2～3 个 query 变体，分别扩召回后按 `chunk_id` 去重合并，再进入阈值 / Rerank / 多库配额。
+
+**变体来源**（`build_fusion_queries`，规则、无 LLM）：
+
+1. `build_retrieval_query` 主 query  
+2. bare question（仅当前问）  
+3. M0.2 多轮拼接 / compact 补全（若有 history）
+
+**落点**：`vector_fetch_fusion()`；Rerank 仍以主 query 为排序依据。
+
+**配置**（默认 **关闭**，避免开发环境 latency 上升）：
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `RETRIEVAL_MULTI_QUERY_FUSION_ENABLED` | `false` | 开启融合 |
+| `RETRIEVAL_MULTI_QUERY_MAX` | `3` | 最多 query 数（2～3） |
+
+日志：`[rag/multi-query] 融合 N 个 query 扩召回`。
+
+---
+
+### 4.10 方案 P2-3：引用率自动化审计 ✅ 已落地
+
+**线上**：`chat_view` 落库后 `[rag/consistency]` 单条日志（P1-5）。
+
+**批量**：`python -m backend.services.recall_test.run_citation_audit` 扫描近期有 `sources_json` 的助手消息，复用 `check_answer_source_alignment`，输出：
+
+- `citation_rate`：含文件名 **或** 页码  
+- `citation_file_and_page_rate`：文件名 **且** 页码  
+- `orphan_digits_rate`：snippet 外数字比例  
+
+结果：`backend/output/eval/results/citation_*.json`。
+
+---
+
+### 4.11 方案 I：离线评测 ✅ CLI 已整合
+
+原 `backend/eval/` 独立目录已移除；检索召回评测整合至 **`backend/services/recall_test/`**（非业务运行时）。
+
+| 项 | 路径 |
+|----|------|
+| CLI | `python -m backend.services.recall_test.run_recall_test` |
+| 评测集模板 | `backend/output/eval/questions.template.jsonl`（50 条） |
+| 跑批输入 | `backend/output/eval/questions.jsonl`（从 template 复制） |
+| 结果归档 | `backend/output/eval/results/recall_*.json` |
+| 文档 | `backend/output/docs/RAG_EVAL_GUIDE.md` |
+
+**说明**：召回评测测 `retrieve()`；引用率见 §4.10 `run_citation_audit`。
+
+---
+
+### 4.12 方案 M0：会话记忆完善（L1 短程原文）✅ 已落地
 
 | 项 | 做法 | 改动点 |
 |----|------|--------|
@@ -434,7 +512,7 @@ reindex_kb_vectors(kb_id):
 
 ---
 
-### 4.9 方案 M1：滚动摘要（L2 长程记忆）✅ 已落地（2026-06-30）
+### 4.13 方案 M1：滚动摘要（L2 长程记忆）✅ 已落地（2026-06-30）
 
 > **策略**：**滚动合并**（rolling summary），**不是**「每满 N 轮整段覆盖一次」。窗口 **外** 的消息增量并入 summary；窗口 **内** 始终保留 M0 原文。
 
@@ -523,7 +601,7 @@ LLM 输入:
 - 最近 8 轮指代、改写类追问仍依赖 **原文**，不依赖 summary
 - 摘要任务失败时不阻塞聊天；保留 M0 原文 + 旧 summary
 
-### 4.10 方案 M2：用户长期记忆（仅显式）✅ 已落地（2026-06-30）
+### 4.14 方案 M2：用户长期记忆（仅显式）✅ 已落地（2026-06-30）
 
 **写入**：仅用户指令「记住…」→ `explicit_memory_parser` 解析 → `user_memory_crud.create_explicit_memory`。**禁止**自动抽取。
 
@@ -705,6 +783,11 @@ RETRIEVAL_MIN_HITS_PER_KB=2
 # RETRIEVAL_MAX_HITS_PER_KB=0  # 0=不限制单库上限
 RETRIEVAL_QUERY_ENHANCE_ENABLED=true
 ANSWER_CONSISTENCY_LOG_ENABLED=true
+RETRIEVAL_EMPTY_RETRY_ENABLED=true
+RETRIEVAL_SCENARIO=balanced
+RETRIEVAL_MULTI_QUERY_FUSION_ENABLED=false
+RETRIEVAL_MULTI_QUERY_MAX=3
+# balanced | precision | recall — 见 retrieval_presets.py
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=200
 ```
@@ -773,12 +856,14 @@ M2 **不提供** `memory_auto_extract`（自动抽取不在范围内）。
 
 1. 检索参数以 `prepare_for_chat` → `ModelConfig` 为准；分块以知识库 `chunk_size` 为准，**入库走 B**（`structure_chunker`）。
 2. 多库检索已实现 **per-KB 配额**（`retriever.apply_kb_quota`：分库 fetch + 终选每库至少 `RETRIEVAL_MIN_HITS_PER_KB` 条）。
-3. **空召回（§4.5.1）**：已实现 yield `retrieval_empty` + 前端提示 + `EMPTY_RETRIEVAL_SYSTEM_PROMPT`。
-4. `is_irrelevant_question()` 仍 bypass 检索（与 F 正交）。
-5. **`is_rerank_configured()`** 与 **`is_embedding_configured()`** 独立；缺 Rerank Key 不报错，走降级。
-6. 重建 H 仅更新 Chroma（无 Meilisearch）；reindex 用 `asyncio.to_thread(get_embedding)` 避免阻塞事件循环。
-7. Skill + KB 并行；`skill_read` 不读 KB。
-8. **B 与 H 分工**：新上传 → B 分块；换模型 → H re-embed；旧文档要 B → **重新上传**。
+3. **空召回（§4.5.1）**：已实现 yield `retrieval_empty` + 前端提示 + `EMPTY_RETRIEVAL_SYSTEM_PROMPT`；**P2-1** 空结果时 alternate query 再检索 1 次（§4.8）。
+4. **场景预设（P1-7）**：`RETRIEVAL_SCENARIO=balanced|precision|recall` 经 `resolve_chat_llm_params` 注入 fetch/top_k/threshold。
+5. **多 query 融合（P2-2）**：`RETRIEVAL_MULTI_QUERY_FUSION_ENABLED=true` 时 `vector_fetch_fusion`；默认关。
+6. `is_irrelevant_question()` 仍 bypass 检索（与 F 正交）。
+7. **`is_rerank_configured()`** 与 **`is_embedding_configured()`** 独立；缺 Rerank Key 不报错，走降级。
+8. 重建 H 仅更新 Chroma（无 Meilisearch）；reindex 用 `asyncio.to_thread(get_embedding)` 避免阻塞事件循环。
+9. Skill + KB 并行；`skill_read` 不读 KB。
+10. **B 与 H 分工**：新上传 → B 分块；换模型 → H re-embed；旧文档要 B → **重新上传**。
 
 ### 9.2 记忆
 

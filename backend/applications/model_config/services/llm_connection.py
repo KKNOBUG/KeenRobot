@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from backend.applications.model_config.models.model_config_model import ModelConfig
 from backend.applications.model_config.services.secret_utils import decrypt_api_key
 from backend.configure import PROJECT_CONFIG
+from backend.configure.retrieval_presets import apply_retrieval_scenario
 
 
 @dataclass
@@ -58,7 +59,7 @@ def resolve_chat_llm_params(model_config: Optional[ModelConfig] = None) -> Dict[
         threshold = model_config.score_threshold
         if threshold is None or threshold <= 0:
             threshold = default_threshold
-        return {
+        return apply_retrieval_scenario({
             "model_name": conn.llm_model_name,
             "api_key": conn.llm_api_key,
             "base_url": conn.llm_base_url,
@@ -73,8 +74,8 @@ def resolve_chat_llm_params(model_config: Optional[ModelConfig] = None) -> Dict[
             "fetch_top_k": fetch_top_k,
             "rerank_enabled": model_config.rerank_enabled,
             "rerank_model": model_config.rerank_model,
-        }
-    return {
+        })
+    return apply_retrieval_scenario({
         "model_name": conn.llm_model_name,
         "api_key": conn.llm_api_key,
         "base_url": conn.llm_base_url,
@@ -89,4 +90,4 @@ def resolve_chat_llm_params(model_config: Optional[ModelConfig] = None) -> Dict[
         "fetch_top_k": fetch_top_k,
         "rerank_enabled": True,
         "rerank_model": None,
-    }
+    })
