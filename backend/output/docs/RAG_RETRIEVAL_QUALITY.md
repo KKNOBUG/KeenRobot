@@ -418,7 +418,7 @@ reindex_kb_vectors(kb_id):
 | 项 | 做法 | 改动点 |
 |----|------|--------|
 | M0.1 | 按 **轮数 + token** 双限截断 history | `trim_chat_history()` → `format_messages` |
-| M0.2 | retrieval query = 最近 1～2 轮 + 当前问 | `retriever.build_query()` |
+| M0.2 | retrieval query = 最近 1～2 轮 + 当前问 | `retriever.build_query()` / **`query_enhancer.build_retrieval_query()`（P1-1 省略追问补全）** |
 | M0.3 | Run 模式默认不继承 chat 历史 | `execute_skill_run` 保持 `chat_history=[]` |
 
 **与 M1 分工**：M0 只负责 **最近 R 轮原文**（R = `max_history_rounds`）；**不**为记住远处而增大 R。
@@ -703,6 +703,8 @@ RETRIEVAL_SCORE_THRESHOLD=0.45
 RETRIEVAL_MIN_HITS_PER_KB=2
 # RETRIEVAL_FETCH_PER_KB=0   # 0=自动 max(10, fetch_top_k // 库数)
 # RETRIEVAL_MAX_HITS_PER_KB=0  # 0=不限制单库上限
+RETRIEVAL_QUERY_ENHANCE_ENABLED=true
+ANSWER_CONSISTENCY_LOG_ENABLED=true
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=200
 ```
@@ -866,6 +868,7 @@ M2 **不提供** `memory_auto_extract`（自动抽取不在范围内）。
 | 前端溯源 | `frontend/src/components/MessageBubble.vue` |
 | 前端重建 | `frontend/src/views/knowledge-base/components/KnowledgeBaseEditDrawer.vue` |
 | 知识库选择 | `backend/output/docs/CHAT_KB_SELECTION.md` |
+| 离线评测 | `backend/output/docs/RAG_EVAL_GUIDE.md` + `backend/output/eval/questions.template.jsonl` |
 | 聊天流程 | `backend/output/docs/CHAT_EXECUTION_FLOWS.md` |
 
 ---

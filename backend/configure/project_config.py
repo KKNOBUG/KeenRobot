@@ -183,6 +183,14 @@ class ProjectConfig(BaseSettings):
         default=2,
         description="检索 query 拼接最近 N 轮对话（M0.2）",
     )
+    RETRIEVAL_QUERY_ENHANCE_ENABLED: bool = Field(
+        default=True,
+        description="省略/指代追问时补全检索 query（P1-1 规则增强）",
+    )
+    ANSWER_CONSISTENCY_LOG_ENABLED: bool = Field(
+        default=True,
+        description="有源回答后记录引用/数字一致性检查结果（仅日志）",
+    )
     INDEX_CHUNK_SIZE: int = Field(
         default=350,
         description="方案 C：索引用 child chunk 字符上限（进 Chroma）",

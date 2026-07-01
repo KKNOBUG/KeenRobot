@@ -16,7 +16,7 @@ from backend.applications.conversation.services.chat_context_service import (
 from backend.applications.conversation.services.sse_helpers import merge_process_step
 from backend.enums.chat_session_enum import ChatMessageRole
 from backend.applications.user.models.user_model import User
-from backend.configure import LOGGER
+from backend.configure import LOGGER, PROJECT_CONFIG
 from backend.core.exceptions import NotFoundException
 from backend.core.responses import (
     FailureResponse,
@@ -151,6 +151,28 @@ async def chat_stream(
             )
         except Exception as e:
             print(f"[chat_stream] 保存消息失败: {e}")
+
+        if (
+            PROJECT_CONFIG.ANSWER_CONSISTENCY_LOG_ENABLED
+            and sources_items
+            and full_response.strip()
+            and not retrieval_empty_flag
+        ):
+            from backend.applications.base.rag.answer_consistency import check_answer_source_alignment
+
+            report = check_answer_source_alignment(
+                full_response,
+                sources_items,
+                retrieval_empty=retrieval_empty_flag,
+            )
+            if report.get("checked"):
+                LOGGER.info(
+                    "[rag/consistency] conversation=%s cites_file=%s cites_page=%s orphan_digits=%s",
+                    conversation_id,
+                    report.get("cites_filename"),
+                    report.get("cites_page"),
+                    report.get("orphan_digits"),
+                )
 
         asyncio.create_task(run_conversation_summary(conversation_id))
 

@@ -324,8 +324,9 @@ def retrieve(
         )
 
     fetch_k = fetch_top_k or PROJECT_CONFIG.RETRIEVAL_FETCH_TOP_K
-    context_turns = PROJECT_CONFIG.RETRIEVAL_QUERY_CONTEXT_TURNS
-    retrieval_q = build_query(question, chat_history, context_turns=context_turns)
+    from backend.applications.base.rag.query_enhancer import build_retrieval_query
+
+    retrieval_q = build_retrieval_query(question, chat_history)
     candidates = vector_fetch(retrieval_q, kb_ids, fetch_k)
 
     if score_threshold > 0:
